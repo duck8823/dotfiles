@@ -123,8 +123,45 @@ done
 echo ""
 echo "Done!"
 echo ""
-echo "次のステップ:"
-echo "  1. ~/.claude/settings.json を確認し、不要なフックを削除してください"
-echo "  2. ~/.codex/config.toml を編集し、プロジェクトの trust_level を設定してください"
-echo "  3. 各プロジェクトの CLAUDE.md に '## AI レビュー設定' セクションを追加してください"
-echo "     (test_command / analyze_command で sprint / review-and-merge コマンドが自動設定されます)"
+echo "================================================================"
+echo " 次のステップ"
+echo "================================================================"
+echo ""
+echo "【1】フック設定を確認する（手動）"
+echo ""
+echo "  ~/.claude/settings.json を開いて不要なフックを削除してください。"
+echo "  ~/.claude/hooks/*.sh を編集して、使用言語のリンター/フォーマッターを有効化してください。"
+echo "  ~/.codex/config.toml を編集して、プロジェクトの trust_level を設定してください。"
+echo ""
+echo "----------------------------------------------------------------"
+echo ""
+echo "【2】各プロジェクトに AI レビュー設定を追加する"
+echo ""
+echo "  プロジェクトのルートで Claude Code を開き、以下をそのまま貼り付けてください:"
+echo ""
+echo "  ┌──────────────────────────────────────────────────────────────"
+cat << 'PROMPT'
+  │ CLAUDE.md に以下のセクションを追加してください。
+  │ source_dirs・source_extensions・source_exclude・test_command・analyze_command は
+  │ このプロジェクトの実際の構成に合わせて書き換えてください。
+  │
+  │ ## AI レビュー設定
+  │
+  │ ### Gemini レビュー用ソース収集
+  │ - `source_dirs`: `src/ test/`
+  │ - `source_extensions`: `ts js json`
+  │ - `source_exclude`: `*.min.js`
+  │
+  │ ### Codex レビュー用コマンド
+  │ - `test_command`: `npm test`
+  │ - `analyze_command`: `npm run lint`
+PROMPT
+echo "  └──────────────────────────────────────────────────────────────"
+echo ""
+echo "  言語別の例:"
+echo "    Flutter:    test_command=flutter test  analyze_command=flutter analyze  extensions=dart arb yaml"
+echo "    TypeScript: test_command=npm test      analyze_command=npm run lint     extensions=ts js json"
+echo "    Go:         test_command=go test ./... analyze_command=go vet ./...     extensions=go"
+echo "    Python:     test_command=pytest        analyze_command=ruff check .     extensions=py"
+echo ""
+echo "================================================================"
