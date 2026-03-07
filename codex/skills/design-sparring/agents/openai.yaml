@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design Sparring"
+  short_description: "設計案を比較し、採用判断を構造化する"
+  default_prompt: "設計壁打ちを開始。背景・制約・候補案・評価軸を提示するので、推奨案と根拠を整理してください。"

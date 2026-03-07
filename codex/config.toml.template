@@ -1,0 +1,28 @@
+model_instructions_file = "instructions.md"
+
+# プロジェクトごとに trust_level を設定する
+# install.sh 実行後にこのファイルを編集してください
+#
+# [projects."{{HOME}}/Repositories/your-project"]
+# trust_level = "trusted"
+
+[features]
+multi_agent = true
+apps = true
+prevent_idle_sleep = true
+
+[notice]
+hide_full_access_warning = true
+
+# MCP サーバーの設定例（不要であれば削除）
+# Blender MCP:
+# [mcp_servers.blender]
+# command = "{{HOME}}/.local/bin/uvx"
+# args = ["blender-mcp"]
+#
+# Godot MCP:
+# [mcp_servers.godot]
+# command = "node"
+# args = ["{{HOME}}/.local/godot-mcp/build/index.js"]
+# [mcp_servers.godot.env]
+# GODOT_PATH = "/Applications/Godot.app/Contents/MacOS/Godot"

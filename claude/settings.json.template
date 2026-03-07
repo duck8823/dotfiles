@@ -1,0 +1,41 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash {{DOTFILES_DIR}}/claude/hooks/check-gh-commands.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash {{DOTFILES_DIR}}/claude/hooks/check-permissions.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash {{DOTFILES_DIR}}/claude/hooks/post-edit-lint.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash {{DOTFILES_DIR}}/claude/hooks/post-write-format.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "skipDangerousModePermissionPrompt": false,
+  "model": "sonnet"
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tech Research"
+  short_description: "技術調査の結論、根拠、一次情報参照を標準化する"
+  default_prompt: "技術調査を開始。一次情報を優先し、結論・根拠・不確実性を分けて報告してください。"

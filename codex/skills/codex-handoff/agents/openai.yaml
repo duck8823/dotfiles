@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex Handoff"
+  short_description: "Claude→Codex引き継ぎを標準化する"
+  default_prompt: "Codexへの引き継ぎ文を作る。目的・完了条件・非対象・制約・テスト範囲を明確化してください。"
