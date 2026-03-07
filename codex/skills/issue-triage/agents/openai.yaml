@@ -1,0 +1,4 @@
+interface:
+  display_name: "Issue Triage"
+  short_description: "Issue整理、依存関係、受け入れ条件定義を標準化する"
+  default_prompt: "Issueトリアージを開始。優先度、依存、受け入れ条件、分割案を整理してください。"

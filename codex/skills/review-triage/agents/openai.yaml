@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Triage"
+  short_description: "レビュー指摘を重大度と対応順に整理する"
+  default_prompt: "レビュー指摘をMUST/SHOULD/NITに分類し、再現手順と修正方針まで整理してください。"
