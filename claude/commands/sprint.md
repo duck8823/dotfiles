@@ -272,14 +272,13 @@ gh pr create --draft --title "..." --body "Closes #<number>\n\n..."
 #### コンテキスト収集
 
 ステップ 2-3 で作成した PR 番号を使い、レビューに必要なコンテキストを収集する。
-**diff のみのレビューは禁止。** 必ず Issue・PR説明・過去レビュー・CI結果を付与する。
 
 ```bash
 PR_NUMBER=<number>
 PROJECT=<project>   # プロジェクト名（tmux セッション名・ファイル名に使用）
 
-# 変更ファイル一覧（Gemini/Codex 両用）
-CHANGED_FILES=$(git diff origin/main..HEAD --stat)
+HEAD_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+BASE_BRANCH=main
 
 PR_INFO=$(gh pr view $PR_NUMBER --json number,title,body \
   --template 'PR #{{.number}}: {{.title}}{{"\n\n"}}{{.body}}')
@@ -305,12 +304,9 @@ PREV_COMMENTS=$(gh api repos/$REPO/pulls/$PR_NUMBER/comments \
 CI_STATUS=$(gh pr checks $PR_NUMBER --json name,status,conclusion \
   --jq '.[] | .name + ": " + (.conclusion // .status)' 2>/dev/null || true)
 
-# プロジェクト規約（## レビュー規約セクションを優先、なければ先頭80行）
-PROJECT_CONTEXT=""
-if [ -f CLAUDE.md ]; then
-  REVIEW_SECTION=$(awk '/^## レビュー規約$/{f=1} f{print} f && /^## / && !/^## レビュー規約$/{exit}' CLAUDE.md)
-  PROJECT_CONTEXT="${REVIEW_SECTION:-$(head -80 CLAUDE.md)}"
-fi
+# CLAUDE.md から Codex 用コマンドを読み取る
+CODEX_TEST_CMD=$(grep 'test_command' CLAUDE.md 2>/dev/null | sed 's/.*`\([^`]*\)`[^`]*$/\1/')
+CODEX_ANALYZE_CMD=$(grep 'analyze_command' CLAUDE.md 2>/dev/null | sed 's/.*`\([^`]*\)`[^`]*$/\1/')
 ```
 
 #### プロンプトファイルの生成
@@ -318,65 +314,49 @@ fi
 shell 引数の長さ制限（ARG_MAX）を超過しないよう、プロンプトは**必ずファイルに書き出してから渡す**。
 diff・ソースコードをシェル引数に直接埋め込むのは禁止。
 
-**Gemini 用プロンプトファイル（diff のみ — 全ソース含有は Gemini のトークン上限でエコー/失敗するため禁止）:**
+**Gemini 用（diff のみ渡す — 全ソース含有は Gemini のトークン上限でエコー/失敗するため禁止）:**
+
+役割と観点だけ示し、何をどう確認するかは Gemini に任せる。
 
 ```bash
 GEMINI_PROMPT_FILE="/tmp/${PROJECT}-pr${PR_NUMBER}-gemini-prompt.md"
 SPRINT_TMP_FILES+=("$GEMINI_PROMPT_FILE")
 SPRINT_TMP_FILES+=("/tmp/${PROJECT}-pr${PR_NUMBER}-gemini-review.md")
-DIFF=$(git diff origin/main..HEAD --unified=10)
+DIFF=$(git diff origin/${BASE_BRANCH}..HEAD --unified=10)
 
 {
-  echo "以下の情報を踏まえて、忖度なしで厳格にコードレビューを行ってください。"
-  echo "良い点があれば良い、悪い点があれば遠慮なく指摘すること。"
+  echo "以下の PR をレビューしてください。"
   echo ""
-  echo "## プロジェクト規約"
-  echo "${PROJECT_CONTEXT:-（なし）}"
+  echo "**あなたの役割**: 設計・アーキテクチャレビュアーです。"
+  echo "ソースコード全体を踏まえ、アーキテクチャの一貫性、既存コードとの整合性、設計の抜け漏れを中心に確認してください。"
+  echo ""
+  echo "## PR"
+  echo "- head: ${HEAD_BRANCH}"
+  echo "- base: ${BASE_BRANCH}"
+  echo "$PR_INFO"
   echo ""
   echo "## 関連 Issue"
   echo "${ISSUE_INFO:-（なし）}"
   echo ""
-  echo "## PR 概要"
-  echo "$PR_INFO"
-  echo ""
-  echo "## これまでのレビューコメント"
+  echo "## 過去のレビューコメント"
   echo "${PREV_REVIEWS:-（なし）}"
   echo ""
-  echo "## インラインコメント履歴"
+  echo "## 過去のインラインコメント"
   echo "${PREV_COMMENTS:-（なし）}"
   echo ""
-  echo "## CI チェック結果"
+  echo "## CI 結果"
   echo "${CI_STATUS:-（なし）}"
   echo ""
-  echo "## 変更ファイル一覧"
-  echo "$CHANGED_FILES"
-  echo ""
-  echo "## 変更差分（前後10行コンテキスト付き）"
+  echo "## 変更差分"
   echo '```diff'
   echo "$DIFF"
   echo '```'
   echo ""
-  echo "## レビュー観点"
-  echo "- Issue の要件・受け入れ条件を満たしているか"
-  echo "- PR の意図と実装が一致しているか"
-  echo "- 前回レビューの指摘が適切に反映されているか"
-  echo "- CI の失敗・警告に対して対処されているか"
-  echo "- プロジェクト規約・アーキテクチャ方針に沿っているか"
-  echo "- セキュリティ: 認証・認可の抜け、データ露出リスク、入力バリデーション"
-  echo "- アーキテクチャ: レイヤー分離、依存方向、既存パターンとの一貫性、SOLID原則"
-  echo "- 品質: テストカバレッジ、エッジケース、バグ、パフォーマンス、フレームワーク固有のベストプラクティス"
-  echo "- コード: 命名規約、重複コード、エラーハンドリング、i18n の完全性"
-  echo "- diff 外の対応漏れ（テスト・ドキュメント・関連モジュール）"
-  echo ""
-  echo "各指摘を Critical / Major / Minor の3段階で分類し、ファイル名:行番号付きで報告してください。"
-  echo "最終判定を APPROVE（問題なし）または REQUEST_CHANGES（要修正）で明示してください。"
+  echo "指摘は「ファイル名:行番号」形式で示し、最終判定を APPROVE または REQUEST_CHANGES で明示してください。"
 } > "$GEMINI_PROMPT_FILE"
 ```
 
-**Codex 用プロンプトファイル（Claude 実装時のみ — Codex 実装時はスキップ）:**
-
-Codex はリポジトリ内で動作し、自ら `git diff` や test コマンドを実行できるため、diff を埋め込まず最小プロンプトにする。
-CLAUDE.md の `## AI レビュー設定` から `test_command` / `analyze_command` を読み取って Codex に指示する。
+**Codex 用（Claude 実装時のみ — diff・テストは自力実行、役割と観点のみ渡す）:**
 
 ```bash
 CODEX_PROMPT_FILE="/tmp/${PROJECT}-pr${PR_NUMBER}-codex-prompt.md"
@@ -384,53 +364,35 @@ SPRINT_TMP_FILES+=("$CODEX_PROMPT_FILE")
 SPRINT_TMP_FILES+=("/tmp/${PROJECT}-pr${PR_NUMBER}-codex-review.md")
 SPRINT_TMP_FILES+=("/tmp/${PROJECT}-pr${PR_NUMBER}-codex-review.err")
 
-# CLAUDE.md から Codex 用コマンドを読み取る
-CODEX_TEST_CMD=$(grep 'test_command' CLAUDE.md 2>/dev/null | sed 's/.*`\([^`]*\)`[^`]*$/\1/')
-CODEX_ANALYZE_CMD=$(grep 'analyze_command' CLAUDE.md 2>/dev/null | sed 's/.*`\([^`]*\)`[^`]*$/\1/')
-
 cat > "$CODEX_PROMPT_FILE" << PROMPT_EOF
-以下の情報を踏まえて、忖度なしで厳格にコードレビューを行ってください。
-まず以下のコマンドを順番に実行して変更内容と品質を確認してからレビューすること:
-1. \`git diff origin/main..HEAD --unified=10\`
+以下の PR をレビューしてください。
+
+**あなたの役割**: セキュリティ・実装品質レビュアーです。
+セキュリティ脆弱性、実装の正確性、テストカバレッジを中心に確認してください。
+
+まず以下のコマンドを実行して変更内容を把握してください:
+1. \`git diff origin/${BASE_BRANCH}..HEAD\`
 ${CODEX_TEST_CMD:+2. \`$CODEX_TEST_CMD\`}
 ${CODEX_ANALYZE_CMD:+3. \`$CODEX_ANALYZE_CMD\`}
 
-
-## プロジェクト規約
-${PROJECT_CONTEXT:-（なし）}
+## PR
+- head: ${HEAD_BRANCH}
+- base: ${BASE_BRANCH}
+${PR_INFO}
 
 ## 関連 Issue
 ${ISSUE_INFO:-（なし）}
 
-## PR 概要
-${PR_INFO}
-
-## これまでのレビューコメント
+## 過去のレビューコメント
 ${PREV_REVIEWS:-（なし）}
 
-## インラインコメント履歴
+## 過去のインラインコメント
 ${PREV_COMMENTS:-（なし）}
 
-## CI チェック結果
+## CI 結果
 ${CI_STATUS:-（なし）}
 
-## 変更ファイル一覧
-${CHANGED_FILES}
-
-## レビュー観点
-- Issue の要件・受け入れ条件を満たしているか
-- PR の意図と実装が一致しているか
-- 前回レビューの指摘が適切に反映されているか
-- CI の失敗・警告に対して対処されているか
-- プロジェクト規約・アーキテクチャ方針に沿っているか
-- セキュリティ: 認証・認可の抜け、データ露出リスク、入力バリデーション
-- アーキテクチャ: レイヤー分離、依存方向、既存パターンとの一貫性、SOLID原則
-- 品質: テストカバレッジ、エッジケース、バグ、パフォーマンス、フレームワーク固有のベストプラクティス
-- コード: 命名規約、重複コード、エラーハンドリング、i18n の完全性
-- diff 外の対応漏れ（テスト・ドキュメント・関連モジュール）
-
-各指摘を Critical / Major / Minor の3段階で分類し、ファイル名:行番号付きで報告してください。
-最終判定を APPROVE（問題なし）または REQUEST_CHANGES（要修正）で明示してください。
+指摘は「ファイル名:行番号」形式で示し、最終判定を APPROVE または REQUEST_CHANGES で明示してください。
 PROMPT_EOF
 ```
 
