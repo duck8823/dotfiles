@@ -59,10 +59,10 @@ types.Optional[*types.ULID]   // NG
 types.Optional[*model.User]   // NG（後述の例外を除く）
 ```
 
-**例外: リポジトリの Get 系メソッド**
+**例外: エンティティの存在有無を表す場合**
 
-リポジトリでエンティティの存在有無を表す場合のみ `Optional[*Entity]` を使用する。
-これは複数プロジェクトで確立した慣習である。
+エンティティの存在有無を表す場合は `Optional[*Entity]` を使用する。
+リポジトリの Get 系メソッド、ユースケース、プレゼンテーション層で一貫して使用できる。
 
 ```go
 // domain/model/user_repository.go

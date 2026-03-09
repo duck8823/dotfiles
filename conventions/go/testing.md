@@ -295,7 +295,7 @@ func TestUserUseCase_GetUser(t *testing.T) {
         name    string
         fields  fields
         args    args
-        want    *model.User
+        want    types.Optional[*model.User]
         wantErr bool
     }{
         {
@@ -310,7 +310,7 @@ func TestUserUseCase_GetUser(t *testing.T) {
                 },
             },
             args:    args{ctx: context.Background(), userID: types.UserIDOf("user-123")},
-            want:    expectedUser,
+            want:    types.Some(expectedUser),
             wantErr: false,
         },
     }
@@ -324,7 +324,7 @@ func TestUserUseCase_GetUser(t *testing.T) {
             userRepo := tt.fields.userRepo(ctrl)
 
             // and
-            sut := usecase.NewUserUseCase(userRepo)
+            sut := usecase.NewUserUsecase(userRepo)
 
             // when
             got, err := sut.GetUser(tt.args.ctx, tt.args.userID)

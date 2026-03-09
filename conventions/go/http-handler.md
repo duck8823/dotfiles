@@ -376,9 +376,18 @@ func (h *UserHandler) GetUser(
     userID := types.UserIDOf(request.UserId)
 
     // ユースケース実行
-    user, err := h.userUsecase.GetUser(ctx, userID)
+    opt, err := h.userUsecase.GetUser(ctx, userID)
     if err != nil {
         return nil, xerrors.Errorf("ユーザーの取得に失敗しました: %w", err)
+    }
+
+    // 存在チェック
+    user, ok := opt.Value()
+    if !ok {
+        return openapi.GetUser404JSONResponse{
+            Code:    ptr("NOT_FOUND"),
+            Message: ptr("ユーザーが見つかりません"),
+        }, nil
     }
 
     // レスポンスに変換
