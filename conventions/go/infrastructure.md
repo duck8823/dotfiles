@@ -58,29 +58,6 @@ func main() {
 }
 ```
 
-### 使用例
-
-```go
-func (h *Handler) CreateUser(ctx context.Context, req *CreateUserRequest) error {
-	// middleware で設定した logger をコンテキストから取得
-	logger, ok := ctx.Value(loggerKey{}).(*slog.Logger)
-	if !ok {
-		logger = slog.Default()
-	}
-
-	logger.InfoContext(ctx, "ユーザー作成を開始")
-
-	user, err := h.usecase.CreateUser(ctx, req.Email, req.Name)
-	if err != nil {
-		logger.ErrorContext(ctx, "ユーザー作成に失敗", "error", err)
-		return err
-	}
-
-	logger.InfoContext(ctx, "ユーザー作成が完了")
-	return nil
-}
-```
-
 ### コンテキストへのフィールド追加
 
 リクエストIDなどの共通情報をコンテキストに含める場合：
@@ -115,14 +92,10 @@ func RequestIDMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// 使用例
-func (h *Handler) Handle(ctx context.Context) {
-	logger, ok := ctx.Value(loggerKey{}).(*slog.Logger)
-	if !ok {
-		logger = slog.Default()
-	}
-
-	logger.InfoContext(ctx, "処理を開始")
+// RequestIDFromContext はコンテキストからリクエストIDを取得する
+func RequestIDFromContext(ctx context.Context) string {
+	id, _ := ctx.Value(requestIDKey{}).(string)
+	return id
 }
 ```
 
@@ -173,16 +146,22 @@ func (s *Server) Start() error {
 	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
 
 	// サーバーを別のゴルーチンで起動
+	errCh := make(chan error, 1)
 	go func() {
 		slog.Info("サーバーを起動", "addr", s.httpServer.Addr)
 		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("サーバーエラー", "error", err)
+			errCh <- xerrors.Errorf("サーバーの起動に失敗: %w", err)
 		}
 	}()
 
-	// シグナルを待機
-	sig := <-sigChan
-	slog.Info("シグナルを受信", "signal", sig)
+	// シグナルまたは起動エラーを待機
+	var sig os.Signal
+	select {
+	case err := <-errCh:
+		return err
+	case sig = <-sigChan:
+		slog.Info("シグナルを受信", "signal", sig)
+	}
 
 	// Graceful Shutdown を実行
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
