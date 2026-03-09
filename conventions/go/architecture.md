@@ -283,12 +283,13 @@ package main
 import (
 	"database/sql"
 	"log"
-	"net/http"
 
 	"example.com/app/application/usecase"
-	_ "github.com/jackc/pgx/v5/stdlib"
+	"example.com/app/generated/openapi"
 	"example.com/app/infrastructure/postgres"
+	"example.com/app/infrastructure/server"
 	"example.com/app/presentation/httphandler"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func main() {
@@ -308,14 +309,14 @@ func main() {
 	// ハンドラ
 	userHandler := httphandler.NewUserHandler(userUsecase)
 
-	// ルーティング
-	mux := http.NewServeMux()
-	mux.HandleFunc("/users", userHandler.ListUsers)
-	mux.HandleFunc("/users/", userHandler.GetUser)
+	// oapi-codegen のアダプタ経由でルーティング
+	handler := openapi.NewStrictHandler(userHandler, nil)
 
-	// サーバー起動
-	log.Println("Server starting on :8080")
-	log.Fatal(http.ListenAndServe(":8080", mux))
+	// サーバー起動（Graceful Shutdown 対応）
+	srv := server.NewServer(":8080", handler)
+	if err := srv.Start(); err != nil {
+		log.Fatal(err)
+	}
 }
 ```
 
