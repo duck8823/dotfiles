@@ -32,6 +32,9 @@ COPY . .
 # アプリケーションをビルド（モジュールルートから）
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app .
 
+# ローカル開発時はこのステージで起動（docker compose watch の target: builder）
+CMD ["go", "run", "."]
+
 # ランタイムステージ
 FROM gcr.io/distroless/base-debian12
 
