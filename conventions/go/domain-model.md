@@ -105,7 +105,7 @@ func PlatformFrom(s string) (Platform, error) {
 	case PlatformIOS, PlatformAndroid, PlatformUnknown:
 		return Platform(s), nil
 	default:
-		return "", xerrors.Errorf("不明なプラットフォームです: %q", s)
+		return Platform(""), xerrors.Errorf("不明なプラットフォームです: %q", s)
 	}
 }
 
@@ -120,7 +120,7 @@ type EndpointID string
 // EndpointIDOf は文字列から EndpointID を生成する
 func EndpointIDOf(value string) (EndpointID, error) {
 	if value == "" {
-		return "", xerrors.New("エンドポイントIDは空であってはなりません")
+		return EndpointID(""), xerrors.New("エンドポイントIDは空であってはなりません")
 	}
 	return EndpointID(value), nil
 }
