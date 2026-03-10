@@ -33,7 +33,7 @@ func (s *service) GetUser(ctx context.Context, userID string) (*User, error) {
 
 * 日本語で分かりやすく記述する
 * 何が失敗したのかを明確に示す
-* **必ず** `%w` を使って元のエラーをラップする
+* 原因エラーがある場合は `%w` を使ってラップする
 
 ## golangci-lint との統合
 
