@@ -33,7 +33,7 @@ linters:
 * Go標準の命名規則に従う
 * **パッケージ名: 小文字、単語区切りなし（例:** `model`**,** `usecase`）
 * **型名: PascalCase（例:** `User`**,** `UserID`）
-* **関数・メソッド名: camelCase（例:** `getUser`**,** `updateProfile`）
+* **関数・メソッド名: exported は PascalCase、unexported は camelCase（例:** `NewUser`**,** `getUser`）
 * **定数: PascalCase または UPPER_SNAKE_CASE（例:** `DefaultTimeout`）
 
 ## ドメインモデル特有の命名
