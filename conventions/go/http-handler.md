@@ -2,12 +2,12 @@
 
 ## 概要
 
-HTTPハンドラー（プレゼンテーション層）の実装規約です。OpenAPI仕様に基づくAPI実装と、Google AIP（API Improvement Proposals）に準拠した設計パターンを定めています。
+HTTPハンドラー（プレゼンテーション層）の実装規約です。OpenAPI仕様に基づくAPI実装と、Google AIP（API Improvement Proposals）を参考にした設計パターンを定めています。
 
 ## 基本方針
 
 * **OpenAPI仕様を single source of truth とする**
-* **Google AIP ガイドラインに準拠した API 設計**
+* **Google AIP ガイドラインを参考にした API 設計**
 * **自動生成コードは編集しない**
 * **リクエスト/レスポンス変換ロジックは専用ファイルに分離**
 * **ドメイン層への依存は型のみ、具体的な実装は依存しない**
@@ -28,7 +28,7 @@ presentation/
     └── ...
 ```
 
-## OpenAPI定義のベストプラクティス（AIP準拠）
+## OpenAPI定義のベストプラクティス（AIP推奨）
 
 ### リソース指向設計（AIP-121, AIP-122）
 
@@ -158,7 +158,13 @@ func (h *EndpointHandler) Enable(
         }, nil
     }
 
-    endpointID := types.EndpointIDOf(request.Id)
+    endpointID, err := types.EndpointIDOf(request.Id)
+    if err != nil {
+        return openapi.EnableEndpoint400JSONResponse{
+            Code:    ptr("VALIDATION_ERROR"),
+            Message: ptr("無効なエンドポイントIDです"),
+        }, nil
+    }
     endpointType := types.EndpointType(request.Body.Type)
 
     // 種別の妥当性チェック
@@ -274,7 +280,7 @@ paths:
                     description: 次のページのトークン（最終ページの場合は空）
 ```
 
-### エラーレスポンス（AIP-193）
+### エラーレスポンス（AIP-193 参考）
 
 **基本方針:**
 
@@ -411,8 +417,6 @@ func (h *UserHandler) GetUser(
 package httphandler
 
 import (
-    "fmt"
-
     "example.com/app/domain/types"
     "example.com/app/generated/openapi"
     "golang.org/x/xerrors"
