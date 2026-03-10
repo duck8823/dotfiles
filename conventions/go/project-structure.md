@@ -31,7 +31,7 @@ code/generate: ## スキーマからコードを生成する
 	@go generate ./...
 
 code/lint: ## コードを静的解析する
-	@go tool golangci-lint run --timeout=5m --config ../.golangci.yml
+	@go tool golangci-lint run --timeout=5m
 
 code/test: ## コードをテストする
 	@go tool gotest -v ./...
@@ -232,9 +232,18 @@ func (h *UserHandler) GetUser(
     userID := toUserID(request.UserId)
 
     // ユースケースを呼び出し
-    user, err := h.userUsecase.GetUser(ctx, userID)
+    opt, err := h.userUsecase.GetUser(ctx, userID)
     if err != nil {
         return nil, err
+    }
+
+    // 存在チェック
+    user, ok := opt.Value()
+    if !ok {
+        return openapi.GetUser404JSONResponse{
+            Code:    ptr("NOT_FOUND"),
+            Message: ptr("ユーザーが見つかりません"),
+        }, nil
     }
 
     // ドメイン型からレスポンスへ変換
