@@ -1,4 +1,4 @@
 interface:
   display_name: "Autonomous Delivery Loop"
-  short_description: "実装からレビュー反映・マージ・次タスク着手まで全体自律運転"
-  default_prompt: "実装→Draft PR→Gemini/Codexレビュー反映→マージ→次タスク着手を、止まらず全体ループで進めてください。"
+  short_description: "主体（Claude/Codex）に応じてレビュー体制を切替えつつ全体自律運転"
+  default_prompt: "実行主体（Claude or Codex）に応じてレビュー体制を切り替え、実装→Draft PR→レビュー反映→マージ→次タスク着手を止まらず進めてください。"
