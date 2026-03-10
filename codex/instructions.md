@@ -61,22 +61,15 @@ Claude 側の構成対応:
 - **PR運用**
   - Codex は指摘対応ループを回し、最終判断は Claude 側ポリシーに合わせる
 
-## 自律実行モード（実行主体で切り替える）
+## 自律実行モード（Codex主体）
 
-同じ自律運用でも、実行主体でレビュー編成を切り替える。
+Codex 設定では **Codex 主体フローのみ** を定義する。  
+（Claude 主体フローは `claude/` 側の設定・コマンドで管理する）
 
-- **Claude が進行主体の場合（3AI）**
-  - 実装/進行: Claude
-  - 1st pass レビュー: Codex + Gemini
-  - 最終ゲート: Claude 最終レビュー
-
-- **Codex が進行主体の場合（2AI + PR Codex Review）**
-  - 実装/進行: Codex
-  - 1st pass レビュー: Gemini
-  - PR上の自動レビュー: `@codex review`（GitHub App）
-  - 最終ゲート: PR上の指摘解消 + ユーザー承認フロー
-
-この2モードを自律運用の標準とし、実行主体に応じて必ず切り替えること。
+- 実装/進行: Codex
+- 1st pass レビュー: Gemini
+- PR上の自動レビュー: `@codex review`（GitHub App）
+- 最終ゲート: PR上の指摘解消 + ユーザー承認フロー
 
 ## ブランチ保護運用
 
