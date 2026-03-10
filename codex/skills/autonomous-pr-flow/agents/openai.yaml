@@ -1,4 +1,4 @@
 interface:
-  display_name: "Autonomous PR Flow"
-  short_description: "実装からレビュー反映・マージまでを自律運転する"
-  default_prompt: "実装→Draft PR→Geminiレビュー反映→Codexレビュー反映→マージまでを止まらず実行してください。"
+  display_name: "Autonomous Delivery Loop"
+  short_description: "実装からレビュー反映・マージ・次タスク着手まで全体自律運転"
+  default_prompt: "実装→Draft PR→Gemini/Codexレビュー反映→マージ→次タスク着手を、止まらず全体ループで進めてください。"
