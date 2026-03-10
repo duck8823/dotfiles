@@ -55,8 +55,23 @@ type User struct {
 	updatedAt   time.Time
 }
 
-// NewUser は新しい User を作成する
+// NewUser は新しい User を生成する（時刻は内部で設定）
 func NewUser(
+	userID types.UserID,
+	email types.Optional[types.Email],
+	displayName string,
+) *User {
+	return &User{
+		userID:      userID,
+		email:       email,
+		displayName: displayName,
+		createdAt:   nowFunc(),
+		updatedAt:   nowFunc(),
+	}
+}
+
+// UserOf はフィールドと同等の情報から User を生成する（DB等からの復元用）
+func UserOf(
 	userID types.UserID,
 	email types.Optional[types.Email],
 	displayName string,
