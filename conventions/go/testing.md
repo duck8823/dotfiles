@@ -694,7 +694,7 @@ func TestUserAssociationDataSource_FindAll(t *testing.T) {
                 return
             }
             if !cmp.Equal(got, tt.want, opts...) {
-                t.Errorf("FindAll() diff = %+v", cmp.Diff(got, tt.want, opts...))
+                t.Errorf("FindAll() diff = %+v", cmp.Diff(tt.want, got, opts...))
             }
         })
     }
