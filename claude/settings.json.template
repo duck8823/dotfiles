@@ -34,6 +34,17 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash {{DOTFILES_DIR}}/claude/hooks/stop-self-review.sh"
+          }
+        ]
+      }
     ]
   },
   "skipDangerousModePermissionPrompt": false,
