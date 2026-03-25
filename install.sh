@@ -159,6 +159,20 @@ for skill_dir in "$DOTFILES_DIR/codex/skills/"/*/; do
 done
 
 # ============================================================
+# cmux
+# ============================================================
+
+echo ""
+echo "[cmux]"
+
+if [ -d "/Applications/cmux.app" ]; then
+  mkdir -p "$HOME/.config/cmux"
+  link_file "$DOTFILES_DIR/cmux/cmux.json" "$HOME/.config/cmux/cmux.json"
+else
+  echo "  skip:   cmux not installed (/Applications/cmux.app not found)"
+fi
+
+# ============================================================
 # 完了
 # ============================================================
 
