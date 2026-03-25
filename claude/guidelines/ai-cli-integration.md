@@ -14,31 +14,92 @@
 ### Codex（TOML エージェント定義を使用）
 ```bash
 codex exec --full-auto \
-  -c 'agents.default.config_file=".codex/agents/<agent-name>.toml"' \
+  -c 'agents.default.config_file="$HOME/.codex/agents/<agent-name>.toml"' \
   -o /tmp/<agent>-result.json \
   - < /tmp/<agent>-prompt.md 2>/tmp/<agent>.err
 ```
 
 ### Gemini（MD エージェント定義をシステムプロンプトとして使用）
 ```bash
-GEMINI_SYSTEM_MD=.gemini/agents/<agent-name>.md \
+GEMINI_SYSTEM_MD=$HOME/.gemini/agents/<agent-name>.md \
   TERM=xterm-256color \
   gemini -p ' ' -e '' < /tmp/<agent>-prompt.md > /tmp/<agent>-result.json 2>&1
 ```
 
-## 実行方式の使い分け
+## 並列実行方式
 
-**第一選択: Bash ツールで直接実行（同期）**
+### 第一選択: cmux（推奨）
+
+cmux を使って Codex / Gemini を複数ペインで並列実行する。
+結果はファイル出力（`-o` / リダイレクト）で回収し、Claude メインセッションが統合する。
 
 ```bash
-# Gemini（ARG_MAX 回避のため stdin 経由）
-TERM=xterm-256color gemini -p ' ' -e '' < /tmp/prompt.md > /tmp/output.md 2>&1
+CMUX=/Applications/cmux.app/Contents/Resources/bin/cmux
 
-# Codex（stdin 経由 + --full-auto）
-codex exec --full-auto -o /tmp/output.md - < /tmp/prompt.md 2>/tmp/output.err
+# ワークスペース作成（プロジェクトディレクトリで）
+$CMUX new-workspace --cwd "$(pwd)"
+
+# 4ペインに分割（2×2: Codex architect, Codex reviewer, Gemini architect, Gemini reviewer）
+SURFACE_RIGHT=$($CMUX new-split right)
+SURFACE_BOTTOM_LEFT=$($CMUX new-split down --surface surface:1)
+SURFACE_BOTTOM_RIGHT=$($CMUX new-split down --surface "$SURFACE_RIGHT")
+
+# 各ペインにヘッドレスコマンドを送信
+$CMUX send --surface surface:1 'codex exec --full-auto \
+  -c '\''agents.default.config_file="$HOME/.codex/agents/architect.toml"'\'' \
+  -o /tmp/codex-architect-result.json \
+  - < /tmp/codex-architect.md 2>/tmp/codex-architect.err && echo DONE'
+$CMUX send-key --surface surface:1 Return
+
+# ... 他のペインも同様
+
+# 完了待ち: 結果ファイルの存在を監視
+while [ ! -f /tmp/codex-architect-result.json ] || [ ! -f /tmp/gemini-architect-result.json ]; do
+  sleep 5
+done
 ```
 
-**第二選択: tmux（複数タスクの並列実行）**
+### cmux 固有の便利機能
+
+#### 結果の読み取り（ファイル出力が使えない場合のフォールバック）
+```bash
+$CMUX read-screen --surface surface:1 --scrollback --lines 200
+```
+
+#### 通知（タスク完了をハイライト）
+```bash
+$CMUX trigger-flash --surface surface:1
+```
+
+#### ブラウザペイン（E2E テスト・UI検証用）
+```bash
+$CMUX new-pane --type browser --url http://localhost:3000
+$CMUX browser screenshot --out /tmp/screenshot.png
+$CMUX browser snapshot  # DOM スナップショット取得
+```
+
+### 第二選択: Bash バックグラウンド実行
+
+cmux が利用できない環境でのフォールバック。
+
+```bash
+# バックグラウンドで並列実行
+codex exec --full-auto \
+  -c 'agents.default.config_file="$HOME/.codex/agents/architect.toml"' \
+  -o /tmp/codex-architect-result.json \
+  - < /tmp/codex-architect.md 2>/tmp/codex-architect.err &
+PID_CODEX=$!
+
+GEMINI_SYSTEM_MD=$HOME/.gemini/agents/architect.md \
+  TERM=xterm-256color \
+  gemini -p ' ' -e '' < /tmp/gemini-architect.md > /tmp/gemini-architect-result.json 2>&1 &
+PID_GEMINI=$!
+
+# 完了待ち
+wait $PID_CODEX $PID_GEMINI
+```
+
+### 第三選択: tmux（レガシー）
 
 - Gemini を tmux で使う場合は `TERM=xterm-256color` 必須（`TERM=screen` でクラッシュする既知問題）
 - プロンプトは必ずファイルに書き出してから stdin 経由で渡す（ARG_MAX 回避）

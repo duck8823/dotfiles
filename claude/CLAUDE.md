@@ -74,6 +74,7 @@
 
 詳細: `~/.claude/guidelines/ai-cli-integration.md`
 
+- 並列実行は cmux を第一選択（`/Applications/cmux.app/Contents/Resources/bin/cmux`）。フォールバックは Bash バックグラウンド → tmux
 - Codex: `codex exec --full-auto -o <file> - < <prompt>`
 - Gemini: `TERM=xterm-256color gemini -p ' ' -e '' < <prompt> > <output>`
 - エージェント指定: Codex は `-c 'agents.default.config_file=...'`、Gemini は `GEMINI_SYSTEM_MD=...`

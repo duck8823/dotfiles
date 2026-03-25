@@ -19,41 +19,26 @@ git diff origin/main...HEAD > /tmp/diff.txt
 - `~/.claude/agents/architect.md` をサブエージェントとして起動（diff を渡す）
 - `~/.claude/agents/reviewer.md` をサブエージェントとして起動（diff を渡す）
 
-### 3. Codex（2体並列、tmux）
+### 3. Codex + Gemini（4体並列、cmux）
 
-#### Architect
+cmux で4ペインを作成し、Codex 2体 + Gemini 2体を並列実行する。
+（cmux が利用できない場合は Bash バックグラウンド実行でフォールバック。詳細は `~/.claude/guidelines/ai-cli-integration.md`）
+
+#### プロンプトファイル準備
 ```bash
 cat <<'PROMPT' > /tmp/codex-architect.md
 以下の差分をアーキテクチャ観点でレビューしてください。
-AGENTS.md のアーキテクチャ方針に従ってください。
+プロジェクトの CLAUDE.md のアーキテクチャ方針に従ってください。
 
 $(cat /tmp/diff.txt)
 PROMPT
 
-codex exec --full-auto \
-  -c 'agents.default.config_file="/Users/duck8823/.codex/agents/architect.toml"' \
-  -o /tmp/codex-architect-result.json \
-  - < /tmp/codex-architect.md 2>/tmp/codex-architect.err
-```
-
-#### Reviewer
-```bash
 cat <<'PROMPT' > /tmp/codex-reviewer.md
 以下の差分をセキュリティ・エッジケース観点でレビューしてください。
 
 $(cat /tmp/diff.txt)
 PROMPT
 
-codex exec --full-auto \
-  -c 'agents.default.config_file="/Users/duck8823/.codex/agents/reviewer.toml"' \
-  -o /tmp/codex-reviewer-result.json \
-  - < /tmp/codex-reviewer.md 2>/tmp/codex-reviewer.err
-```
-
-### 4. Gemini（2体並列、tmux）
-
-#### Architect
-```bash
 cat <<'PROMPT' > /tmp/gemini-architect.md
 以下の差分をアーキテクチャ観点でレビューしてください。
 プロジェクト全体のソースも参照して俯瞰的に判断してください。
@@ -61,23 +46,53 @@ cat <<'PROMPT' > /tmp/gemini-architect.md
 $(cat /tmp/diff.txt)
 PROMPT
 
-GEMINI_SYSTEM_MD=/Users/duck8823/.gemini/agents/architect.md \
-  TERM=xterm-256color \
-  gemini -p ' ' -e '' < /tmp/gemini-architect.md > /tmp/gemini-architect-result.json 2>&1
-```
-
-#### Reviewer
-```bash
 cat <<'PROMPT' > /tmp/gemini-reviewer.md
 以下の差分を既存パターン・一貫性観点でレビューしてください。
 プロジェクト全体のソースも参照して判断してください。
 
 $(cat /tmp/diff.txt)
 PROMPT
+```
 
-GEMINI_SYSTEM_MD=/Users/duck8823/.gemini/agents/reviewer.md \
-  TERM=xterm-256color \
-  gemini -p ' ' -e '' < /tmp/gemini-reviewer.md > /tmp/gemini-reviewer-result.json 2>&1
+#### cmux 並列実行
+```bash
+CMUX=/Applications/cmux.app/Contents/Resources/bin/cmux
+
+# 結果ファイルをクリア
+rm -f /tmp/{codex,gemini}-{architect,reviewer}-result.json
+
+# ワークスペース作成 + 4ペイン分割
+$CMUX new-workspace --cwd "$(pwd)"
+$CMUX new-split right
+$CMUX new-split down --surface surface:1
+$CMUX new-split down --surface surface:2
+
+# Codex Architect (surface:1)
+$CMUX send --surface surface:1 "codex exec --full-auto -c 'agents.default.config_file=\"\$HOME/.codex/agents/architect.toml\"' -o /tmp/codex-architect-result.json - < /tmp/codex-architect.md 2>/tmp/codex-architect.err"
+$CMUX send-key --surface surface:1 Return
+
+# Codex Reviewer (surface:3)
+$CMUX send --surface surface:3 "codex exec --full-auto -c 'agents.default.config_file=\"\$HOME/.codex/agents/reviewer.toml\"' -o /tmp/codex-reviewer-result.json - < /tmp/codex-reviewer.md 2>/tmp/codex-reviewer.err"
+$CMUX send-key --surface surface:3 Return
+
+# Gemini Architect (surface:2)
+$CMUX send --surface surface:2 "GEMINI_SYSTEM_MD=\$HOME/.gemini/agents/architect.md TERM=xterm-256color gemini -p ' ' -e '' < /tmp/gemini-architect.md > /tmp/gemini-architect-result.json 2>&1"
+$CMUX send-key --surface surface:2 Return
+
+# Gemini Reviewer (surface:4)
+$CMUX send --surface surface:4 "GEMINI_SYSTEM_MD=\$HOME/.gemini/agents/reviewer.md TERM=xterm-256color gemini -p ' ' -e '' < /tmp/gemini-reviewer.md > /tmp/gemini-reviewer-result.json 2>&1"
+$CMUX send-key --surface surface:4 Return
+```
+
+#### 完了待ち
+結果ファイル4つの出現を監視する。タイムアウト10分。
+```bash
+TIMEOUT=600; ELAPSED=0
+while [ $ELAPSED -lt $TIMEOUT ]; do
+  [ -f /tmp/codex-architect-result.json ] && [ -f /tmp/codex-reviewer-result.json ] && \
+  [ -f /tmp/gemini-architect-result.json ] && [ -f /tmp/gemini-reviewer-result.json ] && break
+  sleep 10; ELAPSED=$((ELAPSED + 10))
+done
 ```
 
 ### 5. 結果統合（Claude Opus メイン）
