@@ -1,0 +1,40 @@
+# cmux Ghostty config
+# フォント設定はユーザー既存のまま（cmux デフォルト）
+
+# --- カーソル ---
+cursor-style = bar
+cursor-style-blink = false
+cursor-click-to-move = true
+
+# --- スクロールバック ---
+# 行数単位（cmux 固有。デフォルト 10000）
+scrolling-limit = 10000
+
+# --- マウス ---
+mouse-hide-while-typing = true
+mouse-scroll-multiplier = 3
+# スプリットペインにマウスが入ると自動フォーカス
+focus-follows-mouse = true
+
+# --- クリップボード ---
+# 選択するだけでクリップボードにコピー
+copy-on-select = clipboard
+clipboard-read = allow
+clipboard-write = allow
+clipboard-trim-trailing-spaces = true
+clipboard-paste-protection = true
+clipboard-paste-bracketed-safe = true
+
+# --- シェル統合 ---
+shell-integration = detect
+shell-integration-features = cursor,sudo,title
+
+# --- 外観 ---
+window-padding-x = 8
+window-padding-y = 4
+window-padding-balance = true
+# 非フォーカスのスプリットペインをやや暗く
+unfocused-split-opacity = 0.85
+
+# --- その他 ---
+confirm-close-surface = true
