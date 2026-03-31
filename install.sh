@@ -165,9 +165,13 @@ done
 echo ""
 echo "[cmux]"
 
+CMUX_CONFIG_DIR="$HOME/Library/Application Support/com.cmuxterm.app"
+
 if [ -d "/Applications/cmux.app" ]; then
   mkdir -p "$HOME/.config/cmux"
   link_file "$DOTFILES_DIR/cmux/cmux.json" "$HOME/.config/cmux/cmux.json"
+  mkdir -p "$CMUX_CONFIG_DIR"
+  link_file "$DOTFILES_DIR/cmux/config.ghostty" "$CMUX_CONFIG_DIR/config.ghostty"
 else
   echo "  skip:   cmux not installed (/Applications/cmux.app not found)"
 fi
