@@ -425,6 +425,14 @@ func TestNewProgress(t *testing.T) {
 }
 ```
 
+#### 外部テストパッケージ（`_test`）での注意
+
+外部テストパッケージ（`package foo_test`）では非公開フィールドに直接アクセスできません。`cmp.AllowUnexported` を使うとパニックは回避できますが、比較対象の期待値を組み立てる際に非公開フィールドを設定できない問題が残ります。対処法は以下のいずれかです：
+
+* **エンティティ側に `Equal` メソッドを定義** して比較に使う
+* **内部テストパッケージ（`package foo`）で書く** ことで非公開フィールドにアクセス可能にする
+* **公開ゲッターで個別に検証** する（フィールド数が少ない場合）
+
 シンプルな型（非公開フィールドが少ない場合）は直接列挙しても構いません：
 
 ```go
@@ -707,7 +715,7 @@ MySQL 統合テストでは、各テストケース実行前に `TRUNCATE TABLE`
 `initTestDB` ヘルパーで接続確認と TRUNCATE をまとめて行います。
 
 ```go
-func initTestDB(t *testing.T, dsn string) *sqlx.DB {
+func initTestDB(t *testing.T, dsn string) (*sqlx.DB, func()) {
     t.Helper()
     db, err := mysql.Open(dsn)
     if err != nil {
@@ -719,7 +727,10 @@ func initTestDB(t *testing.T, dsn string) *sqlx.DB {
     if _, err := db.Exec("TRUNCATE TABLE user_association"); err != nil {
         t.Fatalf("TRUNCATE に失敗しました: %+v", err)
     }
-    return db
+    cleanup := func() {
+        db.Close()
+    }
+    return db, cleanup
 }
 ```
 

@@ -301,6 +301,7 @@ RUN go mod download
 COPY . .
 # -tags local でビルド
 RUN CGO_ENABLED=0 GOOS=linux go build -tags local -o /app .
+CMD ["/app"]
 
 # 本番用ステージ
 FROM golang:1.25 AS builder
