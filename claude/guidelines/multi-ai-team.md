@@ -27,7 +27,7 @@ project/
 └── AGENTS.md           # クロスツール共通コンテキスト
 ```
 
-## 共通出力形式（全エージェント統一）
+## 共通出力形式（Reviewer / Architect ロール）
 
 ```json
 {
@@ -44,7 +44,7 @@ project/
 Multi-AI 実行の結果と統合判断を構造化ログとして保存し、ハーネス改善の材料にする。
 
 ### ログ保存ルール
-- 各エージェントの結果 JSON を `{project}/.ai-logs/{date}-{role}-{ai}.json` に保存
+- 各エージェントの結果 JSON をプロジェクトルートの `.ai-logs/{YYYY-MM-DD}-{role}-{ai}.json` に保存（例: `.ai-logs/2026-03-28-architect-codex.json`）
 - 統合判断時に各指摘の「採用/棄却」理由を統合ログ `{date}-integration.json` に記録
 - 失敗・スキップしたエージェントは理由を統合ログに含め、`gh pr comment` にも記載
 
