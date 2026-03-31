@@ -39,6 +39,46 @@ project/
 }
 ```
 
+## 観測可能性（エージェント実行ログ）
+
+Multi-AI 実行の結果と統合判断を構造化ログとして保存し、ハーネス改善の材料にする。
+
+### ログ保存ルール
+- 各エージェントの結果 JSON を `{project}/.ai-logs/{date}-{role}-{ai}.json` に保存
+- 統合判断時に各指摘の「採用/棄却」理由を統合ログ `{date}-integration.json` に記録
+- 失敗・スキップしたエージェントは理由を統合ログに含め、`gh pr comment` にも記載
+
+### 統合ログ形式
+```json
+{
+  "date": "2026-03-28",
+  "pr": "#123",
+  "agents": [
+    {"source": "codex-architect", "status": "success", "findings_count": 2},
+    {"source": "gemini-reviewer", "status": "skipped", "reason": "JSON parse failure after retry"}
+  ],
+  "decisions": [
+    {"file": "path:line", "adopted": true, "agreed_by": ["codex-architect", "claude-reviewer"], "reason": "2AI一致"},
+    {"file": "path:line", "adopted": false, "agreed_by": ["gemini-architect"], "reason": "実読で誤検出と判断"}
+  ]
+}
+```
+
+### ログの活用
+- `.ai-logs/` はバージョン管理に含めない（`.gitignore` に追加）
+- マイルストーン完了時のハーネスレトロスペクティブで参照する
+
+## 出力バリデーション
+
+エージェント出力が期待形式を満たさない場合の処理ルール。
+
+| 状況 | 対応 |
+|---|---|
+| JSON パース失敗 | 1回リトライ、2回目失敗 → スキップ＋統合ログに記録 |
+| `findings` 配列の要素に `file`/`severity`/`issue` が欠落 | 該当エントリを除外、残りは処理続行 |
+| `source` フィールドが期待値と不一致 | 警告付きで処理続行（統合ログに記録） |
+| 出力が空 or `findings` が空配列 | 正常（指摘なし）として扱う |
+
 ## 統合判断ルール（Claude Opus メイン）
 
 1. 各ロールの3AI結果を読み込み
