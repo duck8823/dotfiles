@@ -3,12 +3,79 @@ set -euo pipefail
 
 DOTFILES_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKUP_DIR="$HOME/.dotfiles-backup/$(date +%Y%m%d_%H%M%S)"
+MANAGED_MARKER="<!-- managed by duck8823/dotfiles -->"
+MANAGED_MARKER_SH="# managed by duck8823/dotfiles"
 
 # ============================================================
 # ユーティリティ
 # ============================================================
 
-link_file() {
+# マネージドマーカー付きコピー
+# - マーカー付き既存ファイル → 上書き
+# - マーカーなし既存ファイル → スキップ（ローカル独自ファイル）
+# - 既存シンボリックリンク → 削除してコピーに置き換え
+# - ファイルなし → 新規コピー
+copy_managed() {
+  local src="$1"
+  local dst="$2"
+  local marker="${3:-$MANAGED_MARKER}"
+  local dst_dir
+  dst_dir="$(dirname "$dst")"
+
+  mkdir -p "$dst_dir"
+
+  # 既存シンボリックリンク → 削除してコピーに移行
+  if [ -L "$dst" ]; then
+    rm "$dst"
+    echo "  unlink: $dst (migrating from symlink to copy)"
+  fi
+
+  if [ -f "$dst" ]; then
+    # マーカーなし → ローカル独自ファイル、スキップ
+    if ! head -1 "$dst" | grep -qF "$marker"; then
+      echo "  skip:   $dst (local override — no managed marker)"
+      return
+    fi
+    # マーカーあり → 上書き
+  fi
+
+  # マーカーを先頭に付けてコピー
+  {
+    echo "$marker"
+    cat "$src"
+  } > "$dst"
+  echo "  copy:   $dst"
+}
+
+# マネージドマーカー付きディレクトリコピー（skills 用）
+# ディレクトリ内の全ファイルにマーカーを付けてコピーする
+copy_managed_dir() {
+  local src_dir="$1"
+  local dst_dir="$2"
+  local marker="${3:-$MANAGED_MARKER}"
+  local dir_name
+  dir_name="$(basename "$src_dir")"
+
+  mkdir -p "$dst_dir"
+
+  # 既存シンボリックリンク → 削除
+  if [ -L "$dst_dir" ]; then
+    rm "$dst_dir"
+    mkdir -p "$dst_dir"
+    echo "  unlink: $dst_dir (migrating from symlink to copy)"
+  fi
+
+  # ディレクトリ内のファイルを再帰コピー
+  local src_dir_clean="${src_dir%/}"
+  find "$src_dir_clean" -type f | while read -r src_file; do
+    local rel="${src_file#"${src_dir_clean}"/}"
+    local dst_file="$dst_dir/$rel"
+    copy_managed "$src_file" "$dst_file" "$marker"
+  done
+}
+
+# シェルスクリプト用コピー（# コメントでマーカー）
+copy_managed_sh() {
   local src="$1"
   local dst="$2"
   local dst_dir
@@ -16,15 +83,35 @@ link_file() {
 
   mkdir -p "$dst_dir"
 
-  # 既存のファイル（シンボリックリンクでない）はバックアップ
-  if [ -e "$dst" ] && [ ! -L "$dst" ]; then
-    mkdir -p "$BACKUP_DIR"
-    mv "$dst" "$BACKUP_DIR/"
-    echo "  backup: $dst -> $BACKUP_DIR/"
+  if [ -L "$dst" ]; then
+    rm "$dst"
+    echo "  unlink: $dst (migrating from symlink to copy)"
   fi
 
-  ln -sfn "$src" "$dst"
-  echo "  link:   $dst -> $src"
+  if [ -f "$dst" ]; then
+    if ! head -2 "$dst" | grep -qF "$MANAGED_MARKER_SH"; then
+      echo "  skip:   $dst (local override — no managed marker)"
+      return
+    fi
+  fi
+
+  # shebang を維持しつつマーカーを挿入
+  local first_line
+  first_line="$(head -1 "$src")"
+  if [[ "$first_line" == "#!"* ]]; then
+    {
+      echo "$first_line"
+      echo "$MANAGED_MARKER_SH"
+      tail -n +2 "$src"
+    } > "$dst"
+  else
+    {
+      echo "$MANAGED_MARKER_SH"
+      cat "$src"
+    } > "$dst"
+  fi
+  chmod +x "$dst"
+  echo "  copy:   $dst"
 }
 
 process_template() {
@@ -49,49 +136,54 @@ process_template() {
 echo ""
 echo "[Claude Code]"
 
-link_file "$DOTFILES_DIR/claude/CLAUDE.md"         "$HOME/.claude/CLAUDE.md"
+copy_managed "$DOTFILES_DIR/claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
 
-# commands: ファイル単位でリンク（既存コマンドを上書きしない）
+# commands
 mkdir -p "$HOME/.claude/commands"
 for f in "$DOTFILES_DIR/claude/commands/"*.md; do
+  [ -f "$f" ] || continue
   fname="$(basename "$f")"
-  link_file "$f" "$HOME/.claude/commands/$fname"
+  copy_managed "$f" "$HOME/.claude/commands/$fname"
 done
 
-# hooks: ファイル単位でリンク
+# hooks
 mkdir -p "$HOME/.claude/hooks"
 for f in "$DOTFILES_DIR/claude/hooks/"*.sh; do
+  [ -f "$f" ] || continue
   fname="$(basename "$f")"
-  link_file "$f" "$HOME/.claude/hooks/$fname"
-  chmod +x "$HOME/.claude/hooks/$fname"
+  copy_managed_sh "$f" "$HOME/.claude/hooks/$fname"
 done
 
-# agents: ファイル単位でリンク
+# agents
 mkdir -p "$HOME/.claude/agents"
 for f in "$DOTFILES_DIR/claude/agents/"*.md; do
+  [ -f "$f" ] || continue
   fname="$(basename "$f")"
-  link_file "$f" "$HOME/.claude/agents/$fname"
+  copy_managed "$f" "$HOME/.claude/agents/$fname"
 done
 
-# guidelines: ファイル単位でリンク
+# guidelines
 mkdir -p "$HOME/.claude/guidelines"
 for f in "$DOTFILES_DIR/claude/guidelines/"*.md; do
+  [ -f "$f" ] || continue
   fname="$(basename "$f")"
-  link_file "$f" "$HOME/.claude/guidelines/$fname"
+  copy_managed "$f" "$HOME/.claude/guidelines/$fname"
 done
 
-# skills: スキル単位でリンク
+# skills: ディレクトリ単位でコピー
 mkdir -p "$HOME/.claude/skills"
 for skill_dir in "$DOTFILES_DIR/claude/skills/"/*/; do
+  [ -d "$skill_dir" ] || continue
   skill_name="$(basename "$skill_dir")"
-  link_file "$skill_dir" "$HOME/.claude/skills/$skill_name"
+  copy_managed_dir "$skill_dir" "$HOME/.claude/skills/$skill_name"
 done
 
-# rules: ファイル単位でリンク
+# rules
 mkdir -p "$HOME/.claude/rules"
 for f in "$DOTFILES_DIR/claude/rules/"*.md; do
+  [ -f "$f" ] || continue
   fname="$(basename "$f")"
-  link_file "$f" "$HOME/.claude/rules/$fname"
+  copy_managed "$f" "$HOME/.claude/rules/$fname"
 done
 
 # settings.json はテンプレートから生成（上書きしない）
@@ -106,18 +198,20 @@ process_template \
 echo ""
 echo "[Gemini CLI]"
 
-link_file "$DOTFILES_DIR/gemini/GEMINI.md"    "$HOME/.gemini/GEMINI.md"
+copy_managed "$DOTFILES_DIR/gemini/GEMINI.md" "$HOME/.gemini/GEMINI.md"
 
-# agents: ファイル単位でリンク
+# agents
 mkdir -p "$HOME/.gemini/agents"
 for f in "$DOTFILES_DIR/gemini/agents/"*.md; do
+  [ -f "$f" ] || continue
   fname="$(basename "$f")"
-  link_file "$f" "$HOME/.gemini/agents/$fname"
+  copy_managed "$f" "$HOME/.gemini/agents/$fname"
 done
 
-# settings.json: 既存がなければリンク（OAuth 設定を壊さないよう上書きしない）
+# settings.json: 既存がなければコピー（OAuth 設定を壊さないよう上書きしない）
 if [ ! -f "$HOME/.gemini/settings.json" ]; then
-  link_file "$DOTFILES_DIR/gemini/settings.json" "$HOME/.gemini/settings.json"
+  cp "$DOTFILES_DIR/gemini/settings.json" "$HOME/.gemini/settings.json"
+  echo "  copy:   ~/.gemini/settings.json"
 else
   echo "  skip:   ~/.gemini/settings.json (already exists)"
 fi
@@ -129,13 +223,15 @@ fi
 echo ""
 echo "[Codex CLI]"
 
-link_file "$DOTFILES_DIR/codex/instructions.md" "$HOME/.codex/instructions.md"
+copy_managed "$DOTFILES_DIR/codex/instructions.md" "$HOME/.codex/instructions.md"
 
-# agents: ファイル単位でリンク
+# agents
 mkdir -p "$HOME/.codex/agents"
 for f in "$DOTFILES_DIR/codex/agents/"*.toml; do
+  [ -f "$f" ] || continue
   fname="$(basename "$f")"
-  link_file "$f" "$HOME/.codex/agents/$fname"
+  # .toml は TOML コメントでマーカー
+  copy_managed "$f" "$HOME/.codex/agents/$fname" "# managed by duck8823/dotfiles"
 done
 
 # config.toml はテンプレートから生成（上書きしない）
@@ -145,17 +241,14 @@ process_template \
 
 # rules: default.rules
 mkdir -p "$HOME/.codex/rules"
-if [ ! -f "$HOME/.codex/rules/default.rules" ]; then
-  link_file "$DOTFILES_DIR/codex/rules/default.rules" "$HOME/.codex/rules/default.rules"
-else
-  echo "  skip:   ~/.codex/rules/default.rules (already exists — merge manually)"
-fi
+copy_managed "$DOTFILES_DIR/codex/rules/default.rules" "$HOME/.codex/rules/default.rules" "# managed by duck8823/dotfiles"
 
-# skills: スキル単位でリンク（.system/ を汚染しない）
+# skills: スキル単位でコピー（.system/ を汚染しない）
 mkdir -p "$HOME/.codex/skills"
 for skill_dir in "$DOTFILES_DIR/codex/skills/"/*/; do
+  [ -d "$skill_dir" ] || continue
   skill_name="$(basename "$skill_dir")"
-  link_file "$skill_dir" "$HOME/.codex/skills/$skill_name"
+  copy_managed_dir "$skill_dir" "$HOME/.codex/skills/$skill_name"
 done
 
 # ============================================================
@@ -169,9 +262,9 @@ CMUX_CONFIG_DIR="$HOME/Library/Application Support/com.cmuxterm.app"
 
 if [ -d "/Applications/cmux.app" ]; then
   mkdir -p "$HOME/.config/cmux"
-  link_file "$DOTFILES_DIR/cmux/cmux.json" "$HOME/.config/cmux/cmux.json"
+  copy_managed "$DOTFILES_DIR/cmux/cmux.json" "$HOME/.config/cmux/cmux.json"
   mkdir -p "$CMUX_CONFIG_DIR"
-  link_file "$DOTFILES_DIR/cmux/config.ghostty" "$CMUX_CONFIG_DIR/config.ghostty"
+  copy_managed "$DOTFILES_DIR/cmux/config.ghostty" "$CMUX_CONFIG_DIR/config.ghostty"
 else
   echo "  skip:   cmux not installed (/Applications/cmux.app not found)"
 fi
@@ -184,6 +277,26 @@ echo ""
 echo "Done!"
 echo ""
 echo "================================================================"
+echo " ローカルオーバーライドの方法"
+echo "================================================================"
+echo ""
+echo "  dotfiles からコピーされたファイルには先頭にマネージドマーカーが付きます。"
+echo "  install.sh を再実行すると、マーカー付きファイルのみ上書きされます。"
+echo ""
+echo "  ローカルで独自のルールを追加するには:"
+echo "    1. マーカーなしの .md ファイルを ~/.claude/rules/ に作成"
+echo "    2. install.sh を再実行してもスキップされます"
+echo ""
+echo "  例: 自動マージを禁止するオーバーライド"
+echo "    ~/.claude/rules/no-auto-merge.md"
+echo ""
+echo "  dotfiles 管理のファイルをローカルで上書きするには:"
+echo "    1. 対象ファイルの先頭行のマネージドマーカーを削除"
+echo "    2. 内容を自由に編集"
+echo "    3. install.sh を再実行してもスキップされます"
+echo ""
+echo "================================================================"
+echo ""
 echo " 次のステップ"
 echo "================================================================"
 echo ""
