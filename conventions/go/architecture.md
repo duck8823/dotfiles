@@ -51,6 +51,7 @@ type User struct {
 	userID      types.UserID
 	email       types.Optional[types.Email]
 	displayName string
+	userType    types.UserType
 	createdAt   time.Time
 	updatedAt   time.Time
 }
@@ -101,16 +102,14 @@ func (u *User) DisplayName() string { return u.displayName }
 // domain/types/user_id.go
 package types
 
-type UserID struct {
-	value string
-}
+type UserID string
 
 func UserIDOf(value string) UserID {
-	return UserID{value: value}
+	return UserID(value)
 }
 
 func (u UserID) String() string {
-	return u.value
+	return string(u)
 }
 ```
 

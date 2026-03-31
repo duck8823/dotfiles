@@ -371,7 +371,7 @@ func NewUserHandler(userUsecase usecase.UserUsecase) *UserHandler {
 }
 
 // インターフェース実装の確認
-var _ openapi.ServerInterface = (*UserHandler)(nil)
+var _ openapi.StrictServerInterface = (*UserHandler)(nil)
 
 // GetUser はユーザー取得のハンドラー
 func (h *UserHandler) GetUser(
@@ -429,6 +429,8 @@ func toUserType(userType openapi.UserType) (types.UserType, error) {
         return types.UserTypeRegular, nil
     case openapi.UserTypePremium:
         return types.UserTypePremium, nil
+    case openapi.UserTypeTrial:
+        return types.UserTypeTrial, nil
     default:
         return "", xerrors.Errorf("無効なユーザー種別: %s", userType)
     }

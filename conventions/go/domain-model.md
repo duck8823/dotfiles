@@ -22,6 +22,7 @@ type User struct {
 	userID      types.UserID
 	email       types.Optional[types.Email]
 	displayName string
+	userType    types.UserType
 	createdAt   time.Time
 	updatedAt   time.Time
 }
@@ -62,6 +63,9 @@ func UserOf(
 func (u *User) UserID() types.UserID                    { return u.userID }
 func (u *User) Email() types.Optional[types.Email]      { return u.email }
 func (u *User) DisplayName() string                     { return u.displayName }
+func (u *User) UserType() types.UserType                 { return u.userType }
+func (u *User) CreatedAt() time.Time                     { return u.createdAt }
+func (u *User) UpdatedAt() time.Time                     { return u.updatedAt }
 
 // ビジネスロジックを含む更新メソッド（ポインターレシーバー）
 func (u *User) UpdateProfile(
