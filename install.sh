@@ -13,12 +13,13 @@ MANAGED_TAG="managed by duck8823/dotfiles"
 marker_for() {
   local file="$1"
   case "$file" in
-    *.json)  echo "" ;;
+    *.json)    echo "" ;;
     *.yaml|*.yml) echo "# $MANAGED_TAG" ;;
-    *.toml)  echo "# $MANAGED_TAG" ;;
-    *.sh)    echo "# $MANAGED_TAG" ;;
-    *.rules) echo "# $MANAGED_TAG" ;;
-    *)       echo "<!-- $MANAGED_TAG -->" ;;
+    *.toml)    echo "# $MANAGED_TAG" ;;
+    *.sh)      echo "# $MANAGED_TAG" ;;
+    *.rules)   echo "# $MANAGED_TAG" ;;
+    *.ghostty) echo "# $MANAGED_TAG" ;;
+    *)         echo "<!-- $MANAGED_TAG -->" ;;
   esac
 }
 
