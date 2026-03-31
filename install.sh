@@ -2,13 +2,25 @@
 set -euo pipefail
 
 DOTFILES_DIR="$(cd "$(dirname "$0")" && pwd)"
-BACKUP_DIR="$HOME/.dotfiles-backup/$(date +%Y%m%d_%H%M%S)"
-MANAGED_MARKER="<!-- managed by duck8823/dotfiles -->"
-MANAGED_MARKER_SH="# managed by duck8823/dotfiles"
+MANAGED_TAG="managed by duck8823/dotfiles"
 
 # ============================================================
 # ユーティリティ
 # ============================================================
+
+# ファイル拡張子からマーカーコメント形式を判定
+# JSON はコメント非対応のため空文字を返す（サイドカーファイルで管理）
+marker_for() {
+  local file="$1"
+  case "$file" in
+    *.json)  echo "" ;;
+    *.yaml|*.yml) echo "# $MANAGED_TAG" ;;
+    *.toml)  echo "# $MANAGED_TAG" ;;
+    *.sh)    echo "# $MANAGED_TAG" ;;
+    *.rules) echo "# $MANAGED_TAG" ;;
+    *)       echo "<!-- $MANAGED_TAG -->" ;;
+  esac
+}
 
 # マネージドマーカー付きコピー
 # - マーカー付き既存ファイル → 上書き
@@ -18,7 +30,8 @@ MANAGED_MARKER_SH="# managed by duck8823/dotfiles"
 copy_managed() {
   local src="$1"
   local dst="$2"
-  local marker="${3:-$MANAGED_MARKER}"
+  local marker
+  marker="$(marker_for "$dst")"
   local dst_dir
   dst_dir="$(dirname "$dst")"
 
@@ -31,19 +44,32 @@ copy_managed() {
   fi
 
   if [ -f "$dst" ]; then
-    # マーカーなし → ローカル独自ファイル、スキップ
-    if ! head -1 "$dst" | grep -qF "$marker"; then
-      echo "  skip:   $dst (local override — no managed marker)"
-      return
+    if [ -z "$marker" ]; then
+      # JSON 等コメント非対応: サイドカーファイルで管理判定
+      if [ ! -f "${dst}.managed" ]; then
+        echo "  skip:   $dst (local override — no .managed sidecar)"
+        return
+      fi
+    else
+      # マーカーなし → ローカル独自ファイル、スキップ
+      if ! head -1 "$dst" | grep -qF "$MANAGED_TAG"; then
+        echo "  skip:   $dst (local override — no managed marker)"
+        return
+      fi
     fi
-    # マーカーあり → 上書き
   fi
 
-  # マーカーを先頭に付けてコピー
-  {
-    echo "$marker"
-    cat "$src"
-  } > "$dst"
+  if [ -z "$marker" ]; then
+    # JSON 等: マーカーなしでコピー + サイドカーファイル作成
+    cp "$src" "$dst"
+    echo "$MANAGED_TAG" > "${dst}.managed"
+  else
+    # マーカーを先頭に付けてコピー
+    {
+      echo "$marker"
+      cat "$src"
+    } > "$dst"
+  fi
   echo "  copy:   $dst"
 }
 
@@ -52,9 +78,6 @@ copy_managed() {
 copy_managed_dir() {
   local src_dir="$1"
   local dst_dir="$2"
-  local marker="${3:-$MANAGED_MARKER}"
-  local dir_name
-  dir_name="$(basename "$src_dir")"
 
   mkdir -p "$dst_dir"
 
@@ -67,17 +90,19 @@ copy_managed_dir() {
 
   # ディレクトリ内のファイルを再帰コピー
   local src_dir_clean="${src_dir%/}"
-  find "$src_dir_clean" -type f | while read -r src_file; do
+  find "$src_dir_clean" -type f -print0 | while IFS= read -r -d '' src_file; do
     local rel="${src_file#"${src_dir_clean}"/}"
     local dst_file="$dst_dir/$rel"
-    copy_managed "$src_file" "$dst_file" "$marker"
+    copy_managed "$src_file" "$dst_file"
   done
 }
 
-# シェルスクリプト用コピー（# コメントでマーカー）
+# シェルスクリプト用コピー（shebang を維持しつつマーカーを挿入）
 copy_managed_sh() {
   local src="$1"
   local dst="$2"
+  local marker
+  marker="$(marker_for "$dst")"
   local dst_dir
   dst_dir="$(dirname "$dst")"
 
@@ -89,7 +114,7 @@ copy_managed_sh() {
   fi
 
   if [ -f "$dst" ]; then
-    if ! head -2 "$dst" | grep -qF "$MANAGED_MARKER_SH"; then
+    if ! head -2 "$dst" | grep -qF "$MANAGED_TAG"; then
       echo "  skip:   $dst (local override — no managed marker)"
       return
     fi
@@ -101,12 +126,12 @@ copy_managed_sh() {
   if [[ "$first_line" == "#!"* ]]; then
     {
       echo "$first_line"
-      echo "$MANAGED_MARKER_SH"
+      echo "$marker"
       tail -n +2 "$src"
     } > "$dst"
   else
     {
-      echo "$MANAGED_MARKER_SH"
+      echo "$marker"
       cat "$src"
     } > "$dst"
   fi
@@ -230,8 +255,7 @@ mkdir -p "$HOME/.codex/agents"
 for f in "$DOTFILES_DIR/codex/agents/"*.toml; do
   [ -f "$f" ] || continue
   fname="$(basename "$f")"
-  # .toml は TOML コメントでマーカー
-  copy_managed "$f" "$HOME/.codex/agents/$fname" "# managed by duck8823/dotfiles"
+  copy_managed "$f" "$HOME/.codex/agents/$fname"
 done
 
 # config.toml はテンプレートから生成（上書きしない）
@@ -241,7 +265,7 @@ process_template \
 
 # rules: default.rules
 mkdir -p "$HOME/.codex/rules"
-copy_managed "$DOTFILES_DIR/codex/rules/default.rules" "$HOME/.codex/rules/default.rules" "# managed by duck8823/dotfiles"
+copy_managed "$DOTFILES_DIR/codex/rules/default.rules" "$HOME/.codex/rules/default.rules"
 
 # skills: スキル単位でコピー（.system/ を汚染しない）
 mkdir -p "$HOME/.codex/skills"
