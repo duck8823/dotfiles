@@ -21,7 +21,7 @@ cd ~/dotfiles
 ./install.sh
 ```
 
-既存ファイルはバックアップされます（`~/.dotfiles-backup/<timestamp>/`）。
+dotfiles からコピーされたファイルには先頭にマネージドマーカー（`<!-- managed by duck8823/dotfiles -->`）が付きます。再実行するとマーカー付きファイルのみ上書きされ、ローカル独自ファイルはスキップされます。
 
 ## 含まれるもの
 
@@ -111,6 +111,30 @@ source_dirs・source_extensions・source_exclude・test_command・analyze_comman
 | Go | `go test ./...` | `go vet ./...` | `go` |
 | Python | `pytest` | `ruff check .` | `py` |
 | Ruby on Rails | `bundle exec rspec` | `bundle exec rubocop` | `rb erb` |
+
+## ローカルオーバーライド
+
+マシンごとに dotfiles のデフォルト動作を上書きできます。
+
+### ルールのオーバーライド
+
+`~/.claude/rules/` にマネージドマーカーなしの `.md` ファイルを作成すると、CLAUDE.md のルールを上書きできます。`install.sh` を再実行してもスキップされます。
+
+```bash
+# 例: 自動マージを禁止するオーバーライド
+cat > ~/.claude/rules/no-auto-merge.md << 'EOF'
+# 自動マージ禁止
+
+- Claude が `gh pr merge` を自発的に実行してはならない
+- AI レビュー完了後は `gh pr ready` で ready for review にし、ユーザーが APPROVE & マージする
+EOF
+```
+
+### dotfiles 管理ファイルのローカル上書き
+
+dotfiles 管理のファイルをローカルで上書きするには、対象ファイルの先頭行のマネージドマーカーを削除してから編集してください。`install.sh` を再実行してもスキップされます。
+
+JSON ファイル（`cmux.json` 等）はコメント非対応のため、サイドカーファイル（`.managed`）で管理されています。ローカルで上書きするには、対象ファイルの横にある `.managed` ファイルを削除してください（例: `rm ~/.config/cmux/cmux.json.managed`）。
 
 ## カスタマイズ
 
