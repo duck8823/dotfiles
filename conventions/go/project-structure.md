@@ -272,7 +272,7 @@ func toUserEmail(email string) (types.Email, error) {
 // toUserResponse はドメインモデルを API レスポンスに変換する
 func toUserResponse(user *model.User) openapi.User {
     resp := openapi.User{
-        Id:   ptr(user.UserID().String()),
+        UserId: ptr(user.UserID().String()),
         Name: ptr(user.DisplayName()),
     }
     if email, ok := user.Email().Value(); ok {

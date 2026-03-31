@@ -235,6 +235,7 @@ func ResetNowFunc()                 { nowFunc = time.Now }
 type UserRepository interface {
 	FindByID(ctx context.Context, id types.UserID) (types.Optional[*User], error)
 	Save(ctx context.Context, user *User) error
+	Delete(ctx context.Context, id types.UserID) error
 }
 ```
 

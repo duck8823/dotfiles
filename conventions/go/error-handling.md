@@ -15,7 +15,14 @@
 ### 実装例
 
 ```go
-func (s *service) GetUser(ctx context.Context, userID string) (*User, error) {
+import (
+	"context"
+
+	"example.com/app/domain/types"
+	"golang.org/x/xerrors"
+)
+
+func (s *service) GetUser(ctx context.Context, userID types.UserID) (*User, error) {
 	opt, err := s.userRepo.FindByID(ctx, userID)
 	if err != nil {
 		return nil, xerrors.Errorf("ユーザーの取得に失敗しました: %w", err)
