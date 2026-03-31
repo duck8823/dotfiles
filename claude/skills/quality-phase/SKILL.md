@@ -25,7 +25,7 @@ git diff $(git describe --tags --abbrev=0 2>/dev/null || git rev-list --max-pare
 
 #### Codex architect（CLI）
 ```bash
-cat <<'PROMPT' > /tmp/codex-qp-architect.md
+cat <<PROMPT > /tmp/codex-qp-architect.md
 以下はスプリント全体の差分です。アーキテクチャ観点でレビューしてください。
 
 $(cat /tmp/sprint-diff.txt)
@@ -39,6 +39,13 @@ codex exec --full-auto \
 
 #### Gemini architect（CLI）
 ```bash
+cat <<PROMPT > /tmp/gemini-qp-architect.md
+以下はスプリント全体の差分です。アーキテクチャ観点でレビューしてください。
+プロジェクト全体のソースも参照して俯瞰的に判断してください。
+
+$(cat /tmp/sprint-diff.txt)
+PROMPT
+
 GEMINI_SYSTEM_MD=$HOME/.gemini/agents/architect.md \
   TERM=xterm-256color \
   gemini -p ' ' -e '' < /tmp/gemini-qp-architect.md > /tmp/gemini-qp-architect-result.json 2>&1
