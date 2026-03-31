@@ -1,0 +1,165 @@
+{
+  "commands": [
+    {
+      "name": "Multi-AI Review",
+      "description": "Codex + Gemini の Architect/Reviewer を4ペイン並列実行",
+      "color": "purple",
+      "restart": "recreate",
+      "layout": {
+        "type": "split",
+        "direction": "right",
+        "position": 0.5,
+        "children": [
+          {
+            "type": "split",
+            "direction": "down",
+            "position": 0.5,
+            "children": [
+              {
+                "type": "pane",
+                "surfaces": [
+                  {
+                    "name": "Codex Architect",
+                    "type": "terminal",
+                    "focus": true
+                  }
+                ]
+              },
+              {
+                "type": "pane",
+                "surfaces": [
+                  {
+                    "name": "Codex Reviewer",
+                    "type": "terminal"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "split",
+            "direction": "down",
+            "position": 0.5,
+            "children": [
+              {
+                "type": "pane",
+                "surfaces": [
+                  {
+                    "name": "Gemini Architect",
+                    "type": "terminal"
+                  }
+                ]
+              },
+              {
+                "type": "pane",
+                "surfaces": [
+                  {
+                    "name": "Gemini Reviewer",
+                    "type": "terminal"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Multi-AI Plan",
+      "description": "Codex + Gemini の Planner を2ペイン並列実行",
+      "color": "blue",
+      "restart": "recreate",
+      "layout": {
+        "type": "split",
+        "direction": "right",
+        "position": 0.5,
+        "children": [
+          {
+            "type": "pane",
+            "surfaces": [
+              {
+                "name": "Codex Planner",
+                "type": "terminal",
+                "focus": true
+              }
+            ]
+          },
+          {
+            "type": "pane",
+            "surfaces": [
+              {
+                "name": "Gemini Planner",
+                "type": "terminal"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Multi-AI Spec",
+      "description": "Codex + Gemini の Spec Writer を2ペイン並列実行",
+      "color": "green",
+      "restart": "recreate",
+      "layout": {
+        "type": "split",
+        "direction": "right",
+        "position": 0.5,
+        "children": [
+          {
+            "type": "pane",
+            "surfaces": [
+              {
+                "name": "Codex Spec",
+                "type": "terminal",
+                "focus": true
+              }
+            ]
+          },
+          {
+            "type": "pane",
+            "surfaces": [
+              {
+                "name": "Gemini Spec",
+                "type": "terminal"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dev + Preview",
+      "description": "ターミナル + ブラウザプレビューの開発レイアウト",
+      "color": "orange",
+      "restart": "switch",
+      "layout": {
+        "type": "split",
+        "direction": "right",
+        "position": 0.6,
+        "children": [
+          {
+            "type": "pane",
+            "surfaces": [
+              {
+                "name": "Terminal",
+                "type": "terminal",
+                "focus": true
+              }
+            ]
+          },
+          {
+            "type": "pane",
+            "surfaces": [
+              {
+                "name": "Preview",
+                "type": "browser",
+                "url": "http://localhost:3000"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -66,6 +66,34 @@ for f in "$DOTFILES_DIR/claude/hooks/"*.sh; do
   chmod +x "$HOME/.claude/hooks/$fname"
 done
 
+# agents: ファイル単位でリンク
+mkdir -p "$HOME/.claude/agents"
+for f in "$DOTFILES_DIR/claude/agents/"*.md; do
+  fname="$(basename "$f")"
+  link_file "$f" "$HOME/.claude/agents/$fname"
+done
+
+# guidelines: ファイル単位でリンク
+mkdir -p "$HOME/.claude/guidelines"
+for f in "$DOTFILES_DIR/claude/guidelines/"*.md; do
+  fname="$(basename "$f")"
+  link_file "$f" "$HOME/.claude/guidelines/$fname"
+done
+
+# skills: スキル単位でリンク
+mkdir -p "$HOME/.claude/skills"
+for skill_dir in "$DOTFILES_DIR/claude/skills/"/*/; do
+  skill_name="$(basename "$skill_dir")"
+  link_file "$skill_dir" "$HOME/.claude/skills/$skill_name"
+done
+
+# rules: ファイル単位でリンク
+mkdir -p "$HOME/.claude/rules"
+for f in "$DOTFILES_DIR/claude/rules/"*.md; do
+  fname="$(basename "$f")"
+  link_file "$f" "$HOME/.claude/rules/$fname"
+done
+
 # settings.json はテンプレートから生成（上書きしない）
 process_template \
   "$DOTFILES_DIR/claude/settings.json.template" \
@@ -79,6 +107,13 @@ echo ""
 echo "[Gemini CLI]"
 
 link_file "$DOTFILES_DIR/gemini/GEMINI.md"    "$HOME/.gemini/GEMINI.md"
+
+# agents: ファイル単位でリンク
+mkdir -p "$HOME/.gemini/agents"
+for f in "$DOTFILES_DIR/gemini/agents/"*.md; do
+  fname="$(basename "$f")"
+  link_file "$f" "$HOME/.gemini/agents/$fname"
+done
 
 # settings.json: 既存がなければリンク（OAuth 設定を壊さないよう上書きしない）
 if [ ! -f "$HOME/.gemini/settings.json" ]; then
@@ -95,6 +130,13 @@ echo ""
 echo "[Codex CLI]"
 
 link_file "$DOTFILES_DIR/codex/instructions.md" "$HOME/.codex/instructions.md"
+
+# agents: ファイル単位でリンク
+mkdir -p "$HOME/.codex/agents"
+for f in "$DOTFILES_DIR/codex/agents/"*.toml; do
+  fname="$(basename "$f")"
+  link_file "$f" "$HOME/.codex/agents/$fname"
+done
 
 # config.toml はテンプレートから生成（上書きしない）
 process_template \
@@ -115,6 +157,20 @@ for skill_dir in "$DOTFILES_DIR/codex/skills/"/*/; do
   skill_name="$(basename "$skill_dir")"
   link_file "$skill_dir" "$HOME/.codex/skills/$skill_name"
 done
+
+# ============================================================
+# cmux
+# ============================================================
+
+echo ""
+echo "[cmux]"
+
+if [ -d "/Applications/cmux.app" ]; then
+  mkdir -p "$HOME/.config/cmux"
+  link_file "$DOTFILES_DIR/cmux/cmux.json" "$HOME/.config/cmux/cmux.json"
+else
+  echo "  skip:   cmux not installed (/Applications/cmux.app not found)"
+fi
 
 # ============================================================
 # 完了
