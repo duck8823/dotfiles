@@ -31,7 +31,7 @@ $(gh issue view <番号> --json number,title,body | jq '.')
 PROMPT
 
 codex exec --full-auto \
-  -c 'agents.default.config_file="/Users/duck8823/.codex/agents/spec-writer.toml"' \
+  -c 'agents.default.config_file="$HOME/.codex/agents/spec-writer.toml"' \
   -o /tmp/codex-spec-result.json \
   - < /tmp/codex-spec.md 2>/tmp/codex-spec.err
 ```
@@ -45,7 +45,7 @@ cat <<'PROMPT' > /tmp/gemini-spec.md
 $(gh issue view <番号> --json number,title,body | jq '.')
 PROMPT
 
-GEMINI_SYSTEM_MD=/Users/duck8823/.gemini/agents/spec-writer.md \
+GEMINI_SYSTEM_MD=$HOME/.gemini/agents/spec-writer.md \
   TERM=xterm-256color \
   gemini -p ' ' -e '' < /tmp/gemini-spec.md > /tmp/gemini-spec-result.json 2>&1
 ```

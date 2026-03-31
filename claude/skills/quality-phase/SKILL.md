@@ -32,14 +32,14 @@ $(cat /tmp/sprint-diff.txt)
 PROMPT
 
 codex exec --full-auto \
-  -c 'agents.default.config_file="/Users/duck8823/.codex/agents/architect.toml"' \
+  -c 'agents.default.config_file="$HOME/.codex/agents/architect.toml"' \
   -o /tmp/codex-qp-architect-result.json \
   - < /tmp/codex-qp-architect.md 2>/tmp/codex-qp-architect.err
 ```
 
 #### Gemini architect（CLI）
 ```bash
-GEMINI_SYSTEM_MD=/Users/duck8823/.gemini/agents/architect.md \
+GEMINI_SYSTEM_MD=$HOME/.gemini/agents/architect.md \
   TERM=xterm-256color \
   gemini -p ' ' -e '' < /tmp/gemini-qp-architect.md > /tmp/gemini-qp-architect-result.json 2>&1
 ```

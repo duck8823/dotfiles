@@ -34,7 +34,7 @@ $(gh api repos/{owner}/{repo}/milestones --jq '.[] | select(.title=="<current>")
 PROMPT
 
 codex exec --full-auto \
-  -c 'agents.default.config_file="/Users/duck8823/.codex/agents/planner.toml"' \
+  -c 'agents.default.config_file="$HOME/.codex/agents/planner.toml"' \
   -o /tmp/codex-planner-result.json \
   - < /tmp/codex-planner.md 2>/tmp/codex-planner.err
 ```
@@ -51,7 +51,7 @@ $(gh issue list --milestone <current> --state open --json number,title,body | jq
 $(gh api repos/{owner}/{repo}/milestones --jq '.[] | select(.title=="<current>") | {title, description, due_on}')
 PROMPT
 
-GEMINI_SYSTEM_MD=/Users/duck8823/.gemini/agents/planner.md \
+GEMINI_SYSTEM_MD=$HOME/.gemini/agents/planner.md \
   TERM=xterm-256color \
   gemini -p ' ' -e '' < /tmp/gemini-planner.md > /tmp/gemini-planner-result.json 2>&1
 ```
