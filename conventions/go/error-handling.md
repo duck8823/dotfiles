@@ -16,9 +16,14 @@
 
 ```go
 func (s *service) GetUser(ctx context.Context, userID string) (*User, error) {
-	user, err := s.userRepo.FindByID(ctx, userID)
+	opt, err := s.userRepo.FindByID(ctx, userID)
 	if err != nil {
 		return nil, xerrors.Errorf("ユーザーの取得に失敗しました: %w", err)
+	}
+
+	user, ok := opt.Value()
+	if !ok {
+		return nil, ErrUserNotFound
 	}
 
 	if err := s.validateUser(user); err != nil {
