@@ -71,7 +71,7 @@ func UserOf(
 
 // 値オブジェクトをフィールドと同等の情報から生成
 func UserIDOf(value string) UserID {
-	return UserID{value: value}
+	return UserID(value)
 }
 
 // 値オブジェクトを変換して生成

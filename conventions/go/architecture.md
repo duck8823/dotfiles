@@ -61,11 +61,13 @@ func NewUser(
 	userID types.UserID,
 	email types.Optional[types.Email],
 	displayName string,
+	userType types.UserType,
 ) *User {
 	return &User{
 		userID:      userID,
 		email:       email,
 		displayName: displayName,
+		userType:    userType,
 		createdAt:   nowFunc(),
 		updatedAt:   nowFunc(),
 	}

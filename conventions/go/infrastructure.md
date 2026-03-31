@@ -284,19 +284,19 @@ import (
 	"golang.org/x/xerrors"
 )
 
-type userDatasource struct {
+type userDataSource struct {
 	client    Client
 	tableName string
 }
 
-func NewUserDatasource(client Client, tableName string) model.UserRepository {
-	return &userDatasource{
+func NewUserDataSource(client Client, tableName string) model.UserRepository {
+	return &userDataSource{
 		client:    client,
 		tableName: tableName,
 	}
 }
 
-func (d *userDatasource) FindByID(ctx context.Context, id types.UserID) (types.Optional[*model.User], error) {
+func (d *userDataSource) FindByID(ctx context.Context, id types.UserID) (types.Optional[*model.User], error) {
 	// ...
 	var item userItem
 	if err := attributevalue.UnmarshalMap(result.Item, &item); err != nil {
@@ -331,7 +331,7 @@ import (
 type userItem struct {
 	UserID    string    `dynamodbav:"user_id"`
 	Email     *string   `dynamodbav:"email,omitempty"`
-	Name      string    `dynamodbav:"name"`
+	DisplayName string    `dynamodbav:"display_name"`
 	CreatedAt time.Time `dynamodbav:"created_at"`
 	UpdatedAt time.Time `dynamodbav:"updated_at"`
 }
