@@ -55,7 +55,7 @@ git diff $(git describe --tags --abbrev=0 2>/dev/null || git rev-list --max-pare
 
 - 未使用の import・dead code の検出（`flutter analyze` / linter で検出可能な範囲）
 - プロジェクト CLAUDE.md のパス・コマンドが実際のプロジェクト構造と一致しているか確認
-- メモリファイル（`memory/`）の鮮度チェック: 30日以上更新なし → 内容を検証し、陳腐化していれば更新または削除
+- メモリファイル（`memory/`）の鮮度チェック: `find memory/ -name '*.md' -not -name 'MEMORY.md' -mtime +30` で30日以上更新なしのファイルを検出 → 内容を検証し、陳腐化していれば更新または削除
 
 ### 5. 問題のトリアージと対応
 
