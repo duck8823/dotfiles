@@ -156,7 +156,23 @@ render_template() {
 }
 
 sha256_file() {
-  shasum -a 256 "$1" | awk '{print $1}'
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{print $1}'
+    return
+  fi
+
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+    return
+  fi
+
+  if command -v openssl >/dev/null 2>&1; then
+    openssl dgst -sha256 "$1" | awk '{print $NF}'
+    return
+  fi
+
+  echo "sha256 calculator not found: install shasum, sha256sum, or openssl" >&2
+  return 1
 }
 
 sync_managed_settings() {
