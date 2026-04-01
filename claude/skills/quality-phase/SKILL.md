@@ -48,7 +48,7 @@ PROMPT
 
 GEMINI_SYSTEM_MD=$HOME/.gemini/agents/architect.md \
   TERM=xterm-256color \
-  gemini -p ' ' -e '' < /tmp/gemini-qp-architect.md > /tmp/gemini-qp-architect-result.json 2>&1
+  gemini --approval-mode plan -p ' ' -e none < /tmp/gemini-qp-architect.md > /tmp/gemini-qp-architect-result.json 2>&1
 ```
 
 ### 3. デザインチェック（Claude のみ）

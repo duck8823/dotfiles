@@ -18,6 +18,15 @@
             "command": "cmux claude-hook stop 2>/dev/null || true"
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash {{HOME}}/.claude/hooks/stop-self-review.sh"
+          }
+        ]
       }
     ],
     "Notification": [
@@ -46,11 +55,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash {{DOTFILES_DIR}}/claude/hooks/check-gh-commands.sh"
+            "command": "bash {{HOME}}/.claude/hooks/check-gh-commands.sh"
           },
           {
             "type": "command",
-            "command": "bash {{DOTFILES_DIR}}/claude/hooks/check-permissions.sh"
+            "command": "bash {{HOME}}/.claude/hooks/check-permissions.sh"
           }
         ]
       }
@@ -61,7 +70,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash {{DOTFILES_DIR}}/claude/hooks/post-edit-lint.sh"
+            "command": "bash {{HOME}}/.claude/hooks/post-edit-lint.sh"
           }
         ]
       },
@@ -70,18 +79,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash {{DOTFILES_DIR}}/claude/hooks/post-write-format.sh"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash {{DOTFILES_DIR}}/claude/hooks/stop-self-review.sh"
+            "command": "bash {{HOME}}/.claude/hooks/post-write-format.sh"
           }
         ]
       }

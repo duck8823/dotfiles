@@ -1,20 +1,45 @@
 # AI CLI 連携（Gemini / Codex の呼び出し）
 
+## 原則
+
+- **Claude** は foreground orchestrator として使う
+- **Codex** は background worker / verifier として使う
+- **Gemini** は read-only scout / critic として使う
+- すべて **ヘッドレス実行** を基本とする
+- 書き込みタスクは isolated branch / worktree 前提
+
 ## ヘッドレス実行コマンド
 
-| ツール | コマンド | 主要オプション |
-|--------|---------|---------------|
-| Codex | `codex exec "prompt"` | `-o <file>`: 最終メッセージをファイル出力、`--full-auto`: 承認なし実行 |
-| Gemini | `gemini -p "prompt"` | `-e ''`: 拡張機能無効化、stdin 経由でプロンプト渡し |
+| ツール | 目的 | コマンド例 | 補足 |
+|--------|------|-----------|------|
+| Codex | review / plan / worker | `codex exec --full-auto -o <file> - < <prompt>` | `-c 'agents.default.config_file=...'` で役割付与 |
+| Gemini | scout / review / planning | `gemini --approval-mode plan -p ' ' -e none < <prompt> > <output>` | `GEMINI_SYSTEM_MD=...` で役割付与 |
 
-対話的コマンド（`codex`, `gemini`）は使わない。必ずヘッドレスモードを使うこと。
+> `gemini -e none` は公式にサポートされた「拡張を無効化する」指定。旧来の `-e ''` は使わない。
+
+## 運用ルール
+
+### Gemini
+- 既定は `--approval-mode plan`（read-only）
+- repo-wide scan、既存パターン比較、docs / config / l10n drift 検出に使う
+- 書き込みをさせるのは、明示的に許可した isolated worktree 実験時のみ
+
+### Codex
+- scoped 実装、テスト、CI/CD、セキュリティ、シェル自動化に使う
+- 実装タスクでは dedicated branch / worktree を使う
+- 返却させる内容は **変更ファイル / 実行コマンド / 残リスク**
+
+### Claude
+- subagents / Task は sidecar 調査に使う
+- マージ判断とユーザー影響の最終責任はメインセッションが持つ
 
 ## エージェント指定付き実行
 
 ### Codex（TOML エージェント定義を使用）
 ```bash
+CODEX_AGENT=$HOME/.codex/agents/<agent-name>.toml
 codex exec --full-auto \
-  -c 'agents.default.config_file="$HOME/.codex/agents/<agent-name>.toml"' \
+  -c "agents.default.config_file=\"$CODEX_AGENT\"" \
   -o /tmp/<agent>-result.json \
   - < /tmp/<agent>-prompt.md 2>/tmp/<agent>.err
 ```
@@ -23,89 +48,79 @@ codex exec --full-auto \
 ```bash
 GEMINI_SYSTEM_MD=$HOME/.gemini/agents/<agent-name>.md \
   TERM=xterm-256color \
-  gemini -p ' ' -e '' < /tmp/<agent>-prompt.md > /tmp/<agent>-result.json 2>&1
+  gemini --approval-mode plan -p ' ' -e none \
+  < /tmp/<agent>-prompt.md > /tmp/<agent>-result.json 2>&1
 ```
+
+## worktree 運用
+
+### Codex write タスク
+- `main` 直下ではなく feature branch / dedicated worktree で実行する
+- 実装スコープが広い場合は branch ではなく worktree を優先する
+
+### Gemini 実験タスク
+Gemini で例外的に書き込みを試す場合だけ、公式 worktree 機能を使う。
+
+```bash
+gemini --worktree <task-name>
+```
+
+ただし dotfiles の標準運用では、Gemini を実装担当にしない。
 
 ## 並列実行方式
 
 ### 第一選択: cmux（推奨）
 
-cmux を使って Codex / Gemini を複数ペインで並列実行する。
-結果はファイル出力（`-o` / リダイレクト）で回収し、Claude メインセッションが統合する。
+cmux を使って Codex / Gemini を複数ペインで並列実行する。結果はファイル出力で回収し、Claude メインセッションが統合する。
 
 ```bash
 CMUX=/Applications/cmux.app/Contents/Resources/bin/cmux
-
-# ワークスペース作成（プロジェクトディレクトリで）
+CODEX_AGENT=$HOME/.codex/agents/architect.toml
 $CMUX new-workspace --cwd "$(pwd)"
 
-# 4ペインに分割（2×2: Codex architect, Codex reviewer, Gemini architect, Gemini reviewer）
 SURFACE_RIGHT=$($CMUX new-split right)
-SURFACE_BOTTOM_LEFT=$($CMUX new-split down --surface surface:1)
-SURFACE_BOTTOM_RIGHT=$($CMUX new-split down --surface "$SURFACE_RIGHT")
 
-# 各ペインにヘッドレスコマンドを送信
-$CMUX send --surface surface:1 'codex exec --full-auto \
-  -c '\''agents.default.config_file="$HOME/.codex/agents/architect.toml"'\'' \
+$CMUX send --surface surface:1 "codex exec --full-auto \
+  -c \"agents.default.config_file=\\\"$CODEX_AGENT\\\"\" \
   -o /tmp/codex-architect-result.json \
-  - < /tmp/codex-architect.md 2>/tmp/codex-architect.err && echo DONE'
+  - < /tmp/codex-architect.md 2>/tmp/codex-architect.err && echo DONE"
 $CMUX send-key --surface surface:1 Return
 
-# ... 他のペインも同様
-
-# 完了待ち: 結果ファイルの存在を監視
-while [ ! -f /tmp/codex-architect-result.json ] || [ ! -f /tmp/gemini-architect-result.json ]; do
-  sleep 5
-done
-```
-
-### cmux 固有の便利機能
-
-#### 結果の読み取り（ファイル出力が使えない場合のフォールバック）
-```bash
-$CMUX read-screen --surface surface:1 --scrollback --lines 200
-```
-
-#### 通知（タスク完了をハイライト）
-```bash
-$CMUX trigger-flash --surface surface:1
-```
-
-#### ブラウザペイン（E2E テスト・UI検証用）
-```bash
-$CMUX new-pane --type browser --url http://localhost:3000
-$CMUX browser screenshot --out /tmp/screenshot.png
-$CMUX browser snapshot  # DOM スナップショット取得
+$CMUX send --surface "$SURFACE_RIGHT" "GEMINI_SYSTEM_MD=$HOME/.gemini/agents/architect.md \
+  TERM=xterm-256color \
+  gemini --approval-mode plan -p ' ' -e none \
+  < /tmp/gemini-architect.md > /tmp/gemini-architect-result.json 2>&1 && echo DONE"
+$CMUX send-key --surface "$SURFACE_RIGHT" Return
 ```
 
 ### 第二選択: Bash バックグラウンド実行
 
-cmux が利用できない環境でのフォールバック。
-
 ```bash
-# バックグラウンドで並列実行
+CODEX_AGENT=$HOME/.codex/agents/architect.toml
 codex exec --full-auto \
-  -c 'agents.default.config_file="$HOME/.codex/agents/architect.toml"' \
+  -c "agents.default.config_file=\"$CODEX_AGENT\"" \
   -o /tmp/codex-architect-result.json \
   - < /tmp/codex-architect.md 2>/tmp/codex-architect.err &
 PID_CODEX=$!
 
 GEMINI_SYSTEM_MD=$HOME/.gemini/agents/architect.md \
   TERM=xterm-256color \
-  gemini -p ' ' -e '' < /tmp/gemini-architect.md > /tmp/gemini-architect-result.json 2>&1 &
+  gemini --approval-mode plan -p ' ' -e none \
+  < /tmp/gemini-architect.md > /tmp/gemini-architect-result.json 2>&1 &
 PID_GEMINI=$!
 
-# 完了待ち
 wait $PID_CODEX $PID_GEMINI
 ```
 
 ### 第三選択: tmux（レガシー）
 
-- Gemini を tmux で使う場合は `TERM=xterm-256color` 必須（`TERM=screen` でクラッシュする既知問題）
-- プロンプトは必ずファイルに書き出してから stdin 経由で渡す（ARG_MAX 回避）
+- `TERM=xterm-256color` を必ず設定する
+- プロンプトは必ずファイルに書き出してから stdin で渡す
+- 対話モード（`codex` / `gemini`）は使わない
 
 ## エラーハンドリング
 
-- stderr と stdout は分離保存する（`2>/tmp/tool.err`）
+- stderr と stdout は分離保存する（Gemini は単一ファイルでも可だが、Codex は必ず stderr を別保存）
 - 失敗時は1回だけリトライ、2回目失敗でスキップして失敗を記録
 - Codex を非リポジトリで使う場合は `--skip-git-repo-check` を付ける
+- タイムアウト・JSON不正・空出力は統合ログに残す
