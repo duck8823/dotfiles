@@ -5,7 +5,7 @@ tools:
   - read_file
   - list_directory
   - search_files
-model: gemini-2.5-pro
+model: gemini-3.1-pro
 max_turns: 12
 timeout_mins: 6
 ---
