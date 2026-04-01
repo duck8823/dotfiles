@@ -1,130 +1,102 @@
 ---
 name: multi-ai-review
-description: Architect/Reviewerロールを3AI×2ロール=6並列で実行し結果を統合する
+description: Gemini scout・Codex verifier・Claude integrator を組み合わせてPRを多重レビューする
 ---
 
-# Multi-AI 多重レビュー（6並列）
+# Multi-AI レビュー
 
 ## トリガー
 ドラフト PR 作成後に自動呼び出し。または手動で `/multi-ai-review`
 
+## 基本方針
+
+- **Gemini** は read-only scout / critic
+- **Codex** は security / test verifier
+- **Claude** は統合判断とマージゲート
+- authored-by に応じて利益相反を避ける
+
 ## 手順
 
-### 1. 差分準備
+### 1. 差分とコンテキスト収集
 ```bash
-git diff origin/main...HEAD > /tmp/diff.txt
+PR_NUMBER=<number>
+PROJECT=$(basename "$(pwd)")
+DIFF_FILE=/tmp/${PROJECT}-pr${PR_NUMBER}-diff.txt
+
+git diff origin/main...HEAD > "$DIFF_FILE"
+gh pr view "$PR_NUMBER"
+gh pr checks "$PR_NUMBER"
 ```
 
-### 2. Claude サブエージェント（2体並列起動）
-- `~/.claude/agents/architect.md` をサブエージェントとして起動（diff を渡す）
-- `~/.claude/agents/reviewer.md` をサブエージェントとして起動（diff を渡す）
-
-### 3. Codex + Gemini（4体並列、cmux）
-
-cmux で4ペインを作成し、Codex 2体 + Gemini 2体を並列実行する。
-（cmux が利用できない場合は Bash バックグラウンド実行でフォールバック。詳細は `~/.claude/guidelines/ai-cli-integration.md`）
-
-#### プロンプトファイル準備
+### 2. Gemini scout
 ```bash
-cat <<PROMPT > /tmp/codex-architect.md
-以下の差分をアーキテクチャ観点でレビューしてください。
-プロジェクトの CLAUDE.md のアーキテクチャ方針に従ってください。
+cat > /tmp/gemini-review.md <<PROMPT
+以下の PR を read-only scout / critic としてレビューしてください。
 
-$(cat /tmp/diff.txt)
+- 既存パターンとの整合性
+- diff 外影響
+- docs / config / l10n 更新漏れ
+- 命名 drift
+
+## Diff
+$(cat "$DIFF_FILE")
 PROMPT
 
-cat <<PROMPT > /tmp/codex-reviewer.md
-以下の差分をセキュリティ・エッジケース観点でレビューしてください。
-
-$(cat /tmp/diff.txt)
-PROMPT
-
-cat <<PROMPT > /tmp/gemini-architect.md
-以下の差分をアーキテクチャ観点でレビューしてください。
-プロジェクト全体のソースも参照して俯瞰的に判断してください。
-
-$(cat /tmp/diff.txt)
-PROMPT
-
-cat <<PROMPT > /tmp/gemini-reviewer.md
-以下の差分を既存パターン・一貫性観点でレビューしてください。
-プロジェクト全体のソースも参照して判断してください。
-
-$(cat /tmp/diff.txt)
-PROMPT
+GEMINI_SYSTEM_MD=$HOME/.gemini/agents/reviewer.md   TERM=xterm-256color   gemini --approval-mode plan -p ' ' -e none   < /tmp/gemini-review.md > /tmp/gemini-review-result.json 2>&1
 ```
 
-#### cmux 並列実行
+### 3. Codex verifier
+Claude authored PR または外部生成パッチのときのみ実行する。
+
 ```bash
-CMUX=/Applications/cmux.app/Contents/Resources/bin/cmux
+cat > /tmp/codex-review.md <<PROMPT
+以下の PR を verifier としてレビューしてください。
 
-# 結果ファイルをクリア
-rm -f /tmp/{codex,gemini}-{architect,reviewer}-result.json
+- セキュリティ
+- エッジケース
+- テスト / 解析コマンドの実行
+- 再現手順
 
-# ワークスペース作成 + 4ペイン分割
-$CMUX new-workspace --cwd "$(pwd)"
-SURFACE_RIGHT=$($CMUX new-split right)
-SURFACE_BOTTOM_LEFT=$($CMUX new-split down --surface surface:1)
-SURFACE_BOTTOM_RIGHT=$($CMUX new-split down --surface "$SURFACE_RIGHT")
+まず以下を実行してください。
+1. git diff origin/main...HEAD
+2. <test_command>
+3. <analyze_command>
+PROMPT
 
-# Codex Architect (surface:1)
-$CMUX send --surface surface:1 "codex exec --full-auto -c 'agents.default.config_file=\"\$HOME/.codex/agents/architect.toml\"' -o /tmp/codex-architect-result.json - < /tmp/codex-architect.md 2>/tmp/codex-architect.err"
-$CMUX send-key --surface surface:1 Return
-
-# Codex Reviewer (SURFACE_BOTTOM_LEFT)
-$CMUX send --surface "$SURFACE_BOTTOM_LEFT" "codex exec --full-auto -c 'agents.default.config_file=\"\$HOME/.codex/agents/reviewer.toml\"' -o /tmp/codex-reviewer-result.json - < /tmp/codex-reviewer.md 2>/tmp/codex-reviewer.err"
-$CMUX send-key --surface "$SURFACE_BOTTOM_LEFT" Return
-
-# Gemini Architect (SURFACE_RIGHT)
-$CMUX send --surface "$SURFACE_RIGHT" "GEMINI_SYSTEM_MD=\$HOME/.gemini/agents/architect.md TERM=xterm-256color gemini -p ' ' -e '' < /tmp/gemini-architect.md > /tmp/gemini-architect-result.json 2>&1"
-$CMUX send-key --surface "$SURFACE_RIGHT" Return
-
-# Gemini Reviewer (SURFACE_BOTTOM_RIGHT)
-$CMUX send --surface "$SURFACE_BOTTOM_RIGHT" "GEMINI_SYSTEM_MD=\$HOME/.gemini/agents/reviewer.md TERM=xterm-256color gemini -p ' ' -e '' < /tmp/gemini-reviewer.md > /tmp/gemini-reviewer-result.json 2>&1"
-$CMUX send-key --surface "$SURFACE_BOTTOM_RIGHT" Return
+codex exec --full-auto   -c 'agents.default.config_file="$HOME/.codex/agents/reviewer.toml"'   -o /tmp/codex-review-result.json   - < /tmp/codex-review.md 2>/tmp/codex-review.err
 ```
 
-#### 完了待ち
-結果ファイル4つの出現を監視する。タイムアウト10分。
-```bash
-TIMEOUT=600; ELAPSED=0
-while [ $ELAPSED -lt $TIMEOUT ]; do
-  [ -f /tmp/codex-architect-result.json ] && [ -f /tmp/codex-reviewer-result.json ] && \
-  [ -f /tmp/gemini-architect-result.json ] && [ -f /tmp/gemini-reviewer-result.json ] && break
-  sleep 10; ELAPSED=$((ELAPSED + 10))
-done
-```
+### 4. Claude 統合
+Claude は以下を行う。
+1. Gemini の repo-wide 指摘を確認
+2. Codex の実行証跡付き指摘を確認
+3. diff 全体を実読して採用 / 棄却を判断
+4. PR コメントに統合結果を投稿
 
-### 5. 結果統合（Claude Opus メイン）
-
-6つの結果を読み込み:
-1. 重複排除（同じファイル:行の指摘を統合）
-2. 信頼度判定（3AI中2AI以上が指摘 → 高信頼）
-3. 1AIのみの指摘 → ソースコード実読で誤検出フィルタ
-4. CRITICAL は無条件採用
-5. 統合結果を `gh pr comment` で投稿
-
-### 6. 投稿フォーマット
+### 5. 投稿フォーマット
 ```markdown
 ## Multi-AI Review Results
+
+### レビュアー
+- Gemini scout: ✅ / ❌
+- Codex verifier or Claude reviewer: ✅ / ❌
+- Claude final: ✅ / ❌
 
 ### CRITICAL
 | 指摘 | ファイル:行 | 検出AI | 修正案 |
 
-### HIGH
+### MAJOR
 | 指摘 | ファイル:行 | 検出AI | 修正案 |
 
-### 統計
-| AI | Architect | Reviewer |
-| Claude | N件 | N件 |
-| Codex | N件 | N件 |
-| Gemini | N件 | N件 |
+### MINOR
+| 指摘 | ファイル:行 | 検出AI | 修正案 |
 ```
 
-### 7. 修正ループ
-- CRITICAL → 即修正 → 修正箇所のみ Claude reviewer で再レビュー（6並列は不要）
-- 全 CRITICAL 解消 → マージ判断へ
+### 6. 修正ループ
+- CRITICAL / MAJOR → 修正 → 再レビュー
+- MINOR のみ → Claude がマージ可否を最終判断
 
-### エラーハンドリング
-- Codex/Gemini が失敗 → 1回リトライ → 2回目失敗 → スキップして記録
-- 失敗した AI の結果なしで統合を続行（残りの AI 結果で判断）
+### 7. エラーハンドリング
+- Gemini / Codex が失敗 → 1回リトライ
+- 2回目も失敗 → Claude reviewer で補完
+- 最低2系統のレビューが成功すれば統合を続行する

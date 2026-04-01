@@ -2,14 +2,52 @@
   "security": {
     "auth": {
       "selectedType": "oauth-personal"
+    },
+    "folderTrust": {
+      "enabled": true
     }
   },
   "general": {
-    "previewFeatures": true,
+    "defaultApprovalMode": "plan",
+    "enableNotifications": true,
+    "checkpointing": {
+      "enabled": true
+    },
+    "plan": {
+      "enabled": true,
+      "modelRouting": true
+    },
     "sessionRetention": {
       "enabled": true,
-      "maxAge": "30d",
-      "warningAcknowledged": true
+      "maxAge": "30d"
     }
+  },
+  "context": {
+    "loadMemoryFromIncludeDirectories": false,
+    "fileFiltering": {
+      "respectGitIgnore": true,
+      "respectGeminiIgnore": true,
+      "enableRecursiveFileSearch": true,
+      "enableFuzzySearch": true
+    }
+  },
+  "tools": {
+    "useRipgrep": true,
+    "disableLLMCorrection": true
+  },
+  "ui": {
+    "compactToolOutput": true,
+    "showLineNumbers": true
+  },
+  "experimental": {
+    "worktrees": true,
+    "modelSteering": true
+  },
+  "skills": {
+    "enabled": true
+  },
+  "hooksConfig": {
+    "enabled": true,
+    "notifications": true
   }
 }
