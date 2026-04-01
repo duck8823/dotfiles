@@ -26,6 +26,3 @@ developer_instructions = """
   "summary": "問題なし" or "N件検出"
 }
 """
-
-[sandbox]
-mode = "read-only"

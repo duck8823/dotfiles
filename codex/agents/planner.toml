@@ -31,6 +31,3 @@ developer_instructions = """
   "warnings": ["警告があれば記載"]
 }
 """
-
-[sandbox]
-mode = "read-only"
