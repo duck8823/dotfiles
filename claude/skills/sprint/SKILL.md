@@ -27,7 +27,7 @@ gh issue view <番号>
 #### 2. 仕様書生成（3AI多重）
 `spec-driven` スキルを呼び出し:
 - Claude / Codex / Gemini の spec-writer を並列起動
-- 統合して `.spec/<issue番号>.md` 生成
+- 統合して `.ai/spec/<issue番号>.md` 生成
 
 #### 3. 実装
 - .spec に基づいて実装（Claude Opus メイン）
@@ -52,7 +52,7 @@ gh issue view <番号>
 
 #### 7. 後処理
 - PR マージ後に `gh issue close <番号>`
-- `.spec/<issue番号>.md` を削除
+- `.ai/spec/<issue番号>.md` を削除
 - プロジェクトメモリのスプリント状態を更新
 - 次の Issue へ
 
@@ -83,4 +83,4 @@ flutter clean && flutter build ipa
 ### 復帰時（「/sprint 続き」で）
 1. メモリからスプリント状態を読み込み
 2. 未完了の Issue から再開
-3. .spec が残っていればそこから実装再開
+3. .ai/spec が残っていればそこから実装再開

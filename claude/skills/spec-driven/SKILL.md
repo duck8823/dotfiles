@@ -51,7 +51,7 @@ GEMINI_SYSTEM_MD=$HOME/.gemini/agents/spec-writer.md   TERM=xterm-256color   gem
 
 ### 3. 統合して .spec 生成
 
-3つの結果を統合し `.spec/<issue番号>.md` を生成:
+3つの結果を統合し `.ai/spec/<issue番号>.md` を生成:
 
 ```markdown
 # Issue #<番号>: <タイトル>
