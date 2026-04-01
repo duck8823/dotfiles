@@ -124,3 +124,16 @@ wait $PID_CODEX $PID_GEMINI
 - 失敗時は1回だけリトライ、2回目失敗でスキップして失敗を記録
 - Codex を非リポジトリで使う場合は `--skip-git-repo-check` を付ける
 - タイムアウト・JSON不正・空出力は統合ログに残す
+
+## フォールバックマトリクス
+
+| 障害種別 | 検出方法 | 対応 |
+|---|---|---|
+| **Codex タイムアウト** | 結果ファイル未出現（10分超過） | 1回リトライ → Claude が直接実行 |
+| **Gemini タイムアウト** | 同上 | 1回リトライ → Codex scout で代替 |
+| **Codex capacity failure** | stderr に `rate_limit` / `capacity` | 30秒待ってリトライ → スキップ |
+| **Gemini capacity failure** | stderr に `429` / `RESOURCE_EXHAUSTED` | 30秒待ってリトライ → スキップ |
+| **JSON パース失敗** | jq / python3 でパース不能 | 1回リトライ → 統合ログに記録してスキップ |
+| **部分レビュー** | 6並列中の一部のみ完了 | 完了分で統合判断を続行。欠落を記録 |
+
+フォールバック発生時は `.ai-logs/` の統合ログに障害種別・AI・リトライ回数を記録する。

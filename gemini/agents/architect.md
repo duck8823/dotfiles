@@ -6,7 +6,7 @@ tools:
   - list_directory
   - search_files
   - grep_search
-model: gemini-2.5-pro
+model: gemini-3.1-pro
 max_turns: 18
 timeout_mins: 8
 ---

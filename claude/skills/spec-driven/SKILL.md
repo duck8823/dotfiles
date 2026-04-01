@@ -49,9 +49,9 @@ PROMPT
 GEMINI_SYSTEM_MD=$HOME/.gemini/agents/spec-writer.md   TERM=xterm-256color   gemini --approval-mode plan -p ' ' -e none < /tmp/gemini-spec.md > /tmp/gemini-spec-result.json 2>&1
 ```
 
-### 3. 統合して .spec 生成
+### 3. 統合して .ai/spec 生成
 
-3つの結果を統合し `.spec/<issue番号>.md` を生成:
+3つの結果を統合し `.ai/spec/<issue番号>.md` を生成:
 
 ```markdown
 # Issue #<番号>: <タイトル>
@@ -80,8 +80,8 @@ GEMINI_SYSTEM_MD=$HOME/.gemini/agents/spec-writer.md   TERM=xterm-256color   gem
 ```
 
 ### 4. 実装開始
-- .spec を参照しながら実装
+- .ai/spec を参照しながら実装
 - 完了条件のテストが通ることを確認
 
 ### 5. クリーンアップ
-- PR マージ後に .spec ファイルを削除
+- PR マージ後に .ai/spec ファイルを削除

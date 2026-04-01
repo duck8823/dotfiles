@@ -14,6 +14,7 @@
 ## ベンチマーク・情報源の扱い
 
 - ベンチマークは参考情報。評価条件が異なる結果を単純比較して序列化しない
+- SWE-bench Verified は訓練データ汚染が確認されており（OpenAI が報告停止）、モデル比較には SWE-bench Pro を参照
 - 情報源は一次情報（公式ドキュメント・ブログ・リポジトリ）を優先。二次情報は裏取り必須
 - 「無制限」等の表現は guardrail・レート制限前提で扱う
 
@@ -42,8 +43,10 @@
 
 1. Flutter: `flutter analyze` → `flutter test` → 失敗時リトライ（最大3回）
 2. Godot: ゲーム起動 → スクリーンショット確認 → 問題は自分で修正
-3. 共通: `git diff` で意図しない変更がないか確認
-4. 検証通過後にユーザーに報告
+3. Go: `go vet ./...` → `go test ./...` → 失敗時リトライ（最大3回）
+4. 共通: `git diff` で意図しない変更がないか確認
+5. 新規依存追加時: セキュリティスキャン実行（`npm audit` / `go vuln check` / `flutter pub audit` 等）
+6. 検証通過後にユーザーに報告
 
 ## AI ツール運用戦略
 
@@ -78,7 +81,22 @@
 - diff 外で必要な追加修正、命名 drift、README / 設定 / l10n 更新漏れを洗う
 - 実装担当ではなく **scout / critic** として先回りさせる
 
-フォールバック: Claude 制限到達時 → 実装は Codex、レビューは Gemini+Claude、調査は ChatGPT
+### リスク別ルーティング（詳細は `multi-ai-team.md`）
+
+| リスク | ルーティング |
+|---|---|
+| **Low** | Codex build → Codex verify → Gemini review → Claude final |
+| **Medium** | Gemini scout → Codex build → Claude verify/integrate → 6並列 review |
+| **High** | Claude plan/build 主体、Gemini scout、Codex verifier |
+
+### フォールバック
+
+| 障害 | 対応 |
+|---|---|
+| Claude 制限到達 | 実装は Codex、レビューは Gemini+Codex、調査は ChatGPT |
+| Codex タイムアウト/失敗 | 1回リトライ → スキップ → Claude が直接実行 |
+| Gemini タイムアウト/失敗 | 1回リトライ → スキップ → Codex scout で代替（一貫性チェックは精度低下を許容） |
+| 部分レビュー（一部 AI のみ完了） | 完了した AI の結果で統合判断を続行。欠落を統合ログに記録 |
 
 ## Codex / Gemini 協調
 

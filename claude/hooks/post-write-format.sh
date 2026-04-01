@@ -13,6 +13,19 @@ except:
     print('')
 " 2>/dev/null || echo "")
 
+# パストラバーサル防止（CVE-2025-59536 対策）
+# 空パス・相対パス上昇・workspace 外の絶対パスを拒否
+if [[ -z "$file_path" ]] || [[ "$file_path" == *".."* ]]; then
+    exit 0
+fi
+if [[ -f "$file_path" ]]; then
+    resolved=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$file_path" 2>/dev/null || echo "")
+    workspace=$(pwd)
+    if [[ -n "$resolved" ]] && [[ "$resolved" != "$workspace"/* ]]; then
+        exit 0
+    fi
+fi
+
 # --- Dart ---
 if echo "$file_path" | grep -qE '\.dart$'; then
     if command -v dart &>/dev/null; then
