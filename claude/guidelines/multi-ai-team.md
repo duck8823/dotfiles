@@ -26,6 +26,37 @@
 3. **Claude は最終 diff とユーザー影響を引き受ける**
 4. 迷ったら Claude を foreground、Gemini を read-only、Codex を worker として置く
 
+## 開発フェーズ別の AI 活用
+
+| フェーズ | Claude | Codex | Gemini |
+|---|---|---|---|
+| **Plan** | 統合・Wave構成 | フィジビリティ・リスク | 優先度・スコープ・漏れ検出 |
+| **Scout** | — | セキュリティ事前スキャン | repo-wide 影響範囲・一貫性 |
+| **Build** | メイン実装 | scoped 実装（isolated branch） | — |
+| **Verify** | — | テスト実行・lint・セキュリティスキャン | docs/config/l10n 更新漏れ |
+| **Review** | 最終レビュー・統合判断 | セキュリティ・エッジケース | パターン一貫性・diff外影響 |
+| **Merge** | マージゲート | — | — |
+
+### リスク別ルーティング
+
+| リスク | ルーティング |
+|---|---|
+| **Low**（定型・テスト追加等） | Codex build → Codex verify → Gemini review → Claude final |
+| **Medium**（通常の機能実装） | Gemini scout → Claude build → Codex verify → 6並列 review |
+| **High**（アーキテクチャ変更等） | Claude plan/build 主体、Gemini scout、Codex verifier |
+
+## タスク適性ガイド（METR RCT 2025 に基づく）
+
+METR の RCT 研究で「経験者×馴染みのコードベースでは AI 利用で 19% 遅くなった」ことが実証された。
+タスク特性に応じた使い分けが重要。
+
+| タスク特性 | AI 活用 | 根拠 |
+|---|---|---|
+| ボイラープレート・テスト生成・定型コード | ◎ 積極活用 | 30-55% 高速化が一貫して確認 |
+| 不慣れなコードベース・新技術の探索 | ○ 有効 | コンテキスト補完が利得 |
+| 熟知したコードの小修正 | △ 任意 | 認知マップ完成済みの領域ではオーバーヘッド |
+| 大規模アーキテクチャ変更 | △ 計画のみ | 実装は段階的に人間が判断 |
+
 ## 役割×AI マトリクス
 
 | ロール | Claude (サブエージェント) | Codex (TOML) | Gemini (MD) |
