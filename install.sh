@@ -12,6 +12,15 @@ MANAGED_TAG="managed by duck8823/dotfiles"
 # JSON はコメント非対応のため空文字を返す（サイドカーファイルで管理）
 marker_for() {
   local file="$1"
+  local base
+  base="$(basename "$file")"
+
+  # Codex の SKILL.md は YAML frontmatter が先頭必須のためマーカーを埋め込まない
+  if [ "$base" = "SKILL.md" ]; then
+    echo ""
+    return
+  fi
+
   case "$file" in
     *.json)    echo "" ;;
     *.yaml|*.yml) echo "# $MANAGED_TAG" ;;
@@ -46,8 +55,9 @@ copy_managed() {
 
   if [ -f "$dst" ]; then
     if [ -z "$marker" ]; then
-      # JSON 等コメント非対応: サイドカーファイルで管理判定
-      if [ ! -f "${dst}.managed" ]; then
+      # JSON / SKILL.md 等コメント非対応: サイドカーファイルで管理判定
+      # 旧方式（先頭マーカー）からの移行は許可する
+      if [ ! -f "${dst}.managed" ] && ! head -1 "$dst" | grep -qF "$MANAGED_TAG"; then
         echo "  skip:   $dst (local override — no .managed sidecar)"
         return
       fi
