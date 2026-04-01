@@ -46,14 +46,33 @@ def main() -> None:
         assert (tmp_home / ".codex/config.toml").exists()
         assert (tmp_home / ".codex/config.toml.managed.sha256").exists()
 
+        # 壊れた symlink でも regular file に置き換えて生成できる
+        broken_claude_settings = tmp_home / ".claude/settings.json"
+        broken_claude_settings.unlink()
+        broken_target = tmp_root / "missing-claude-settings.json"
+        os.symlink(broken_target, broken_claude_settings)
+        log = run_install(tmp_repo, tmp_home)
+        assert_contains(log, ".claude/settings.json (migrating from symlink to copy)")
+        assert not broken_claude_settings.is_symlink()
+        assert broken_claude_settings.exists()
+
         # 未編集時は keep / update で収まる
         log = run_install(tmp_repo, tmp_home)
         assert_contains(log, ".claude/settings.json (already up to date)")
         assert_contains(log, ".gemini/settings.json (already up to date)")
         assert_contains(log, ".codex/config.toml (already up to date)")
 
-        # ローカル編集のみなら保持
+        # 追跡済み symlink は regular file に移行する
         gemini_settings = tmp_home / ".gemini/settings.json"
+        gemini_shadow = tmp_root / "gemini-settings-shadow.json"
+        gemini_shadow.write_text(gemini_settings.read_text())
+        gemini_settings.unlink()
+        os.symlink(gemini_shadow, gemini_settings)
+        log = run_install(tmp_repo, tmp_home)
+        assert_contains(log, ".gemini/settings.json (migrated from symlink to copy)")
+        assert not gemini_settings.is_symlink()
+
+        # ローカル編集のみなら保持
         gemini_settings.write_text(
             gemini_settings.read_text().replace(
                 '"enableNotifications": true',

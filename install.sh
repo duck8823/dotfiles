@@ -155,6 +155,18 @@ render_template() {
   sed "s|{{DOTFILES_DIR}}|${DOTFILES_DIR}|g; s|{{HOME}}|${HOME}|g" "$src"
 }
 
+install_managed_copy() {
+  local src="$1"
+  local dst="$2"
+
+  if [ -L "$dst" ]; then
+    rm "$dst"
+    echo "  unlink: $dst (migrating from symlink to copy)"
+  fi
+
+  cp "$src" "$dst"
+}
+
 sha256_file() {
   if command -v shasum >/dev/null 2>&1; then
     shasum -a 256 "$1" | awk '{print $1}'
@@ -198,7 +210,7 @@ sync_managed_settings() {
   rendered_hash="$(sha256_file "$tmp_file")"
 
   if [ ! -f "$dst" ]; then
-    cp "$tmp_file" "$dst"
+    install_managed_copy "$tmp_file" "$dst"
     printf '%s\n' "$rendered_hash" > "$state_file"
     rm -f "$candidate_file" "$tmp_file"
     echo "  create: $dst"
@@ -212,9 +224,14 @@ sync_managed_settings() {
 
     if [ "$current_hash" = "$tracked_hash" ]; then
       if [ "$rendered_hash" = "$tracked_hash" ]; then
-        echo "  keep:   $dst (already up to date)"
+        if [ -L "$dst" ]; then
+          install_managed_copy "$tmp_file" "$dst"
+          echo "  update: $dst (migrated from symlink to copy)"
+        else
+          echo "  keep:   $dst (already up to date)"
+        fi
       else
-        cp "$tmp_file" "$dst"
+        install_managed_copy "$tmp_file" "$dst"
         echo "  update: $dst"
       fi
       printf '%s\n' "$rendered_hash" > "$state_file"
@@ -235,6 +252,9 @@ sync_managed_settings() {
   fi
 
   if [ "$current_hash" = "$rendered_hash" ]; then
+    if [ -L "$dst" ]; then
+      install_managed_copy "$tmp_file" "$dst"
+    fi
     printf '%s\n' "$rendered_hash" > "$state_file"
     rm -f "$candidate_file" "$tmp_file"
     echo "  track:  $dst (managed settings baseline created)"
