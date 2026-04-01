@@ -25,6 +25,3 @@ developer_instructions = """
   "error_scenarios": ["エラーシナリオ"]
 }
 """
-
-[sandbox]
-mode = "read-only"
