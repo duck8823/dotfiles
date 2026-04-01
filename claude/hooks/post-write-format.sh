@@ -13,6 +13,11 @@ except:
     print('')
 " 2>/dev/null || echo "")
 
+# パストラバーサル防止（CVE-2025-59536 対策）
+if [[ -z "$file_path" ]] || [[ "$file_path" == *".."* ]]; then
+    exit 0
+fi
+
 # --- Dart ---
 if echo "$file_path" | grep -qE '\.dart$'; then
     if command -v dart &>/dev/null; then
