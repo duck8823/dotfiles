@@ -81,7 +81,22 @@
 - diff 外で必要な追加修正、命名 drift、README / 設定 / l10n 更新漏れを洗う
 - 実装担当ではなく **scout / critic** として先回りさせる
 
-フォールバック: Claude 制限到達時 → 実装は Codex、レビューは Gemini+Claude、調査は ChatGPT
+### リスク別ルーティング（詳細は `multi-ai-team.md`）
+
+| リスク | ルーティング |
+|---|---|
+| **Low** | Codex build → Codex verify → Gemini review → Claude final |
+| **Medium** | Gemini scout → Codex build → Claude verify/integrate → 6並列 review |
+| **High** | Claude plan/build 主体、Gemini scout、Codex verifier |
+
+### フォールバック
+
+| 障害 | 対応 |
+|---|---|
+| Claude 制限到達 | 実装は Codex、レビューは Gemini+Codex、調査は ChatGPT |
+| Codex タイムアウト/失敗 | 1回リトライ → スキップ → Claude が直接実行 |
+| Gemini タイムアウト/失敗 | 1回リトライ → スキップ → Codex scout で代替（一貫性チェックは精度低下を許容） |
+| 部分レビュー（一部 AI のみ完了） | 完了した AI の結果で統合判断を続行。欠落を統合ログに記録 |
 
 ## Codex / Gemini 協調
 
