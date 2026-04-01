@@ -150,19 +150,84 @@ copy_managed_sh() {
   echo "  copy:   $dst"
 }
 
-process_template() {
+render_template() {
+  local src="$1"
+  sed "s|{{DOTFILES_DIR}}|${DOTFILES_DIR}|g; s|{{HOME}}|${HOME}|g" "$src"
+}
+
+sha256_file() {
+  shasum -a 256 "$1" | awk '{print $1}'
+}
+
+sync_managed_settings() {
   local src="$1"
   local dst="$2"
+  local mode="${3:-copy}"  # copy | template
+  local dst_dir state_file candidate_file tmp_file
+  local current_hash rendered_hash tracked_hash
 
-  mkdir -p "$(dirname "$dst")"
+  dst_dir="$(dirname "$dst")"
+  state_file="${dst}.managed.sha256"
+  candidate_file="${dst}.dotfiles-new"
+  tmp_file="$(mktemp)"
 
-  if [ -f "$dst" ]; then
-    echo "  skip:   $dst (already exists — edit manually if needed)"
+  mkdir -p "$dst_dir"
+
+  if [ "$mode" = "template" ]; then
+    render_template "$src" > "$tmp_file"
+  else
+    cp "$src" "$tmp_file"
+  fi
+
+  rendered_hash="$(sha256_file "$tmp_file")"
+
+  if [ ! -f "$dst" ]; then
+    cp "$tmp_file" "$dst"
+    printf '%s\n' "$rendered_hash" > "$state_file"
+    rm -f "$candidate_file" "$tmp_file"
+    echo "  create: $dst"
     return
   fi
 
-  sed "s|{{DOTFILES_DIR}}|${DOTFILES_DIR}|g; s|{{HOME}}|${HOME}|g" "$src" > "$dst"
-  echo "  create: $dst (from template)"
+  current_hash="$(sha256_file "$dst")"
+
+  if [ -f "$state_file" ]; then
+    tracked_hash="$(cat "$state_file")"
+
+    if [ "$current_hash" = "$tracked_hash" ]; then
+      if [ "$rendered_hash" = "$tracked_hash" ]; then
+        echo "  keep:   $dst (already up to date)"
+      else
+        cp "$tmp_file" "$dst"
+        echo "  update: $dst"
+      fi
+      printf '%s\n' "$rendered_hash" > "$state_file"
+      rm -f "$candidate_file" "$tmp_file"
+      return
+    fi
+
+    if [ "$rendered_hash" = "$tracked_hash" ]; then
+      echo "  keep:   $dst (local edits preserved)"
+      rm -f "$candidate_file" "$tmp_file"
+      return
+    fi
+
+    cp "$tmp_file" "$candidate_file"
+    rm -f "$tmp_file"
+    echo "  merge:  $dst (review ${candidate_file})"
+    return
+  fi
+
+  if [ "$current_hash" = "$rendered_hash" ]; then
+    printf '%s\n' "$rendered_hash" > "$state_file"
+    rm -f "$candidate_file" "$tmp_file"
+    echo "  track:  $dst (managed settings baseline created)"
+    return
+  fi
+
+  cp "$tmp_file" "$candidate_file"
+  rm -f "$tmp_file"
+  echo "  merge:  $dst (existing file differs; review ${candidate_file})"
 }
 
 # ============================================================
@@ -222,10 +287,11 @@ for f in "$DOTFILES_DIR/claude/rules/"*.md; do
   copy_managed "$f" "$HOME/.claude/rules/$fname"
 done
 
-# settings.json はテンプレートから生成（上書きしない）
-process_template \
+# settings.json は差分追跡しつつ同期する
+sync_managed_settings \
   "$DOTFILES_DIR/claude/settings.json.template" \
-  "$HOME/.claude/settings.json"
+  "$HOME/.claude/settings.json" \
+  "template"
 
 # ============================================================
 # Gemini CLI
@@ -244,13 +310,10 @@ for f in "$DOTFILES_DIR/gemini/agents/"*.md; do
   copy_managed "$f" "$HOME/.gemini/agents/$fname"
 done
 
-# settings.json: 既存がなければコピー（OAuth 設定を壊さないよう上書きしない）
-if [ ! -f "$HOME/.gemini/settings.json" ]; then
-  cp "$DOTFILES_DIR/gemini/settings.json" "$HOME/.gemini/settings.json"
-  echo "  copy:   ~/.gemini/settings.json"
-else
-  echo "  skip:   ~/.gemini/settings.json (already exists)"
-fi
+# settings.json は差分追跡しつつ同期する
+sync_managed_settings \
+  "$DOTFILES_DIR/gemini/settings.json" \
+  "$HOME/.gemini/settings.json"
 
 # ============================================================
 # Codex CLI
@@ -269,10 +332,11 @@ for f in "$DOTFILES_DIR/codex/agents/"*.toml; do
   copy_managed "$f" "$HOME/.codex/agents/$fname"
 done
 
-# config.toml はテンプレートから生成（上書きしない）
-process_template \
+# config.toml は差分追跡しつつ同期する
+sync_managed_settings \
   "$DOTFILES_DIR/codex/config.toml.template" \
-  "$HOME/.codex/config.toml"
+  "$HOME/.codex/config.toml" \
+  "template"
 
 # rules: default.rules
 mkdir -p "$HOME/.codex/rules"
@@ -329,6 +393,17 @@ echo "  dotfiles 管理のファイルをローカルで上書きするには:"
 echo "    1. 対象ファイルの先頭行のマネージドマーカーを削除"
 echo "    2. 内容を自由に編集"
 echo "    3. install.sh を再実行してもスキップされます"
+echo ""
+echo "================================================================"
+echo ""
+echo " 管理対象の settings / config ファイルは内容ハッシュを追跡します。"
+echo " ローカル未編集なら再実行時に自動更新されます。"
+echo " ローカル編集と dotfiles 更新が衝突した場合は *.dotfiles-new を生成します。"
+echo ""
+echo " 例:"
+echo "    ~/.claude/settings.json.dotfiles-new"
+echo "    ~/.gemini/settings.json.dotfiles-new"
+echo "    ~/.codex/config.toml.dotfiles-new"
 echo ""
 echo "================================================================"
 echo ""
