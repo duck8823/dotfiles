@@ -30,7 +30,7 @@ gh issue view <番号>
 - 統合して `.ai/spec/<issue番号>.md` 生成
 
 #### 3. 実装
-- .spec に基づいて実装（Claude Opus メイン）
+- .ai/spec に基づいて実装（Claude Opus メイン）
 - 自己検証ループ:
   - Flutter: `flutter analyze` → `flutter test` → 失敗時リトライ（最大3回）
   - Godot: 起動 → スクリーンショット確認 → 問題は自分で修正
