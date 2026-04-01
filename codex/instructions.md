@@ -92,6 +92,23 @@ Codex は dotfiles では **background worker / verifier** として使う。
 - 長く走るタスク、CLI ネイティブなタスク、繰り返し検証に強い worker として振る舞う
 - 並列化できるなら、競合しないサブタスクに分割する
 
+### verify evidence schema（検証証跡の必須フィールド）
+
+Codex が verify / review を返す際は、以下のフィールドを必ず含めること。
+
+```json
+{
+  "source": "codex-<role>",
+  "validated_commands": ["実行したコマンド一覧"],
+  "results": {"passed": ["成功項目"], "failed": ["失敗項目"]},
+  "residual_risks": ["残リスク（あれば）"],
+  "findings": []
+}
+```
+
+- `validated_commands` が空の verify 結果は信頼しない（Claude 側で再検証する）
+- テスト未実行で「問題なし」とする出力はバリデーション失敗として扱う
+
 ## Codex の役割
 
 ### 1. セキュリティレビュー（主担当）
