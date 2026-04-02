@@ -463,6 +463,31 @@ if command -v pnpm &>/dev/null; then
     fi
   }
 
+  # ログローテーション付きラッパースクリプト（直近1000行を保持）
+  MEMORIES_MAX_LOG_LINES=1000
+
+  cat > "$MEMORIES_LOG_DIR/run-compact.sh" << WRAPPER
+#!/bin/bash
+LOG="${MEMORIES_LOG_DIR}/compact.log"
+if [ -f "\$LOG" ] && [ "\$(wc -l < "\$LOG")" -gt ${MEMORIES_MAX_LOG_LINES} ]; then
+  tail -n ${MEMORIES_MAX_LOG_LINES} "\$LOG" > "\$LOG.tmp" && mv "\$LOG.tmp" "\$LOG"
+fi
+echo "--- \$(date -Iseconds) ---" >> "\$LOG"
+"${MEMORIES_BIN}" compact run --inactivity-minutes 60 >> "\$LOG" 2>&1
+WRAPPER
+  chmod 755 "$MEMORIES_LOG_DIR/run-compact.sh"
+
+  cat > "$MEMORIES_LOG_DIR/run-consolidate.sh" << WRAPPER
+#!/bin/bash
+LOG="${MEMORIES_LOG_DIR}/consolidate.log"
+if [ -f "\$LOG" ] && [ "\$(wc -l < "\$LOG")" -gt ${MEMORIES_MAX_LOG_LINES} ]; then
+  tail -n ${MEMORIES_MAX_LOG_LINES} "\$LOG" > "\$LOG.tmp" && mv "\$LOG.tmp" "\$LOG"
+fi
+echo "--- \$(date -Iseconds) ---" >> "\$LOG"
+"${MEMORIES_BIN}" consolidate run >> "\$LOG" 2>&1
+WRAPPER
+  chmod 755 "$MEMORIES_LOG_DIR/run-consolidate.sh"
+
   install_launchd_plist "sh.memories.compact" "$MEMORIES_COMPACT_PLIST" \
 '<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -472,18 +497,11 @@ if command -v pnpm &>/dev/null; then
   <string>sh.memories.compact</string>
   <key>ProgramArguments</key>
   <array>
-    <string>'"${MEMORIES_BIN}"'</string>
-    <string>compact</string>
-    <string>run</string>
-    <string>--inactivity-minutes</string>
-    <string>60</string>
+    <string>/bin/bash</string>
+    <string>'"${MEMORIES_LOG_DIR}"'/run-compact.sh</string>
   </array>
   <key>StartInterval</key>
   <integer>1800</integer>
-  <key>StandardOutPath</key>
-  <string>'"${MEMORIES_LOG_DIR}"'/compact.log</string>
-  <key>StandardErrorPath</key>
-  <string>'"${MEMORIES_LOG_DIR}"'/compact.log</string>
 </dict>
 </plist>'
 
@@ -496,9 +514,8 @@ if command -v pnpm &>/dev/null; then
   <string>sh.memories.consolidate</string>
   <key>ProgramArguments</key>
   <array>
-    <string>'"${MEMORIES_BIN}"'</string>
-    <string>consolidate</string>
-    <string>run</string>
+    <string>/bin/bash</string>
+    <string>'"${MEMORIES_LOG_DIR}"'/run-consolidate.sh</string>
   </array>
   <key>StartCalendarInterval</key>
   <dict>
@@ -507,10 +524,6 @@ if command -v pnpm &>/dev/null; then
     <key>Minute</key>
     <integer>0</integer>
   </dict>
-  <key>StandardOutPath</key>
-  <string>'"${MEMORIES_LOG_DIR}"'/consolidate.log</string>
-  <key>StandardErrorPath</key>
-  <string>'"${MEMORIES_LOG_DIR}"'/consolidate.log</string>
 </dict>
 </plist>'
 
