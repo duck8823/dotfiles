@@ -1,0 +1,5 @@
+# memories.sh が生成するファイル（dotfiles リポジトリ自体では不要）
+.agents/
+.claude/settings.json
+CLAUDE.md
+.mcp.json

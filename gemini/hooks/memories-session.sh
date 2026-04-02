@@ -1,57 +1,27 @@
 #!/bin/bash
-# memories.sh セッションライフサイクル管理（Gemini 用）
+# memories.sh 連携（Gemini 用）
 # SessionStart / SessionEnd フックから呼ばれる
 # Gemini のフックは JSON 出力が必須のため、最後に {} を返す
 #
 # 使い方:
-#   memories-session.sh start  — セッション開始時
-#   memories-session.sh stop   — セッション終了時（snapshot + end）
-
-CLIENT="gemini"
-SESSION_STATE_DIR="${HOME}/.config/memories/sessions"
-SESSION_STATE_FILE="${SESSION_STATE_DIR}/${CLIENT}-${PPID}"
-ACTION="${1:-}"
+#   memories-session.sh start  — セッション開始時（ingest + generate）
+#   memories-session.sh stop   — セッション終了時（現時点では no-op）
 
 if ! command -v memories &>/dev/null; then
   echo '{}'
   exit 0
 fi
 
-mkdir -p "$SESSION_STATE_DIR"
+ACTION="${1:-}"
 
 case "$ACTION" in
   start)
-    if [ -f "$SESSION_STATE_FILE" ]; then
-      old_id="$(cat "$SESSION_STATE_FILE")"
-      memories session snapshot "$old_id" --trigger reset 2>/dev/null || true
-      memories session end "$old_id" --status closed 2>/dev/null || true
-      rm -f "$SESSION_STATE_FILE"
-    fi
-
-    session_id="$(memories session start --client "$CLIENT" --json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || true)"
-    if [ -n "$session_id" ]; then
-      echo "$session_id" > "$SESSION_STATE_FILE"
-    fi
-
-    # プロジェクトのルール取り込みと静的ベースライン生成
     memories ingest gemini 2>/dev/null || true
     memories generate gemini --force 2>/dev/null || true
     ;;
 
   stop)
-    if [ -f "$SESSION_STATE_FILE" ]; then
-      session_id="$(cat "$SESSION_STATE_FILE")"
-      snapshot_ok=false
-      end_ok=false
-      memories session snapshot "$session_id" --trigger reset 2>/dev/null && snapshot_ok=true
-      memories session end "$session_id" --status closed 2>/dev/null && end_ok=true
-
-      if $snapshot_ok && $end_ok; then
-        rm -f "$SESSION_STATE_FILE"
-      else
-        echo "warn: memories session の終了処理が一部失敗しました (snapshot=$snapshot_ok, end=$end_ok)" >&2
-      fi
-    fi
+    :
     ;;
 esac
 

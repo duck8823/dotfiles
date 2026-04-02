@@ -420,7 +420,7 @@ if command -v pnpm &>/dev/null; then
   # グローバルインストール（MCP serve 時の起動を高速化）
   if ! command -v memories &>/dev/null; then
     echo "  install: memories.sh をグローバルインストールします"
-    pnpm add -g @memories.sh/cli
+    pnpm add -g @memories.sh/cli || { echo "  warn:    memories.sh のインストールに失敗しました" >&2; }
   else
     echo "  skip:    memories.sh はインストール済み ($(memories --version 2>/dev/null || echo 'unknown'))"
   fi
@@ -434,101 +434,8 @@ if command -v pnpm &>/dev/null; then
     echo "  skip:    memories.sh は初期化済み"
   fi
 
-  # compact / consolidate の定期実行（launchd）
-  # 毎回 desired state に収束させる（write-once ではない）
-  MEMORIES_PLIST_DIR="$HOME/Library/LaunchAgents"
-  MEMORIES_COMPACT_PLIST="$MEMORIES_PLIST_DIR/sh.memories.compact.plist"
-  MEMORIES_CONSOLIDATE_PLIST="$MEMORIES_PLIST_DIR/sh.memories.consolidate.plist"
-  MEMORIES_BIN="$(command -v memories)"
-  MEMORIES_LOG_DIR="$HOME/.config/memories"
-  mkdir -p "$MEMORIES_LOG_DIR"
-
-  install_launchd_plist() {
-    local label="$1"
-    local plist_path="$2"
-    local plist_content="$3"
-
-    # 既存ジョブをアンロード
-    launchctl bootout "gui/$(id -u)/$label" 2>/dev/null || true
-
-    # symlink を追従しないよう削除してから書き込み
-    [ -L "$plist_path" ] && rm -f "$plist_path"
-    echo "$plist_content" > "$plist_path"
-    chmod 644 "$plist_path"
-
-    # ジョブを登録
-    if launchctl bootstrap "gui/$(id -u)" "$plist_path" 2>/dev/null; then
-      echo "  launchd: $label を登録しました"
-    else
-      echo "  warn:    $label の launchd 登録に失敗しました" >&2
-    fi
-  }
-
-  # ログローテーション付きラッパースクリプト（直近1000行を保持）
-  MEMORIES_MAX_LOG_LINES=1000
-
-  [ -L "$MEMORIES_LOG_DIR/run-compact.sh" ] && rm -f "$MEMORIES_LOG_DIR/run-compact.sh"
-  cat > "$MEMORIES_LOG_DIR/run-compact.sh" << WRAPPER
-#!/bin/bash
-LOG="${MEMORIES_LOG_DIR}/compact.log"
-if [ -f "\$LOG" ] && [ "\$(wc -l < "\$LOG")" -gt ${MEMORIES_MAX_LOG_LINES} ]; then
-  tail -n ${MEMORIES_MAX_LOG_LINES} "\$LOG" > "\$LOG.tmp" && mv "\$LOG.tmp" "\$LOG"
-fi
-echo "--- \$(date -Iseconds) ---" >> "\$LOG"
-"${MEMORIES_BIN}" compact run --inactivity-minutes 60 >> "\$LOG" 2>&1
-WRAPPER
-  chmod 755 "$MEMORIES_LOG_DIR/run-compact.sh"
-
-  [ -L "$MEMORIES_LOG_DIR/run-consolidate.sh" ] && rm -f "$MEMORIES_LOG_DIR/run-consolidate.sh"
-  cat > "$MEMORIES_LOG_DIR/run-consolidate.sh" << WRAPPER
-#!/bin/bash
-LOG="${MEMORIES_LOG_DIR}/consolidate.log"
-if [ -f "\$LOG" ] && [ "\$(wc -l < "\$LOG")" -gt ${MEMORIES_MAX_LOG_LINES} ]; then
-  tail -n ${MEMORIES_MAX_LOG_LINES} "\$LOG" > "\$LOG.tmp" && mv "\$LOG.tmp" "\$LOG"
-fi
-echo "--- \$(date -Iseconds) ---" >> "\$LOG"
-"${MEMORIES_BIN}" consolidate run >> "\$LOG" 2>&1
-WRAPPER
-  chmod 755 "$MEMORIES_LOG_DIR/run-consolidate.sh"
-
-  install_launchd_plist "sh.memories.compact" "$MEMORIES_COMPACT_PLIST" \
-'<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key>
-  <string>sh.memories.compact</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>/bin/bash</string>
-    <string>'"${MEMORIES_LOG_DIR}"'/run-compact.sh</string>
-  </array>
-  <key>StartInterval</key>
-  <integer>1800</integer>
-</dict>
-</plist>'
-
-  install_launchd_plist "sh.memories.consolidate" "$MEMORIES_CONSOLIDATE_PLIST" \
-'<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key>
-  <string>sh.memories.consolidate</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>/bin/bash</string>
-    <string>'"${MEMORIES_LOG_DIR}"'/run-consolidate.sh</string>
-  </array>
-  <key>StartCalendarInterval</key>
-  <dict>
-    <key>Hour</key>
-    <integer>3</integer>
-    <key>Minute</key>
-    <integer>0</integer>
-  </dict>
-</dict>
-</plist>'
+  # NOTE: memories.sh v0.7.9 には compact/consolidate/session コマンドがない
+  # 将来のバージョンで追加された際に launchd 定期実行を設定する
 
 else
   echo "  skip:   pnpm が見つからないため memories.sh をスキップ"
@@ -639,9 +546,8 @@ echo ""
 echo "  各 AI ツールのセッション開始時に、以下が自動実行されます:"
 echo "    - memories ingest <tool>       プロジェクトのルールを取り込み"
 echo "    - memories generate <tool>     静的ベースラインを生成"
-echo "    - memories session start       セッションを記録開始"
 echo ""
-echo "  セッション終了時には snapshot + end が自動実行されます。"
+echo "  MCP サーバー経由でリアルタイムの記憶検索・追加も利用できます。"
 echo "  手動操作は不要です。"
 echo ""
 echo "================================================================"
