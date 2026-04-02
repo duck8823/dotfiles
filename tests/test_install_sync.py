@@ -83,8 +83,8 @@ def main() -> None:
         assert_contains(log, ".gemini/settings.json (local edits preserved)")
         assert not (tmp_home / ".gemini/settings.json.dotfiles-new").exists()
 
-        # copy mode で upstream 更新と衝突したら候補ファイル生成
-        repo_gemini_settings = tmp_repo / "gemini/settings.json"
+        # template mode で upstream 更新と衝突したら候補ファイル生成（Gemini）
+        repo_gemini_settings = tmp_repo / "gemini/settings.json.template"
         repo_gemini_settings.write_text(
             repo_gemini_settings.read_text().replace(
                 '"modelSteering": true',

@@ -397,7 +397,7 @@ done
 
 # hooks.json は差分追跡しつつ同期する（テンプレートから生成）
 sync_managed_settings \
-  "$DOTFILES_DIR/codex/hooks.json" \
+  "$DOTFILES_DIR/codex/hooks.json.template" \
   "$HOME/.codex/hooks.json" \
   "template"
 
@@ -451,7 +451,8 @@ if command -v pnpm &>/dev/null; then
     # 既存ジョブをアンロード
     launchctl bootout "gui/$(id -u)/$label" 2>/dev/null || true
 
-    # plist を書き込み・権限設定
+    # symlink を追従しないよう削除してから書き込み
+    [ -L "$plist_path" ] && rm -f "$plist_path"
     echo "$plist_content" > "$plist_path"
     chmod 644 "$plist_path"
 
@@ -466,6 +467,7 @@ if command -v pnpm &>/dev/null; then
   # ログローテーション付きラッパースクリプト（直近1000行を保持）
   MEMORIES_MAX_LOG_LINES=1000
 
+  [ -L "$MEMORIES_LOG_DIR/run-compact.sh" ] && rm -f "$MEMORIES_LOG_DIR/run-compact.sh"
   cat > "$MEMORIES_LOG_DIR/run-compact.sh" << WRAPPER
 #!/bin/bash
 LOG="${MEMORIES_LOG_DIR}/compact.log"
@@ -477,6 +479,7 @@ echo "--- \$(date -Iseconds) ---" >> "\$LOG"
 WRAPPER
   chmod 755 "$MEMORIES_LOG_DIR/run-compact.sh"
 
+  [ -L "$MEMORIES_LOG_DIR/run-consolidate.sh" ] && rm -f "$MEMORIES_LOG_DIR/run-consolidate.sh"
   cat > "$MEMORIES_LOG_DIR/run-consolidate.sh" << WRAPPER
 #!/bin/bash
 LOG="${MEMORIES_LOG_DIR}/consolidate.log"

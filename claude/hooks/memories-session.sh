@@ -18,9 +18,10 @@ mkdir -p "$SESSION_STATE_DIR"
 
 case "$ACTION" in
   start)
-    # 同一 PPID の古いセッションが残っていれば閉じる
+    # 前回セッションが残っていれば snapshot を再試行してから閉じる
     if [ -f "$SESSION_STATE_FILE" ]; then
       old_id="$(cat "$SESSION_STATE_FILE")"
+      memories session snapshot "$old_id" --trigger reset 2>/dev/null || true
       memories session end "$old_id" --status closed 2>/dev/null || true
       rm -f "$SESSION_STATE_FILE"
     fi
