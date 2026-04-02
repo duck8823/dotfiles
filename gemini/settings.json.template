@@ -50,6 +50,32 @@
     "enabled": true,
     "notifications": true
   },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "name": "memories-session-start",
+            "type": "command",
+            "command": "bash {{HOME}}/.gemini/hooks/memories-session.sh start gemini",
+            "timeout": 10000
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "name": "memories-session-end",
+            "type": "command",
+            "command": "bash {{HOME}}/.gemini/hooks/memories-session.sh stop gemini",
+            "timeout": 10000
+          }
+        ]
+      }
+    ]
+  },
   "mcpServers": {
     "memories": {
       "command": "memories",
