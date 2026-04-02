@@ -346,6 +346,14 @@ for f in "$DOTFILES_DIR/gemini/agents/"*.md; do
   copy_managed "$f" "$HOME/.gemini/agents/$fname"
 done
 
+# hooks
+mkdir -p "$HOME/.gemini/hooks"
+for f in "$DOTFILES_DIR/gemini/hooks/"*.sh; do
+  [ -f "$f" ] || continue
+  fname="$(basename "$f")"
+  copy_managed_sh "$f" "$HOME/.gemini/hooks/$fname"
+done
+
 # settings.json は差分追跡しつつ同期する（テンプレートから生成）
 sync_managed_settings \
   "$DOTFILES_DIR/gemini/settings.json.template" \
@@ -378,6 +386,12 @@ sync_managed_settings \
 # rules: default.rules
 mkdir -p "$HOME/.codex/rules"
 copy_managed "$DOTFILES_DIR/codex/rules/default.rules" "$HOME/.codex/rules/default.rules"
+
+# hooks.json は差分追跡しつつ同期する（テンプレートから生成）
+sync_managed_settings \
+  "$DOTFILES_DIR/codex/hooks.json" \
+  "$HOME/.codex/hooks.json" \
+  "template"
 
 # skills: スキル単位でコピー（.system/ を汚染しない）
 mkdir -p "$HOME/.codex/skills"

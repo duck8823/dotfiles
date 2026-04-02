@@ -10,6 +10,7 @@ model_instructions_file = "instructions.md"
 multi_agent = true
 apps = true
 prevent_idle_sleep = true
+codex_hooks = true
 
 [notice]
 hide_full_access_warning = true
