@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash {{HOME}}/.claude/hooks/memories-session.sh start codex",
+            "command": "bash {{HOME}}/.codex/hooks/memories-session.sh start",
             "timeout": 10
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash {{HOME}}/.claude/hooks/memories-session.sh stop codex",
+            "command": "bash {{HOME}}/.codex/hooks/memories-session.sh stop",
             "timeout": 10
           }
         ]

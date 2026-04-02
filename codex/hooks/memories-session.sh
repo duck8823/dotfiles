@@ -1,20 +1,16 @@
 #!/bin/bash
-# memories.sh セッションライフサイクル管理（Gemini 用）
-# SessionStart / SessionEnd フックから呼ばれる
-# Gemini のフックは JSON 出力が必須のため、最後に {} を返す
+# memories.sh セッションライフサイクル管理（Codex 用）
+# SessionStart / Stop フックから呼ばれる
 #
 # 使い方:
 #   memories-session.sh start  — セッション開始時
 #   memories-session.sh stop   — セッション終了時（snapshot + end）
 
-CLIENT="gemini"
+command -v memories &>/dev/null || exit 0
+
+CLIENT="codex"
 SESSION_STATE_FILE="${HOME}/.config/memories/${CLIENT}-session-id"
 ACTION="${1:-}"
-
-if ! command -v memories &>/dev/null; then
-  echo '{}'
-  exit 0
-fi
 
 case "$ACTION" in
   start)
@@ -41,5 +37,4 @@ case "$ACTION" in
     ;;
 esac
 
-echo '{}'
 exit 0

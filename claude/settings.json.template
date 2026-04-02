@@ -9,7 +9,7 @@
           },
           {
             "type": "command",
-            "command": "bash {{HOME}}/.claude/hooks/memories-session.sh start claude-code"
+            "command": "bash {{HOME}}/.claude/hooks/memories-session.sh start"
           }
         ]
       }
@@ -32,7 +32,7 @@
           },
           {
             "type": "command",
-            "command": "bash {{HOME}}/.claude/hooks/memories-session.sh stop claude-code"
+            "command": "bash {{HOME}}/.claude/hooks/memories-session.sh stop"
           }
         ]
       }

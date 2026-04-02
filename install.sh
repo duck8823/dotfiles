@@ -387,6 +387,14 @@ sync_managed_settings \
 mkdir -p "$HOME/.codex/rules"
 copy_managed "$DOTFILES_DIR/codex/rules/default.rules" "$HOME/.codex/rules/default.rules"
 
+# hooks
+mkdir -p "$HOME/.codex/hooks"
+for f in "$DOTFILES_DIR/codex/hooks/"*.sh; do
+  [ -f "$f" ] || continue
+  fname="$(basename "$f")"
+  copy_managed_sh "$f" "$HOME/.codex/hooks/$fname"
+done
+
 # hooks.json は差分追跡しつつ同期する（テンプレートから生成）
 sync_managed_settings \
   "$DOTFILES_DIR/codex/hooks.json" \

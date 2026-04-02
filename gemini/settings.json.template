@@ -57,7 +57,7 @@
           {
             "name": "memories-session-start",
             "type": "command",
-            "command": "bash {{HOME}}/.gemini/hooks/memories-session.sh start gemini",
+            "command": "bash {{HOME}}/.gemini/hooks/memories-session.sh start",
             "timeout": 10000
           }
         ]
@@ -69,7 +69,7 @@
           {
             "name": "memories-session-end",
             "type": "command",
-            "command": "bash {{HOME}}/.gemini/hooks/memories-session.sh stop gemini",
+            "command": "bash {{HOME}}/.gemini/hooks/memories-session.sh stop",
             "timeout": 10000
           }
         ]
