@@ -346,10 +346,11 @@ for f in "$DOTFILES_DIR/gemini/agents/"*.md; do
   copy_managed "$f" "$HOME/.gemini/agents/$fname"
 done
 
-# settings.json は差分追跡しつつ同期する
+# settings.json は差分追跡しつつ同期する（テンプレートから生成）
 sync_managed_settings \
-  "$DOTFILES_DIR/gemini/settings.json" \
-  "$HOME/.gemini/settings.json"
+  "$DOTFILES_DIR/gemini/settings.json.template" \
+  "$HOME/.gemini/settings.json" \
+  "template"
 
 # ============================================================
 # Codex CLI
@@ -523,8 +524,9 @@ echo "    memories ingest claude    # CLAUDE.md のルールを取り込み"
 echo "    memories ingest codex     # CODEX.md のルールを取り込み"
 echo "    memories ingest gemini    # GEMINI.md のルールを取り込み"
 echo ""
-echo "  Gemini は MCP 非対応のため、記憶追加後に生成ファイルを更新してください:"
+echo "  Gemini は MCP 非対応のため、記憶追加後に install.sh を再実行すると"
+echo "  ~/.gemini/GEMINI.md に記憶が反映されます:"
 echo ""
-echo "    memories generate gemini  # GEMINI.md に記憶を反映"
+echo "    ./install.sh             # GEMINI.md を再生成"
 echo ""
 echo "================================================================"
