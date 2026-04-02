@@ -393,16 +393,27 @@ done
 echo ""
 echo "[memories.sh]"
 
-if command -v npx &>/dev/null; then
-  if [ ! -f "$HOME/.config/memories/local.db" ]; then
-    echo "  setup:  memories.sh を初期化します"
-    npx -y @memories.sh/cli setup 2>/dev/null || echo "  warn:   memories.sh の初期化に失敗しました"
+if command -v pnpm &>/dev/null; then
+  # グローバルインストール（MCP serve 時の起動を高速化）
+  if ! command -v memories &>/dev/null; then
+    echo "  install: memories.sh をグローバルインストールします"
+    pnpm add -g @memories.sh/cli
   else
-    echo "  skip:   memories.sh は初期化済み"
+    echo "  skip:    memories.sh はインストール済み ($(memories --version 2>/dev/null || echo 'unknown'))"
   fi
+
+  # 初期セットアップ（local.db + セマンティック検索モデル）
+  # --minimal-local -y: MCP 自動設定をスキップ（テンプレートで管理するため）
+  if [ ! -f "$HOME/.config/memories/local.db" ]; then
+    echo "  setup:   memories.sh を初期化します"
+    memories setup --minimal-local -y || echo "  warn:    memories.sh の初期化に失敗しました"
+  else
+    echo "  skip:    memories.sh は初期化済み"
+  fi
+
 else
-  echo "  skip:   npx が見つからないため memories.sh をスキップ"
-  echo "          Node.js をインストール後に再実行してください"
+  echo "  skip:   pnpm が見つからないため memories.sh をスキップ"
+  echo "          pnpm をインストール後に再実行してください"
 fi
 
 # ============================================================
@@ -501,5 +512,19 @@ echo "    Flutter:    test_command=flutter test  analyze_command=flutter analyze
 echo "    TypeScript: test_command=npm test      analyze_command=npm run lint     extensions=ts js json"
 echo "    Go:         test_command=go test ./... analyze_command=go vet ./...     extensions=go"
 echo "    Python:     test_command=pytest        analyze_command=ruff check .     extensions=py"
+echo ""
+echo "----------------------------------------------------------------"
+echo ""
+echo "【3】memories.sh にプロジェクトのルールを取り込む"
+echo ""
+echo "  各プロジェクトのルートで以下を実行してください:"
+echo ""
+echo "    memories ingest claude    # CLAUDE.md のルールを取り込み"
+echo "    memories ingest codex     # CODEX.md のルールを取り込み"
+echo "    memories ingest gemini    # GEMINI.md のルールを取り込み"
+echo ""
+echo "  Gemini は MCP 非対応のため、記憶追加後に生成ファイルを更新してください:"
+echo ""
+echo "    memories generate gemini  # GEMINI.md に記憶を反映"
 echo ""
 echo "================================================================"

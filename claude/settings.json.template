@@ -87,8 +87,8 @@
   },
   "mcpServers": {
     "memories": {
-      "command": "npx",
-      "args": ["-y", "@memories.sh/cli", "serve"]
+      "command": "memories",
+      "args": ["serve"]
     }
   },
   "skipDangerousModePermissionPrompt": false,
