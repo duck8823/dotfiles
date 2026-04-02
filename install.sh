@@ -412,6 +412,83 @@ if command -v pnpm &>/dev/null; then
     echo "  skip:    memories.sh は初期化済み"
   fi
 
+  # generate: 静的ベースラインを各ツールの設定ファイルに反映
+  # MCP serve のフォールバックとして、記憶をファイルに埋め込む
+  echo "  generate: 静的ベースラインを生成します"
+  memories generate all --force 2>/dev/null || true
+
+  # compact / consolidate の定期実行（launchd）
+  MEMORIES_PLIST_DIR="$HOME/Library/LaunchAgents"
+  MEMORIES_COMPACT_PLIST="$MEMORIES_PLIST_DIR/sh.memories.compact.plist"
+  MEMORIES_CONSOLIDATE_PLIST="$MEMORIES_PLIST_DIR/sh.memories.consolidate.plist"
+  MEMORIES_BIN="$(command -v memories)"
+
+  if [ ! -f "$MEMORIES_COMPACT_PLIST" ]; then
+    mkdir -p "$MEMORIES_PLIST_DIR"
+    cat > "$MEMORIES_COMPACT_PLIST" << PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>sh.memories.compact</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>${MEMORIES_BIN}</string>
+    <string>compact</string>
+    <string>run</string>
+    <string>--inactivity-minutes</string>
+    <string>60</string>
+  </array>
+  <key>StartInterval</key>
+  <integer>1800</integer>
+  <key>StandardOutPath</key>
+  <string>${HOME}/.config/memories/compact.log</string>
+  <key>StandardErrorPath</key>
+  <string>${HOME}/.config/memories/compact.log</string>
+</dict>
+</plist>
+PLIST
+    launchctl load "$MEMORIES_COMPACT_PLIST" 2>/dev/null || true
+    echo "  launchd: memories compact を30分ごとに実行"
+  else
+    echo "  skip:    memories compact の launchd は設定済み"
+  fi
+
+  if [ ! -f "$MEMORIES_CONSOLIDATE_PLIST" ]; then
+    cat > "$MEMORIES_CONSOLIDATE_PLIST" << PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>sh.memories.consolidate</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>${MEMORIES_BIN}</string>
+    <string>consolidate</string>
+    <string>run</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>3</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>${HOME}/.config/memories/consolidate.log</string>
+  <key>StandardErrorPath</key>
+  <string>${HOME}/.config/memories/consolidate.log</string>
+</dict>
+</plist>
+PLIST
+    launchctl load "$MEMORIES_CONSOLIDATE_PLIST" 2>/dev/null || true
+    echo "  launchd: memories consolidate を毎日 3:00 に実行"
+  else
+    echo "  skip:    memories consolidate の launchd は設定済み"
+  fi
+
 else
   echo "  skip:   pnpm が見つからないため memories.sh をスキップ"
   echo "          pnpm をインストール後に再実行してください"
