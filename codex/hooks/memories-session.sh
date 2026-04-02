@@ -27,6 +27,10 @@ case "$ACTION" in
     if [ -n "$session_id" ]; then
       echo "$session_id" > "$SESSION_STATE_FILE"
     fi
+
+    # プロジェクトのルール取り込みと静的ベースライン生成
+    memories ingest codex 2>/dev/null || true
+    memories generate codex --force 2>/dev/null || true
     ;;
 
   stop)

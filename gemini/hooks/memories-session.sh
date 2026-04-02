@@ -31,6 +31,10 @@ case "$ACTION" in
     if [ -n "$session_id" ]; then
       echo "$session_id" > "$SESSION_STATE_FILE"
     fi
+
+    # プロジェクトのルール取り込みと静的ベースライン生成
+    memories ingest gemini 2>/dev/null || true
+    memories generate gemini --force 2>/dev/null || true
     ;;
 
   stop)

@@ -29,6 +29,11 @@ case "$ACTION" in
     if [ -n "$session_id" ]; then
       echo "$session_id" > "$SESSION_STATE_FILE"
     fi
+
+    # プロジェクトのルール取り込みと静的ベースライン生成
+    # CLAUDE.md / CODEX.md / GEMINI.md が存在すれば ingest し、generate で反映
+    memories ingest claude 2>/dev/null || true
+    memories generate claude --force 2>/dev/null || true
     ;;
 
   stop)
@@ -44,7 +49,6 @@ case "$ACTION" in
         rm -f "$SESSION_STATE_FILE"
       else
         echo "warn: memories session の終了処理が一部失敗しました (snapshot=$snapshot_ok, end=$end_ok)" >&2
-        # state file を残し、次回 start 時にリトライ可能にする
       fi
     fi
     ;;
