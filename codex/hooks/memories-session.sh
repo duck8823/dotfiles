@@ -9,8 +9,11 @@
 command -v memories &>/dev/null || exit 0
 
 CLIENT="codex"
-SESSION_STATE_FILE="${HOME}/.config/memories/${CLIENT}-session-id"
+SESSION_STATE_DIR="${HOME}/.config/memories/sessions"
+SESSION_STATE_FILE="${SESSION_STATE_DIR}/${CLIENT}-${PPID}"
 ACTION="${1:-}"
+
+mkdir -p "$SESSION_STATE_DIR"
 
 case "$ACTION" in
   start)
@@ -22,7 +25,6 @@ case "$ACTION" in
 
     session_id="$(memories session start --client "$CLIENT" --json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || true)"
     if [ -n "$session_id" ]; then
-      mkdir -p "$(dirname "$SESSION_STATE_FILE")"
       echo "$session_id" > "$SESSION_STATE_FILE"
     fi
     ;;
@@ -30,9 +32,16 @@ case "$ACTION" in
   stop)
     if [ -f "$SESSION_STATE_FILE" ]; then
       session_id="$(cat "$SESSION_STATE_FILE")"
-      memories session snapshot "$session_id" --trigger reset 2>/dev/null || true
-      memories session end "$session_id" --status closed 2>/dev/null || true
-      rm -f "$SESSION_STATE_FILE"
+      snapshot_ok=false
+      end_ok=false
+      memories session snapshot "$session_id" --trigger reset 2>/dev/null && snapshot_ok=true
+      memories session end "$session_id" --status closed 2>/dev/null && end_ok=true
+
+      if $snapshot_ok && $end_ok; then
+        rm -f "$SESSION_STATE_FILE"
+      else
+        echo "warn: memories session の終了処理が一部失敗しました (snapshot=$snapshot_ok, end=$end_ok)" >&2
+      fi
     fi
     ;;
 esac

@@ -434,21 +434,37 @@ if command -v pnpm &>/dev/null; then
     echo "  skip:    memories.sh は初期化済み"
   fi
 
-  # generate: 静的ベースラインを各ツールの設定ファイルに反映
-  # MCP serve のフォールバックとして、記憶をファイルに埋め込む
-  echo "  generate: 静的ベースラインを生成します"
-  memories generate all --force 2>/dev/null || true
-
   # compact / consolidate の定期実行（launchd）
+  # 毎回 desired state に収束させる（write-once ではない）
   MEMORIES_PLIST_DIR="$HOME/Library/LaunchAgents"
   MEMORIES_COMPACT_PLIST="$MEMORIES_PLIST_DIR/sh.memories.compact.plist"
   MEMORIES_CONSOLIDATE_PLIST="$MEMORIES_PLIST_DIR/sh.memories.consolidate.plist"
   MEMORIES_BIN="$(command -v memories)"
+  MEMORIES_LOG_DIR="$HOME/.config/memories"
+  mkdir -p "$MEMORIES_LOG_DIR"
 
-  if [ ! -f "$MEMORIES_COMPACT_PLIST" ]; then
-    mkdir -p "$MEMORIES_PLIST_DIR"
-    cat > "$MEMORIES_COMPACT_PLIST" << PLIST
-<?xml version="1.0" encoding="UTF-8"?>
+  install_launchd_plist() {
+    local label="$1"
+    local plist_path="$2"
+    local plist_content="$3"
+
+    # 既存ジョブをアンロード
+    launchctl bootout "gui/$(id -u)/$label" 2>/dev/null || true
+
+    # plist を書き込み・権限設定
+    echo "$plist_content" > "$plist_path"
+    chmod 644 "$plist_path"
+
+    # ジョブを登録
+    if launchctl bootstrap "gui/$(id -u)" "$plist_path" 2>/dev/null; then
+      echo "  launchd: $label を登録しました"
+    else
+      echo "  warn:    $label の launchd 登録に失敗しました" >&2
+    fi
+  }
+
+  install_launchd_plist "sh.memories.compact" "$MEMORIES_COMPACT_PLIST" \
+'<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -456,7 +472,7 @@ if command -v pnpm &>/dev/null; then
   <string>sh.memories.compact</string>
   <key>ProgramArguments</key>
   <array>
-    <string>${MEMORIES_BIN}</string>
+    <string>'"${MEMORIES_BIN}"'</string>
     <string>compact</string>
     <string>run</string>
     <string>--inactivity-minutes</string>
@@ -465,21 +481,14 @@ if command -v pnpm &>/dev/null; then
   <key>StartInterval</key>
   <integer>1800</integer>
   <key>StandardOutPath</key>
-  <string>${HOME}/.config/memories/compact.log</string>
+  <string>'"${MEMORIES_LOG_DIR}"'/compact.log</string>
   <key>StandardErrorPath</key>
-  <string>${HOME}/.config/memories/compact.log</string>
+  <string>'"${MEMORIES_LOG_DIR}"'/compact.log</string>
 </dict>
-</plist>
-PLIST
-    launchctl load "$MEMORIES_COMPACT_PLIST" 2>/dev/null || true
-    echo "  launchd: memories compact を30分ごとに実行"
-  else
-    echo "  skip:    memories compact の launchd は設定済み"
-  fi
+</plist>'
 
-  if [ ! -f "$MEMORIES_CONSOLIDATE_PLIST" ]; then
-    cat > "$MEMORIES_CONSOLIDATE_PLIST" << PLIST
-<?xml version="1.0" encoding="UTF-8"?>
+  install_launchd_plist "sh.memories.consolidate" "$MEMORIES_CONSOLIDATE_PLIST" \
+'<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -487,7 +496,7 @@ PLIST
   <string>sh.memories.consolidate</string>
   <key>ProgramArguments</key>
   <array>
-    <string>${MEMORIES_BIN}</string>
+    <string>'"${MEMORIES_BIN}"'</string>
     <string>consolidate</string>
     <string>run</string>
   </array>
@@ -499,17 +508,11 @@ PLIST
     <integer>0</integer>
   </dict>
   <key>StandardOutPath</key>
-  <string>${HOME}/.config/memories/consolidate.log</string>
+  <string>'"${MEMORIES_LOG_DIR}"'/consolidate.log</string>
   <key>StandardErrorPath</key>
-  <string>${HOME}/.config/memories/consolidate.log</string>
+  <string>'"${MEMORIES_LOG_DIR}"'/consolidate.log</string>
 </dict>
-</plist>
-PLIST
-    launchctl load "$MEMORIES_CONSOLIDATE_PLIST" 2>/dev/null || true
-    echo "  launchd: memories consolidate を毎日 3:00 に実行"
-  else
-    echo "  skip:    memories consolidate の launchd は設定済み"
-  fi
+</plist>'
 
 else
   echo "  skip:   pnpm が見つからないため memories.sh をスキップ"
@@ -622,5 +625,11 @@ echo ""
 echo "    memories ingest claude    # CLAUDE.md のルールを取り込み"
 echo "    memories ingest codex     # CODEX.md のルールを取り込み"
 echo "    memories ingest gemini    # GEMINI.md のルールを取り込み"
+echo ""
+echo "  取り込み後、静的ベースラインファイルを生成してください:"
+echo ""
+echo "    memories generate all     # CLAUDE.md / AGENTS.md / GEMINI.md に記憶を反映"
+echo ""
+echo "  ※ generate はプロジェクトルートで実行してください（dotfiles ルートではない）"
 echo ""
 echo "================================================================"
