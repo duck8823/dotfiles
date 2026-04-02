@@ -387,6 +387,25 @@ for skill_dir in "$DOTFILES_DIR/codex/skills/"/*/; do
 done
 
 # ============================================================
+# memories.sh
+# ============================================================
+
+echo ""
+echo "[memories.sh]"
+
+if command -v npx &>/dev/null; then
+  if [ ! -f "$HOME/.config/memories/local.db" ]; then
+    echo "  setup:  memories.sh を初期化します"
+    npx -y @memories.sh/cli setup 2>/dev/null || echo "  warn:   memories.sh の初期化に失敗しました"
+  else
+    echo "  skip:   memories.sh は初期化済み"
+  fi
+else
+  echo "  skip:   npx が見つからないため memories.sh をスキップ"
+  echo "          Node.js をインストール後に再実行してください"
+fi
+
+# ============================================================
 # cmux
 # ============================================================
 

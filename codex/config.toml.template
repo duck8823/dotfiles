@@ -14,6 +14,11 @@ prevent_idle_sleep = true
 [notice]
 hide_full_access_warning = true
 
+# memories.sh: 長期記憶共有
+[mcp_servers.memories]
+command = "npx"
+args = ["-y", "@memories.sh/cli", "serve"]
+
 # MCP サーバーの設定例（不要であれば削除）
 # Blender MCP:
 # [mcp_servers.blender]
