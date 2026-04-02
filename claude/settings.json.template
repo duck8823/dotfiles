@@ -6,6 +6,10 @@
           {
             "type": "command",
             "command": "cmux claude-hook session-start 2>/dev/null || true"
+          },
+          {
+            "type": "command",
+            "command": "bash {{HOME}}/.claude/hooks/memories-session.sh start"
           }
         ]
       }
@@ -25,6 +29,10 @@
           {
             "type": "command",
             "command": "bash {{HOME}}/.claude/hooks/stop-self-review.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash {{HOME}}/.claude/hooks/memories-session.sh stop"
           }
         ]
       }
