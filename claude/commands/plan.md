@@ -20,18 +20,16 @@ gh api repos/{owner}/{repo}/milestones --jq '.[] | "\(.title) (open: \(.open_iss
 gh issue list --milestone "<milestone>" --state open --json number,title,body,labels,assignees
 ```
 
-## ステップ2: 3AI で計画を多面的に評価
-
-### Claude planner
-- コードベースを実読して Issue 間の依存・ファイル競合・Wave 構成を出す
+## ステップ2: 2AI 並列で計画を多面的に評価
 
 ### Codex planner
+- コードベースを実読して Issue 間の依存・ファイル競合・Wave 構成を出す
 - フィジビリティ、技術リスク、実装分割、どの Issue を Codex worker に寄せやすいかを出す
 
 ### Gemini planner
 - マイルストーン整合、優先度、スコープ過多、抜けている Issue を出す
 
-必要なら外部 CLI をヘッドレスで起動して結果を保存し、Claude が統合する。
+外部 CLI をヘッドレスで起動して結果を保存し、Claude メインセッションが統合する。
 
 ## ステップ3: イシュー品質チェック
 

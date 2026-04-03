@@ -40,9 +40,9 @@ gh issue view <番号>
 - 関心事ごとにコミット分割
 - ドラフト PR 作成（`--draft`）
 
-#### 5. Multi-AI レビュー（6並列）
+#### 5. Multi-AI レビュー
 `multi-ai-review` スキルを呼び出し:
-- Architect × 3AI + Reviewer × 3AI = 6並列
+- Architect（Claude + Codex）+ Reviewer（Claude + Codex + Gemini）
 - Claude Opus が結果を統合
 - CRITICAL → 修正 → 再レビュー
 
