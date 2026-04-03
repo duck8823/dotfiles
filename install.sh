@@ -15,8 +15,9 @@ marker_for() {
   local base
   base="$(basename "$file")"
 
-  # Codex の SKILL.md は YAML frontmatter が先頭必須のためマーカーを埋め込まない
-  if [ "$base" = "SKILL.md" ]; then
+  # YAML frontmatter（先頭が ---）を持つファイルはマーカーを埋め込まない
+  # マーカーを先頭に入れるとフロントマターのパースが壊れるため、サイドカーファイルで管理
+  if [ -f "$file" ] && head -1 "$file" | grep -qx -- '---'; then
     echo ""
     return
   fi
@@ -41,7 +42,7 @@ copy_managed() {
   local src="$1"
   local dst="$2"
   local marker
-  marker="$(marker_for "$dst")"
+  marker="$(marker_for "$src")"
   local dst_dir
   dst_dir="$(dirname "$dst")"
 
