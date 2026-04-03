@@ -58,9 +58,9 @@
 
 | モード | 主担当 | 役割 |
 |---|---|---|
-| **Foreground orchestrator** | Claude | 実装・統合判断・最終レビュー・マージゲート |
-| **Background worker / verifier** | Codex | スコープが明確な実装、テスト、CI/CD、セキュリティ、シェル作業 |
-| **Read-only scout / critic** | Gemini | repo-wide 俯瞰、影響範囲、既存パターン整合、計画の抜け漏れ |
+| **Foreground orchestrator** | Claude | 設計・統合判断・UX判断を伴う実装・最終レビュー・マージゲート |
+| **Background worker / verifier** | Codex | 実装・テスト・リファクタ・調査・レポーティング・CI/CD・セキュリティ |
+| **Read-only scout / critic** | Gemini | レビュー（一貫性）・計画の俯瞰チェック |
 
 ### Claude の責務
 
@@ -69,17 +69,22 @@
 - 最終 diff を読み切ってマージ可否を決める
 - **named subagents / Task agents** は sidecar 調査に使うが、クリティカルパスの統合判断はメインセッションで持つ
 
-### Codex の使いどころ
+### Codex の使いどころ（主力 worker）
 
 - isolated branch / worktree での scoped 実装
-- テスト作成・実行、CI/CD、シェル、セキュリティ検証
+- テスト作成・リファクタリング
+- コード調査・ドキュメント調査（Confluence 等含む）
+- レポーティング（git log / gh 集計 → 整形）
+- CI/CD、シェル、セキュリティ検証
+- QA（テスト実行・探索的テスト）
 - 変更後に「何を変えたか」ではなく、**どのコマンドで何を検証したか**を返させる
 
-### Gemini の使いどころ
+### Gemini の使いどころ（read-only scout に限定）
 
 - 原則 **plan/read-only** で使う
-- diff 外で必要な追加修正、命名 drift、README / 設定 / l10n 更新漏れを洗う
-- 実装担当ではなく **scout / critic** として先回りさせる
+- レビュー: diff 外で必要な追加修正、命名 drift、README / 設定 / l10n 更新漏れ
+- 計画: 優先度・スコープ妥当性・抜け漏れの俯瞰チェック
+- 実装・調査の主担当にはしない（Codex が担う）
 
 ### リスク別ルーティング（詳細は `multi-ai-team.md`）
 
@@ -93,7 +98,7 @@
 
 | 障害 | 対応 |
 |---|---|
-| Claude 制限到達 | 実装は Codex、レビューは Gemini+Codex、調査は ChatGPT |
+| Claude 制限到達 | 実装・調査は Codex（主力のため影響小）、レビューは Gemini+Codex、対話は ChatGPT |
 | Codex タイムアウト/失敗 | 1回リトライ → スキップ → Claude が直接実行 |
 | Gemini タイムアウト/失敗 | 1回リトライ → スキップ → Codex scout で代替（一貫性チェックは精度低下を許容） |
 | 部分レビュー（一部 AI のみ完了） | 完了した AI の結果で統合判断を続行。欠落を統合ログに記録 |
