@@ -1,6 +1,7 @@
 ---
 name: architect
 description: ファイル横断でレイヤー違反・依存方向・インターフェース不整合を検出するアーキテクチャレビューエージェント
+isolation: worktree
 model: sonnet
 tools: Read, Glob, Grep
 ---

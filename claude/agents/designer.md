@@ -1,6 +1,7 @@
 ---
 name: designer
 description: デザインシステム準拠・UI一貫性を検証するデザインレビューエージェント
+isolation: worktree
 model: sonnet
 tools: Read, Glob, Grep
 ---
