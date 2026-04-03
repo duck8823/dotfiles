@@ -54,9 +54,23 @@ GEMINI_SYSTEM_MD=$HOME/.gemini/agents/<agent-name>.md \
 
 ## worktree 運用
 
+### Claude サブエージェント
+- `isolation: worktree` が設定済み（architect, designer, reviewer）
+- 自動的に worktree で実行されるため、追加設定不要
+
 ### Codex write タスク
 - `main` 直下ではなく feature branch / dedicated worktree で実行する
 - 実装スコープが広い場合は branch ではなく worktree を優先する
+
+```bash
+# worktree を作成してから Codex を実行
+git worktree add .codex-work/<task-name> -b codex/<task-name>
+cd .codex-work/<task-name>
+codex exec --full-auto \
+  -c "agents.default.config_file=\"$CODEX_AGENT\"" \
+  -o /tmp/codex-result.json \
+  - < /tmp/codex-prompt.md 2>/tmp/codex.err
+```
 
 ### Gemini 実験タスク
 Gemini で例外的に書き込みを試す場合だけ、公式 worktree 機能を使う。
