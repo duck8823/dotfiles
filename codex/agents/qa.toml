@@ -37,6 +37,9 @@ developer_instructions = """
     {"name": "テスト名", "expected": "期待結果", "actual": "実際の結果", "result": "PASS|FAIL"}
   ],
   "validated_commands": ["実行したコマンド"],
+  "results": {"passed": ["成功項目"], "failed": ["失敗項目"]},
+  "residual_risks": ["残リスク（あれば）"],
+  "visual_check": "視覚確認が必要な場合はスクリーンショットパスまたは確認結果を記載",
   "summary": "N件中M件PASS"
 }
 """

@@ -45,7 +45,7 @@
 | リスク | ルーティング |
 |---|---|
 | **Low**（定型・テスト追加等） | Codex build → Codex verify → Gemini review → Claude final |
-| **Medium**（通常の機能実装） | Gemini scout → Codex build → Claude verify/integrate → 6並列 review |
+| **Medium**（通常の機能実装） | Gemini scout → Codex build → Claude verify/integrate → multi-AI review |
 | **High**（アーキテクチャ変更等） | Claude plan/build 主体、Gemini scout、Codex verifier |
 
 ### フォールバック
@@ -180,7 +180,7 @@ project/
 | `plan/` | Claude メインセッション（Codex/Gemini planner の統合結果） | 実装担当（Claude or Codex） |
 | `spec/` | `/spec-driven` スキル（3AI統合） | 実装担当 |
 | `verify/` | Codex verifier | Claude（最終レビュー時に参照） |
-| `review/` | `/multi-ai-review` スキル（6並列統合） | Claude（マージ判断時に参照） |
+| `review/` | `/multi-ai-review` スキル（multi-AI 統合） | Claude（マージ判断時に参照） |
 
 ## エージェント自律性の境界線（AGENTS.md Guardrails）
 

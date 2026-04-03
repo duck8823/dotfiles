@@ -91,7 +91,7 @@
 | リスク | ルーティング |
 |---|---|
 | **Low** | Codex build → Codex verify → Gemini review → Claude final |
-| **Medium** | Gemini scout → Codex build → Claude verify/integrate → 6並列 review |
+| **Medium** | Gemini scout → Codex build → Claude verify/integrate → multi-AI review |
 | **High** | Claude plan/build 主体、Gemini scout、Codex verifier |
 
 ### フォールバック

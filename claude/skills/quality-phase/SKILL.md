@@ -16,9 +16,9 @@ git log --oneline $(git describe --tags --abbrev=0 2>/dev/null || git rev-list -
 git diff $(git describe --tags --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD)..HEAD > /tmp/sprint-diff.txt
 ```
 
-### 2. アーキテクチャレビュー（3AI多重）
+### 2. アーキテクチャレビュー（2AI並列 + Claude統合）
 
-スプリント全体の diff を対象に Architect ロール 3AI 並列実行:
+スプリント全体の diff を対象に Architect ロール 2AI 並列実行:
 
 #### Claude architect（サブエージェント）
 `~/.claude/agents/architect.md` にスプリント全体 diff を渡す
@@ -37,27 +37,25 @@ codex exec --full-auto \
   - < /tmp/codex-qp-architect.md 2>/tmp/codex-qp-architect.err
 ```
 
-#### Gemini architect（CLI）
-```bash
-cat <<PROMPT > /tmp/gemini-qp-architect.md
-以下はスプリント全体の差分です。アーキテクチャ観点でレビューしてください。
-プロジェクト全体のソースも参照して俯瞰的に判断してください。
-
-$(cat /tmp/sprint-diff.txt)
-PROMPT
-
-GEMINI_SYSTEM_MD=$HOME/.gemini/agents/architect.md \
-  TERM=xterm-256color \
-  gemini --approval-mode plan -p ' ' -e none < /tmp/gemini-qp-architect.md > /tmp/gemini-qp-architect-result.json 2>&1
-```
-
 ### 3. デザインチェック（Claude のみ）
 `~/.claude/agents/designer.md` をサブエージェントとして起動。
 プロジェクトの CLAUDE.md のデザインシステムセクションを参照させる。
 
-### 4. 探索的テスト（Claude のみ）
-`~/.claude/agents/qa.md` をサブエージェントとして起動。
-スプリントでクローズした Issue の受け入れ条件からテストシナリオを導出・実行。
+### 4. 探索的テスト（Codex QA）
+```bash
+CLOSED_ISSUES=$(gh issue list --milestone "<current>" --state closed --json number,title,body)
+
+cat <<PROMPT > /tmp/codex-qp-qa.md
+以下はスプリントでクローズした Issue です。受け入れ条件からテストシナリオを導出し、テストを実行してください。
+
+${CLOSED_ISSUES}
+PROMPT
+
+codex exec --full-auto \
+  -c 'agents.default.config_file="$HOME/.codex/agents/qa.toml"' \
+  -o /tmp/codex-qp-qa-result.json \
+  - < /tmp/codex-qp-qa.md 2>/tmp/codex-qp-qa.err
+```
 
 ### 5. 結果統合 & トリアージ
 
@@ -86,7 +84,7 @@ gh issue create \
 ```
 
 ### 8. 完了報告
-- アーキテクチャレビュー結果（3AI統合）
+- アーキテクチャレビュー結果（2AI統合）
 - デザインチェック結果
 - 探索的テスト結果（PASS/FAIL 一覧）
 - CRITICAL 修正の有無

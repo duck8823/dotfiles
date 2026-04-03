@@ -86,7 +86,7 @@ $CMUX send --surface surface:1 "codex exec --full-auto \
   - < /tmp/codex-architect.md 2>/tmp/codex-architect.err && echo DONE"
 $CMUX send-key --surface surface:1 Return
 
-$CMUX send --surface "$SURFACE_RIGHT" "GEMINI_SYSTEM_MD=$HOME/.gemini/agents/architect.md \
+$CMUX send --surface "$SURFACE_RIGHT" "GEMINI_SYSTEM_MD=$HOME/.gemini/agents/reviewer.md \
   TERM=xterm-256color \
   gemini --approval-mode plan -p ' ' -e none \
   < /tmp/gemini-architect.md > /tmp/gemini-architect-result.json 2>&1 && echo DONE"
@@ -103,7 +103,7 @@ codex exec --full-auto \
   - < /tmp/codex-architect.md 2>/tmp/codex-architect.err &
 PID_CODEX=$!
 
-GEMINI_SYSTEM_MD=$HOME/.gemini/agents/architect.md \
+GEMINI_SYSTEM_MD=$HOME/.gemini/agents/reviewer.md \
   TERM=xterm-256color \
   gemini --approval-mode plan -p ' ' -e none \
   < /tmp/gemini-architect.md > /tmp/gemini-architect-result.json 2>&1 &
@@ -134,6 +134,6 @@ wait $PID_CODEX $PID_GEMINI
 | **Codex capacity failure** | stderr に `rate_limit` / `capacity` | 30秒待ってリトライ → スキップ |
 | **Gemini capacity failure** | stderr に `429` / `RESOURCE_EXHAUSTED` | 30秒待ってリトライ → スキップ |
 | **JSON パース失敗** | jq / python3 でパース不能 | 1回リトライ → 統合ログに記録してスキップ |
-| **部分レビュー** | 6並列中の一部のみ完了 | 完了分で統合判断を続行。欠落を記録 |
+| **部分レビュー** | multi-AI レビュー中の一部のみ完了 | 完了分で統合判断を続行。欠落を記録 |
 
 フォールバック発生時は `.ai-logs/` の統合ログに障害種別・AI・リトライ回数を記録する。

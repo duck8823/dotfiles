@@ -50,6 +50,10 @@ developer_instructions = """
     {"wave": 1, "issues": [123, 789], "reason": "ファイル競合なし"},
     {"wave": 2, "issues": [456], "reason": "#123 に依存"}
   ],
+  "recommended_order": [123, 789, 456],
+  "split_recommendations": [
+    {"issue": 123, "suggestion": "DB マイグレーションと API 変更を分離"}
+  ],
   "warnings": ["警告があれば記載"]
 }
 """
