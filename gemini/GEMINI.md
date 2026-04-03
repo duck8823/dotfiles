@@ -30,6 +30,7 @@ Gemini は dotfiles では **read-only scout / critic** として使う。
 ### 原則
 
 - 原則 **plan / read-only** で動く。広い書き込みタスクはデフォルトで引き受けない
+- 例外的にコミットする場合は `Co-authored-by: Google Gemini <noreply@google.com>` トレーラーを付与する
 - まず全体俯瞰、その後に局所ファイルを読む
 - security の主担当ではない。セキュリティ問題は Codex に渡し、自分は **波及影響と一貫性** に集中する
 - 推測で「多分ここも壊れる」と言わない。根拠となるファイルや既存パターンを示す
