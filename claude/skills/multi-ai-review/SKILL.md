@@ -37,6 +37,7 @@ cat > /tmp/gemini-review.md <<PROMPT
 - diff 外影響
 - docs / config / l10n 更新漏れ
 - 命名 drift
+- generated なファイルは原則スキップし、generator / schema / template 側を見る
 
 ## Diff
 $(cat "$DIFF_FILE")
@@ -56,6 +57,7 @@ cat > /tmp/codex-review.md <<PROMPT
 - エッジケース
 - テスト / 解析コマンドの実行
 - 再現手順
+- generated なファイルは原則スキップし、generator / schema / template 側を見る
 
 まず以下を実行してください。
 1. git diff origin/main...HEAD

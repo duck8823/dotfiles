@@ -124,7 +124,7 @@ source_dirs・source_extensions・source_exclude・test_command・analyze_comman
 ### Gemini レビュー用ソース収集
 - `source_dirs`: `src/ test/ docs/`
 - `source_extensions`: `ts js json md`
-- `source_exclude`: `*.min.js`
+- `source_exclude`: `*.min.js generated/** **/generated/** *.pb.go *.pb.dart *.g.dart *.freezed.dart *.gen.go *.generated.go *.generated.ts *.generated.js`
 
 ### Codex レビュー用コマンド
 - `test_command`: `npm test`
