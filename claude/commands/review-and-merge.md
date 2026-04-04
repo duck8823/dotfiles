@@ -64,9 +64,7 @@ CI_STATUS=$(gh pr checks "$PR_NUMBER" --json name,status,conclusion   --jq '.[] 
 
 CODEX_TEST_CMD=$(grep 'test_command' CLAUDE.md 2>/dev/null | sed 's/.*`\([^`]*\)`[^`]*$/\1/' | tr -d '\n')
 CODEX_ANALYZE_CMD=$(grep 'analyze_command' CLAUDE.md 2>/dev/null | sed 's/.*`\([^`]*\)`[^`]*$/\1/' | tr -d '\n')
-REVIEW_EXCLUDE=$(grep 'source_exclude' CLAUDE.md 2>/dev/null | sed 's/.*`\([^`]*\)`[^`]*$/\1/' | tr -d '\n')
-DEFAULT_GENERATED_EXCLUDE='generated/** **/generated/** *.pb.go *.pb.dart *.g.dart *.freezed.dart *.gen.go *.generated.go *.generated.ts *.generated.js *.min.js'
-REVIEW_EXCLUDE=${REVIEW_EXCLUDE:-$DEFAULT_GENERATED_EXCLUDE}
+REVIEW_EXCLUDE=$(grep -m 1 'source_exclude' CLAUDE.md 2>/dev/null | sed 's/.*`\([^`]*\)`[^`]*$/\1/' | tr -d '\n')
 ```
 
 ## ステップ4: レビュー用プロンプトの生成
@@ -100,9 +98,9 @@ DIFF=$(git diff origin/${BASE_BRANCH}..HEAD --unified=10)
   echo "## CI 結果"
   echo "${CI_STATUS:-（なし）}"
   echo ""
-  echo "## レビュー対象外（generated files）"
-  echo "- パターン: ${REVIEW_EXCLUDE}"
-  echo "- generated なファイルは原則無視し、generator / schema / template / build 設定側をレビューしてください。生成物レビューはユーザー明示時のみ行ってください。"
+  echo "## レビュー対象外（generated code）"
+  echo "- generated なコードと判断できるものは原則無視し、generator / schema / template / build 設定側をレビューしてください。生成物レビューはユーザー明示時のみ行ってください。"
+  if [ -n "${REVIEW_EXCLUDE}" ]; then echo "- project hint (source_exclude): ${REVIEW_EXCLUDE}"; fi
   echo ""
   echo "## 変更差分"
   echo '```diff'
@@ -129,9 +127,9 @@ cat > "$CODEX_PROMPT_FILE" <<PROMPT_EOF
 まず以下のコマンドを実行して変更内容を把握してください:
 1. \`git diff origin/${BASE_BRANCH}..HEAD\`
 
-**レビュー対象外（generated files）**
-- パターン: ${REVIEW_EXCLUDE}
-- generated なファイルは原則無視し、generator / schema / template / build 設定側をレビューしてください。生成物レビューはユーザー明示時のみ行ってください。
+**レビュー対象外（generated code）**
+- generated なコードと判断できるものは原則無視し、generator / schema / template / build 設定側をレビューしてください。生成物レビューはユーザー明示時のみ行ってください。
+${REVIEW_EXCLUDE:+- project hint (source_exclude): ${REVIEW_EXCLUDE}}
 ${CODEX_TEST_CMD:+2. \`$CODEX_TEST_CMD\`}
 ${CODEX_ANALYZE_CMD:+3. \`$CODEX_ANALYZE_CMD\`}
 
