@@ -24,4 +24,11 @@ if echo "$command" | grep -qE '^gh pr review\b'; then
     echo "   ブロックされた場合は 'gh pr comment' に切り替えてください。" >&2
 fi
 
+# gh pr create で --draft がない場合はブロック
+if echo "$command" | grep -qE 'gh pr create\b' && ! echo "$command" | grep -qE '\-\-draft'; then
+    echo "🚫 [hook] 'gh pr create' には必ず '--draft' を付けてください。" >&2
+    echo "   PR はドラフトで作成し、レビュー完了後に 'gh pr ready' で公開してください。" >&2
+    exit 2
+fi
+
 exit 0
