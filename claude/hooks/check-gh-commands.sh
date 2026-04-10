@@ -31,4 +31,36 @@ if echo "$command" | grep -qE '(^|[;&|])\s*gh\s+pr\s+create\b' && ! echo "$comma
     exit 2
 fi
 
+# gh pr merge 実行前にレビューコメント（🤖 AI コードレビュー結果）が存在するか確認
+if echo "$command" | grep -qE '(^|[;&|])\s*gh\s+pr\s+merge\b'; then
+    pr_number=$(echo "$command" | grep -oE 'gh\s+pr\s+merge\s+([0-9]+)' | awk '{print $NF}')
+    if [ -n "$pr_number" ]; then
+        repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)
+        if [ -n "$repo" ]; then
+            review_body=$(gh api "repos/$repo/issues/$pr_number/comments" --jq '.[].body' 2>/dev/null || true)
+            has_review=$(echo "$review_body" | grep -c '🤖 AI コードレビュー結果' || true)
+            if [ "$has_review" = "0" ]; then
+                echo "🚫 [hook] PR #$pr_number にレビューコメント（🤖 AI コードレビュー結果）がありません。" >&2
+                echo "   レビューを実施してからマージしてください。" >&2
+                exit 2
+            fi
+            has_multi_ai=$(echo "$review_body" | grep -cE 'Gemini|Codex' || true)
+            if [ "$has_multi_ai" = "0" ]; then
+                echo "🚫 [hook] PR #$pr_number に Multi-AI レビュー（Gemini または Codex）がありません。" >&2
+                echo "   Claude 単独レビューではマージできません。Gemini scout または Codex verifier のレビューを実施してください。" >&2
+                exit 2
+            fi
+        fi
+    fi
+fi
+
+# コミットメッセージにレビュー起点の文言が含まれていないかチェック
+if echo "$command" | grep -qE '(^|[;&|])\s*git\s+commit\b'; then
+    if echo "$command" | grep -qiE 'レビュー指摘|レビュー対応|レビュー修正|review fix'; then
+        echo "🚫 [hook] コミットメッセージにレビュー起点の文言（レビュー指摘対応等）が含まれています。" >&2
+        echo "   「何を・なぜ変えたか」でメッセージを書き直してください。" >&2
+        exit 2
+    fi
+fi
+
 exit 0
