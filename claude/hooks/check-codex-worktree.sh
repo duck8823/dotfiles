@@ -15,12 +15,13 @@ except:
 is_codex_write=false
 is_gemini_write=false
 
-if echo "$command" | grep -qE 'codex exec'; then
+# コマンド先頭が codex exec かチェック（空白バリエーション対応）
+if echo "$command" | grep -qE '(^|[;&|])\s*codex\s+exec\b'; then
     is_codex_write=true
 fi
 
-# gemini で --approval-mode plan 以外（= write モード）をチェック
-if echo "$command" | grep -qE '\bgemini\b' && ! echo "$command" | grep -qE '\-\-approval-mode plan'; then
+# コマンド先頭が gemini で --approval-mode plan 以外（= write モード）をチェック
+if echo "$command" | grep -qE '(^|[;&|])\s*gemini\b' && ! echo "$command" | grep -qE '\-\-approval-mode\s+plan'; then
     is_gemini_write=true
 fi
 
