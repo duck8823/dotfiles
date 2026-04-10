@@ -43,7 +43,7 @@ func (s *service) GetUser(ctx context.Context, userID types.UserID) (*User, erro
 
 ### エラーメッセージの記述方法
 
-* 日本語で分かりやすく記述する
+* 日本語で分かりやすく記述する（OSS・外部コントリビューション前提の公開プロジェクトでは英語を優先）
 * 何が失敗したのかを明確に示す
 * 原因エラーがある場合は `%w` を使ってラップする
 
