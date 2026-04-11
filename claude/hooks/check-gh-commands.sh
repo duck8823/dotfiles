@@ -33,20 +33,44 @@ fi
 
 # gh pr merge 実行前にレビューコメント（🤖 AI コードレビュー結果）が存在するか確認
 if echo "$command" | grep -qE '(^|[;&|])\s*gh\s+pr\s+merge\b'; then
-    pr_number=$(echo "$command" | grep -oE 'gh\s+pr\s+merge\s+([0-9]+)' | awk '{print $NF}')
+    # merge コマンドの引数を解析（対象指定と -R フラグを抽出）
+    merge_info=$(echo "$command" | python3 -c "
+import sys, re
+cmd = sys.stdin.read()
+m = re.search(r'gh\s+pr\s+merge\b(.*?)(?:\s*[;&|]|\s*$)', cmd)
+if not m:
+    print('\t'); sys.exit(0)
+args = m.group(1).strip()
+repo_m = re.search(r'(?:-R|--repo)[\s=](\S+)', args)
+repo = repo_m.group(1) if repo_m else ''
+cleaned = re.sub(r'(?:-R|--repo|--subject|--body|--body-file|--match-head-commit|--author)[\s=]\S+', '', args)
+cleaned = re.sub(r'--?\S+', '', cleaned).strip()
+target = cleaned.split()[0] if cleaned else ''
+print(target + '\t' + repo)
+" 2>/dev/null || echo $'\t')
 
-    # PR番号が省略された場合、現在のブランチのPR番号を取得
-    if [ -z "$pr_number" ]; then
-        pr_number=$(gh pr view --json number -q .number 2>/dev/null || true)
-        if [ -z "$pr_number" ]; then
-            echo "🚫 [hook] 現在のブランチに紐づくPRが見つかりません。PR番号を指定してください。" >&2
-            exit 2
-        fi
+    merge_target=$(printf '%s' "$merge_info" | cut -f1)
+    repo_flag=$(printf '%s' "$merge_info" | cut -f2)
+
+    # gh pr view で PR 番号と URL を解決（数値/URL/branch/省略すべてに対応）
+    view_args=()
+    [ -n "$merge_target" ] && view_args+=("$merge_target")
+    [ -n "$repo_flag" ] && view_args+=("-R" "$repo_flag")
+
+    pr_info=$(gh pr view "${view_args[@]}" --json number,url \
+      -q '"\(.number)\t\(.url)"' 2>/dev/null || true)
+
+    if [ -z "$pr_info" ]; then
+        echo "🚫 [hook] マージ対象のPRが見つかりません。" >&2
+        exit 2
     fi
 
-    repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)
-    if [ -z "$repo" ]; then
-        echo "🚫 [hook] リポジトリ情報の取得に失敗しました。ネットワーク接続と gh auth を確認してください。" >&2
+    pr_number=$(echo "$pr_info" | cut -f1)
+    pr_url=$(echo "$pr_info" | cut -f2)
+    repo=$(echo "$pr_url" | sed -nE 's|https://github\.com/([^/]+/[^/]+)/pull/[0-9]+|\1|p')
+
+    if [ -z "$pr_number" ] || [ -z "$repo" ]; then
+        echo "🚫 [hook] PR情報の解決に失敗しました。ネットワーク接続と gh auth を確認してください。" >&2
         exit 2
     fi
 
