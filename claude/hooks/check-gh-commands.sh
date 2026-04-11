@@ -34,23 +34,34 @@ fi
 # gh pr merge 実行前にレビューコメント（🤖 AI コードレビュー結果）が存在するか確認
 if echo "$command" | grep -qE '(^|[;&|])\s*gh\s+pr\s+merge\b'; then
     pr_number=$(echo "$command" | grep -oE 'gh\s+pr\s+merge\s+([0-9]+)' | awk '{print $NF}')
-    if [ -n "$pr_number" ]; then
-        repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)
-        if [ -n "$repo" ]; then
-            review_body=$(gh api "repos/$repo/issues/$pr_number/comments" --jq '.[].body' 2>/dev/null || true)
-            has_review=$(echo "$review_body" | grep -c '🤖 AI コードレビュー結果' || true)
-            if [ "$has_review" = "0" ]; then
-                echo "🚫 [hook] PR #$pr_number にレビューコメント（🤖 AI コードレビュー結果）がありません。" >&2
-                echo "   レビューを実施してからマージしてください。" >&2
-                exit 2
-            fi
-            has_multi_ai=$(echo "$review_body" | grep -cE 'Gemini|Codex' || true)
-            if [ "$has_multi_ai" = "0" ]; then
-                echo "🚫 [hook] PR #$pr_number に Multi-AI レビュー（Gemini または Codex）がありません。" >&2
-                echo "   Claude 単独レビューではマージできません。Gemini scout または Codex verifier のレビューを実施してください。" >&2
-                exit 2
-            fi
+
+    # PR番号が省略された場合、現在のブランチのPR番号を取得
+    if [ -z "$pr_number" ]; then
+        pr_number=$(gh pr view --json number -q .number 2>/dev/null || true)
+        if [ -z "$pr_number" ]; then
+            echo "🚫 [hook] 現在のブランチに紐づくPRが見つかりません。PR番号を指定してください。" >&2
+            exit 2
         fi
+    fi
+
+    repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)
+    if [ -z "$repo" ]; then
+        echo "🚫 [hook] リポジトリ情報の取得に失敗しました。ネットワーク接続と gh auth を確認してください。" >&2
+        exit 2
+    fi
+
+    review_body=$(gh api "repos/$repo/issues/$pr_number/comments" --jq '.[].body' 2>/dev/null || true)
+    has_review=$(echo "$review_body" | grep -c '🤖 AI コードレビュー結果' || true)
+    if [ "$has_review" = "0" ]; then
+        echo "🚫 [hook] PR #$pr_number にレビューコメント（🤖 AI コードレビュー結果）がありません。" >&2
+        echo "   レビューを実施してからマージしてください。" >&2
+        exit 2
+    fi
+    has_multi_ai=$(echo "$review_body" | grep -cE 'Gemini|Codex' || true)
+    if [ "$has_multi_ai" = "0" ]; then
+        echo "🚫 [hook] PR #$pr_number に Multi-AI レビュー（Gemini または Codex）がありません。" >&2
+        echo "   Claude 単独レビューではマージできません。Gemini scout または Codex verifier のレビューを実施してください。" >&2
+        exit 2
     fi
 fi
 
