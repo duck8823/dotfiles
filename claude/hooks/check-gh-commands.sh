@@ -45,20 +45,23 @@ if echo "$command" | grep -qE '(^|[;&|])\s*gh\s+pr\s+merge\b'; then
     fi
 
     repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)
-    if [ -n "$repo" ]; then
-        review_body=$(gh api "repos/$repo/issues/$pr_number/comments" --jq '.[].body' 2>/dev/null || true)
-        has_review=$(echo "$review_body" | grep -c '🤖 AI コードレビュー結果' || true)
-        if [ "$has_review" = "0" ]; then
-            echo "🚫 [hook] PR #$pr_number にレビューコメント（🤖 AI コードレビュー結果）がありません。" >&2
-            echo "   レビューを実施してからマージしてください。" >&2
-            exit 2
-        fi
-        has_multi_ai=$(echo "$review_body" | grep -cE 'Gemini|Codex' || true)
-        if [ "$has_multi_ai" = "0" ]; then
-            echo "🚫 [hook] PR #$pr_number に Multi-AI レビュー（Gemini または Codex）がありません。" >&2
-            echo "   Claude 単独レビューではマージできません。Gemini scout または Codex verifier のレビューを実施してください。" >&2
-            exit 2
-        fi
+    if [ -z "$repo" ]; then
+        echo "🚫 [hook] リポジトリ情報の取得に失敗しました。ネットワーク接続と gh auth を確認してください。" >&2
+        exit 2
+    fi
+
+    review_body=$(gh api "repos/$repo/issues/$pr_number/comments" --jq '.[].body' 2>/dev/null || true)
+    has_review=$(echo "$review_body" | grep -c '🤖 AI コードレビュー結果' || true)
+    if [ "$has_review" = "0" ]; then
+        echo "🚫 [hook] PR #$pr_number にレビューコメント（🤖 AI コードレビュー結果）がありません。" >&2
+        echo "   レビューを実施してからマージしてください。" >&2
+        exit 2
+    fi
+    has_multi_ai=$(echo "$review_body" | grep -cE 'Gemini|Codex' || true)
+    if [ "$has_multi_ai" = "0" ]; then
+        echo "🚫 [hook] PR #$pr_number に Multi-AI レビュー（Gemini または Codex）がありません。" >&2
+        echo "   Claude 単独レビューではマージできません。Gemini scout または Codex verifier のレビューを実施してください。" >&2
+        exit 2
     fi
 fi
 
