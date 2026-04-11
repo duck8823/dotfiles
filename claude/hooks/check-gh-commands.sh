@@ -124,6 +124,25 @@ print(target + '\t' + repo)
     fi
 fi
 
+# git tag / git push --tags / gh release create はユーザー確認なしで実行させない
+if echo "$command" | grep -qE '(^|[;&|])\s*git\s+tag\b'; then
+    echo "🚫 [hook] 'git tag' を直接実行しないでください。" >&2
+    echo "   リリースタグはユーザーの明示的な承認を得てから作成してください。" >&2
+    exit 2
+fi
+
+if echo "$command" | grep -qE '(^|[;&|])\s*git\s+push\b.*(--tags|--follow-tags)'; then
+    echo "🚫 [hook] 'git push --tags/--follow-tags' を直接実行しないでください。" >&2
+    echo "   リリースタグはユーザーの明示的な承認を得てから push してください。" >&2
+    exit 2
+fi
+
+if echo "$command" | grep -qE '(^|[;&|])\s*gh\s+release\s+create\b'; then
+    echo "🚫 [hook] 'gh release create' を直接実行しないでください。" >&2
+    echo "   リリースはユーザーの明示的な承認を得てから作成してください。" >&2
+    exit 2
+fi
+
 # コミットメッセージにレビュー起点の文言が含まれていないかチェック
 if echo "$command" | grep -qE '(^|[;&|])\s*git\s+commit\b'; then
     if echo "$command" | grep -qiE 'レビュー指摘|レビュー対応|レビュー修正|review fix'; then
