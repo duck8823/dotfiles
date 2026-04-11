@@ -47,17 +47,14 @@ if [ "$has_verify_target" = false ]; then
 fi
 
 # ドキュメントのみの変更かチェック（ソースコード変更がなければスキップ）
-has_source_changes=$(git diff --cached --name-only 2>/dev/null | grep -cvE '\.(md|txt|json|ya?ml|toml)$' || true)
-if [ "$is_push" = true ]; then
-    # push の場合は HEAD..origin の差分を見る
-    current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-    remote_ref="origin/$current_branch"
-    if git rev-parse "$remote_ref" >/dev/null 2>&1; then
-        has_source_changes=$(git diff --name-only "$remote_ref"..HEAD 2>/dev/null | grep -cvE '\.(md|txt|json|ya?ml|toml)$' || true)
-    else
-        # 新規ブランチの場合はスタンプチェック対象
-        has_source_changes=1
-    fi
+# push / ready ともにリモートとの差分で判定する
+current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+remote_ref="origin/$current_branch"
+if git rev-parse "$remote_ref" >/dev/null 2>&1; then
+    has_source_changes=$(git diff --name-only "$remote_ref"..HEAD 2>/dev/null | grep -cvE '\.(md|txt|json|ya?ml|toml)$' || true)
+else
+    # 新規ブランチまたはリモート未設定の場合はスタンプチェック対象
+    has_source_changes=1
 fi
 
 # ソースコード変更がなければスキップ

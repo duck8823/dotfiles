@@ -26,24 +26,25 @@ if echo "$command" | grep -qE '(^|[;&|])\s*git\s+commit\b'; then
     exit 0
 fi
 
-# 検証コマンドの成功を検出してスタンプを記録
-# exit_code は PostToolUse で利用可能
-exit_code=$(echo "$input" | python3 -c "
-import sys, json
-try:
-    d = json.load(sys.stdin)
-    print(d.get('tool_result', {}).get('exit_code', d.get('exit_code', '')))
-except:
-    print('')
-" 2>/dev/null || echo "")
-
-# exit_code が 0 でなければスタンプしない
-if [ "$exit_code" != "0" ]; then
+# 検証コマンドのパターンマッチ
+if ! echo "$command" | grep -qE '(flutter\s+analyze|flutter\s+test|go\s+vet|go\s+test|npm\s+test|npm\s+run\s+lint)'; then
     exit 0
 fi
 
-# 検証コマンドのパターンマッチ
-if echo "$command" | grep -qE '(flutter\s+analyze|flutter\s+test|go\s+vet|go\s+test|npm\s+test|npm\s+run\s+lint)'; then
+# tool_response にエラーパターンが含まれていなければ成功とみなしスタンプ記録
+has_error=$(echo "$input" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    resp = str(d.get('tool_response', ''))
+    # 一般的な失敗パターンを検出
+    indicators = ['FAILED', 'FAIL', 'error:', 'Error:', 'ERRORS', 'panic:', 'exit code', 'exit status']
+    print('1' if any(ind in resp for ind in indicators) else '0')
+except:
+    print('0')
+" 2>/dev/null || echo "0")
+
+if [ "$has_error" = "0" ]; then
     date +%s > "$stamp_file"
 fi
 
