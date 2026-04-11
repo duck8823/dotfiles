@@ -15,5 +15,5 @@ globs: "**/*.dart"
   - Bundle ID がターゲット・Entitlements 間で一致していること
   - バージョン番号・ビルド番号が未使用であること
   - 署名設定が配布用（Distribution）になっていること
-  - ターゲット間で共有される型に private / internal 修飾子がないこと
+  - (iOS) Extension Target 等の複数ターゲット間で共有する Swift/ObjC の型にアクセス制限がないこと
   - `flutter analyze` と `flutter test` が通ること

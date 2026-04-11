@@ -89,6 +89,10 @@
 
 - `CLAUDE.md`: 常時読み込み（サマリーのみ）
 - `guidelines/`: タスク開始時に関連ファイルを読み込む
+  - `/sprint` `/implement-issue` → `sprint-rules.md`, `multi-ai-team.md`, `git-workflow.md`
+  - `/plan` → `multi-ai-team.md`
+  - `/review-and-merge` → `review-workflow.md`, `multi-ai-team.md`, `git-workflow.md`
+  - Codex/Gemini 呼び出し → `ai-cli-integration.md`
 - `rules/`: プロジェクト言語に応じて選択的に読み込み
 - ガイドライン新規追加時は既存ファイルへの統合を優先
 

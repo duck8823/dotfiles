@@ -131,8 +131,8 @@ if echo "$command" | grep -qE '(^|[;&|])\s*git\s+tag\b'; then
     exit 2
 fi
 
-if echo "$command" | grep -qE '(^|[;&|])\s*git\s+push\b.*--tags'; then
-    echo "🚫 [hook] 'git push --tags' を直接実行しないでください。" >&2
+if echo "$command" | grep -qE '(^|[;&|])\s*git\s+push\b.*(--tags|--follow-tags)'; then
+    echo "🚫 [hook] 'git push --tags/--follow-tags' を直接実行しないでください。" >&2
     echo "   リリースタグはユーザーの明示的な承認を得てから push してください。" >&2
     exit 2
 fi
