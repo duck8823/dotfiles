@@ -13,7 +13,7 @@
 | ツール | 目的 | コマンド例 | 補足 |
 |--------|------|-----------|------|
 | Codex | review / plan / worker | `codex exec --full-auto - < <prompt> \| tee <file>` | `-c 'agents.default.config_file=...'` で役割付与 |
-| Gemini | scout / review / planning | `gemini --approval-mode plan -p ' ' -e none < <prompt> > <output>` | `GEMINI_SYSTEM_MD=...` で役割付与 |
+| Gemini | scout / review / planning | `gemini --approval-mode plan -p ' ' -e none < <prompt> 2>&1 \| tee <output>` | `GEMINI_SYSTEM_MD=...` で役割付与 |
 
 > `gemini -e none` は公式にサポートされた「拡張を無効化する」指定。旧来の `-e ''` は使わない。
 
@@ -50,7 +50,7 @@ codex exec --full-auto \
 GEMINI_SYSTEM_MD=$HOME/.gemini/agents/<agent-name>.md \
   TERM=xterm-256color \
   gemini --approval-mode plan -p ' ' -e none \
-  < /tmp/<agent>-prompt.md > /tmp/<agent>-result.json 2>&1
+  < /tmp/<agent>-prompt.md 2>&1 | tee /tmp/<agent>-result.json
 ```
 
 ## worktree 運用
@@ -102,7 +102,7 @@ $CMUX send-key --surface surface:1 Return
 $CMUX send --surface "$SURFACE_RIGHT" "GEMINI_SYSTEM_MD=$HOME/.gemini/agents/reviewer.md \
   TERM=xterm-256color \
   gemini --approval-mode plan -p ' ' -e none \
-  < /tmp/gemini-architect.md > /tmp/gemini-architect-result.json 2>&1 && echo DONE"
+  < /tmp/gemini-architect.md 2>&1 | tee /tmp/gemini-architect-result.json && echo DONE"
 $CMUX send-key --surface "$SURFACE_RIGHT" Return
 ```
 
@@ -118,7 +118,7 @@ PID_CODEX=$!
 GEMINI_SYSTEM_MD=$HOME/.gemini/agents/reviewer.md \
   TERM=xterm-256color \
   gemini --approval-mode plan -p ' ' -e none \
-  < /tmp/gemini-architect.md > /tmp/gemini-architect-result.json 2>&1 &
+  < /tmp/gemini-architect.md 2>&1 | tee /tmp/gemini-architect-result.json &
 PID_GEMINI=$!
 
 wait $PID_CODEX $PID_GEMINI
@@ -132,7 +132,7 @@ wait $PID_CODEX $PID_GEMINI
 
 ## エラーハンドリング
 
-- stderr と stdout は分離保存する（Gemini は単一ファイルでも可だが、Codex は必ず stderr を別保存）
+- Codex は stderr を別ファイルに保存する。Gemini は `2>&1 | tee` で統合キャプチャする（応答テキストが stderr に混在するため）
 - 失敗時は1回だけリトライ、2回目失敗でスキップして失敗を記録
 - Codex を非リポジトリで使う場合は `--skip-git-repo-check` を付ける
 - タイムアウト・JSON不正・空出力は統合ログに残す
