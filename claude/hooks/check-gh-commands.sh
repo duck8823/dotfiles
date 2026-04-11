@@ -35,19 +35,46 @@ fi
 if echo "$command" | grep -qE '(^|[;&|])\s*gh\s+pr\s+merge\b'; then
     # merge コマンドの引数を解析（対象指定と -R フラグを抽出）
     merge_info=$(echo "$command" | python3 -c "
-import sys, re
+import sys, re, shlex
 cmd = sys.stdin.read()
 m = re.search(r'gh\s+pr\s+merge\b(.*?)(?:\s*[;&|]|\s*$)', cmd)
 if not m:
     print('\t'); sys.exit(0)
-args = m.group(1).strip()
-repo_m = re.search(r'(?:-R|--repo)[\s=](\S+)', args)
-repo = repo_m.group(1) if repo_m else ''
-cleaned = re.sub(r'(?:-R|--repo|--subject|--body|--body-file|--match-head-commit|--author)[\s=]\S+', '', args)
-cleaned = re.sub(r'--?\S+', '', cleaned).strip()
-target = cleaned.split()[0] if cleaned else ''
+args_str = m.group(1).strip()
+try:
+    tokens = shlex.split(args_str)
+except ValueError:
+    tokens = args_str.split()
+flags_with_value = {'-R', '--repo', '-t', '--subject', '-b', '--body', '-F', '--body-file', '--match-head-commit', '--author'}
+repo = ''
+target = ''
+skip_next = False
+for i, tok in enumerate(tokens):
+    if skip_next:
+        skip_next = False
+        continue
+    if '=' in tok and tok.startswith('-'):
+        flag_name = tok.split('=', 1)[0]
+        if flag_name in ('-R', '--repo'):
+            repo = tok.split('=', 1)[1]
+        continue
+    if tok in ('-R', '--repo'):
+        if i + 1 < len(tokens):
+            repo = tokens[i + 1]
+            skip_next = True
+        continue
+    if tok in flags_with_value:
+        skip_next = True
+        continue
+    if tok.startswith('-'):
+        continue
+    if not target:
+        target = tok
 print(target + '\t' + repo)
-" 2>/dev/null || echo $'\t')
+" 2>/dev/null) || {
+        echo "🚫 [hook] コマンド解析に失敗しました。python3 が必要です。" >&2
+        exit 2
+    }
 
     merge_target=$(printf '%s' "$merge_info" | cut -f1)
     repo_flag=$(printf '%s' "$merge_info" | cut -f2)
