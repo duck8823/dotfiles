@@ -23,6 +23,8 @@
 - 既定は `--approval-mode plan`（read-only）
 - repo-wide scan、既存パターン比較、docs / config / l10n drift 検出に使う
 - 書き込みをさせるのは、明示的に許可した isolated worktree 実験時のみ
+- **1プロンプト1質問**: 複合的な質問（多項目チェック等）ではツールエラー後にリカバリできず空出力で終了する。質問は短く単一にして個別実行する
+- **クォータ枯渇のサイレント失敗**: 連続実行で `429 QUOTA_EXHAUSTED` が発生しても exit code 0 で終了し出力が空になる。出力ファイルが空の場合はクォータ枯渇を疑う
 
 ### Codex
 - scoped 実装、テスト、CI/CD、セキュリティ、シェル自動化に使う
@@ -144,7 +146,7 @@ wait $PID_CODEX $PID_GEMINI
 | **Codex タイムアウト** | 結果ファイル未出現（10分超過） | 1回リトライ → Claude が直接実行 |
 | **Gemini タイムアウト** | 同上 | 1回リトライ → Codex scout で代替 |
 | **Codex capacity failure** | stderr に `rate_limit` / `capacity` | 30秒待ってリトライ → スキップ |
-| **Gemini capacity failure** | stderr に `429` / `RESOURCE_EXHAUSTED` | 30秒待ってリトライ → スキップ |
+| **Gemini capacity failure** | stderr に `429` / `RESOURCE_EXHAUSTED`、または exit 0 + 空出力 | 30秒待ってリトライ → スキップ |
 | **JSON パース失敗** | jq / python3 でパース不能 | 1回リトライ → 統合ログに記録してスキップ |
 | **部分レビュー** | multi-AI レビュー中の一部のみ完了 | 完了分で統合判断を続行。欠落を記録 |
 
