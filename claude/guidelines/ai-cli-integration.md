@@ -12,7 +12,7 @@
 
 | ツール | 目的 | コマンド例 | 補足 |
 |--------|------|-----------|------|
-| Codex | review / plan / worker | `codex exec --full-auto -o <file> - < <prompt>` | `-c 'agents.default.config_file=...'` で役割付与 |
+| Codex | review / plan / worker | `codex exec --full-auto - < <prompt> \| tee <file>` | `-c 'agents.default.config_file=...'` で役割付与 |
 | Gemini | scout / review / planning | `gemini --approval-mode plan -p ' ' -e none < <prompt> > <output>` | `GEMINI_SYSTEM_MD=...` で役割付与 |
 
 > `gemini -e none` は公式にサポートされた「拡張を無効化する」指定。旧来の `-e ''` は使わない。
@@ -40,8 +40,7 @@
 CODEX_AGENT=$HOME/.codex/agents/<agent-name>.toml
 codex exec --full-auto \
   -c "agents.default.config_file=\"$CODEX_AGENT\"" \
-  -o /tmp/<agent>-result.json \
-  - < /tmp/<agent>-prompt.md 2>/tmp/<agent>.err
+  - < /tmp/<agent>-prompt.md 2>/tmp/<agent>.err | tee /tmp/<agent>-result.json
 ```
 
 ### Gemini（MD エージェント定義をシステムプロンプトとして使用）
@@ -68,8 +67,7 @@ git worktree add .codex-work/<task-name> -b codex/<task-name>
 cd .codex-work/<task-name>
 codex exec --full-auto \
   -c "agents.default.config_file=\"$CODEX_AGENT\"" \
-  -o /tmp/codex-result.json \
-  - < /tmp/codex-prompt.md 2>/tmp/codex.err
+  - < /tmp/codex-prompt.md 2>/tmp/codex.err | tee /tmp/codex-result.json
 ```
 
 ### Gemini 実験タスク
@@ -96,8 +94,7 @@ SURFACE_RIGHT=$($CMUX new-split right)
 
 $CMUX send --surface surface:1 "codex exec --full-auto \
   -c \"agents.default.config_file=\\\"$CODEX_AGENT\\\"\" \
-  -o /tmp/codex-architect-result.json \
-  - < /tmp/codex-architect.md 2>/tmp/codex-architect.err && echo DONE"
+  - < /tmp/codex-architect.md 2>/tmp/codex-architect.err | tee /tmp/codex-architect-result.json && echo DONE"
 $CMUX send-key --surface surface:1 Return
 
 $CMUX send --surface "$SURFACE_RIGHT" "GEMINI_SYSTEM_MD=$HOME/.gemini/agents/reviewer.md \
@@ -113,8 +110,7 @@ $CMUX send-key --surface "$SURFACE_RIGHT" Return
 CODEX_AGENT=$HOME/.codex/agents/architect.toml
 codex exec --full-auto \
   -c "agents.default.config_file=\"$CODEX_AGENT\"" \
-  -o /tmp/codex-architect-result.json \
-  - < /tmp/codex-architect.md 2>/tmp/codex-architect.err &
+  - < /tmp/codex-architect.md 2>/tmp/codex-architect.err | tee /tmp/codex-architect-result.json &
 PID_CODEX=$!
 
 GEMINI_SYSTEM_MD=$HOME/.gemini/agents/reviewer.md \
