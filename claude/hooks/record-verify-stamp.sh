@@ -18,7 +18,9 @@ if [ -z "$repo_dir" ]; then
     exit 0
 fi
 repo_hash=$(echo "$repo_dir" | md5 -q 2>/dev/null || echo "$repo_dir" | md5sum | cut -d' ' -f1)
-stamp_file="/tmp/.claude-verify-stamp-${repo_hash}"
+stamp_dir="${HOME}/.cache/claude-code"
+mkdir -p "$stamp_dir" 2>/dev/null
+stamp_file="${stamp_dir}/verify-stamp-${repo_hash}"
 
 # git commit 実行時はスタンプをクリア（新コミットで再検証が必要）
 if echo "$command" | grep -qE '(^|[;&|])\s*git\s+commit\b'; then
