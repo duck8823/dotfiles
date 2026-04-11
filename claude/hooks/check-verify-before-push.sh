@@ -33,7 +33,8 @@ if [ -z "$repo_dir" ]; then
     exit 0
 fi
 repo_hash=$(echo "$repo_dir" | md5 -q 2>/dev/null || echo "$repo_dir" | md5sum | cut -d' ' -f1)
-stamp_file="/tmp/.claude-verify-stamp-${repo_hash}"
+stamp_dir="${HOME}/.cache/claude-code"
+stamp_file="${stamp_dir}/verify-stamp-${repo_hash}"
 
 # 検証対象のプロジェクトか判定（検証コマンドがあるプロジェクトのみ）
 has_verify_target=false
@@ -51,7 +52,7 @@ fi
 current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
 remote_ref="origin/$current_branch"
 if git rev-parse "$remote_ref" >/dev/null 2>&1; then
-    has_source_changes=$(git diff --name-only "$remote_ref"..HEAD 2>/dev/null | grep -cvE '\.(md|txt|json|ya?ml|toml)$' || true)
+    has_source_changes=$(git diff --name-only "$remote_ref"..HEAD 2>/dev/null | grep -cvE '\.(md|txt)$' || true)
 else
     # 新規ブランチまたはリモート未設定の場合はスタンプチェック対象
     has_source_changes=1
