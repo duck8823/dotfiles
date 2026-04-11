@@ -34,22 +34,30 @@ fi
 # gh pr merge 実行前にレビューコメント（🤖 AI コードレビュー結果）が存在するか確認
 if echo "$command" | grep -qE '(^|[;&|])\s*gh\s+pr\s+merge\b'; then
     # merge コマンドの引数を解析（対象指定と -R フラグを抽出）
+    # shlex.split をコマンド全体に適用し、クォート内のメタ文字を正しく処理する
     merge_info=$(echo "$command" | python3 -c "
-import sys, re, shlex
-cmd = sys.stdin.read()
-m = re.search(r'gh\s+pr\s+merge\b(.*?)(?:\s*[;&|]|\s*$)', cmd)
-if not m:
-    print('\t'); sys.exit(0)
-args_str = m.group(1).strip()
+import sys, shlex
+cmd = sys.stdin.read().strip()
 try:
-    tokens = shlex.split(args_str)
+    tokens = shlex.split(cmd)
 except ValueError:
-    tokens = args_str.split()
+    tokens = cmd.split()
+# gh pr merge の最後の出現位置を使用（前段コマンドの引数に含まれるケースを回避）
+merge_idx = -1
+for i in range(len(tokens) - 2):
+    if tokens[i] == 'gh' and tokens[i+1] == 'pr' and tokens[i+2] == 'merge':
+        merge_idx = i + 3
+if merge_idx < 0:
+    print('\t'); sys.exit(0)
 flags_with_value = {'-R', '--repo', '-t', '--subject', '-b', '--body', '-F', '--body-file', '--match-head-commit', '--author'}
+shell_operators = {';', '&', '|', '&&', '||', ';;'}
 repo = ''
 target = ''
 skip_next = False
-for i, tok in enumerate(tokens):
+for j in range(merge_idx, len(tokens)):
+    tok = tokens[j]
+    if tok in shell_operators:
+        break
     if skip_next:
         skip_next = False
         continue
@@ -59,8 +67,8 @@ for i, tok in enumerate(tokens):
             repo = tok.split('=', 1)[1]
         continue
     if tok in ('-R', '--repo'):
-        if i + 1 < len(tokens):
-            repo = tokens[i + 1]
+        if j + 1 < len(tokens):
+            repo = tokens[j + 1]
             skip_next = True
         continue
     if tok in flags_with_value:
