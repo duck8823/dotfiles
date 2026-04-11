@@ -33,20 +33,79 @@ fi
 
 # gh pr merge 実行前にレビューコメント（🤖 AI コードレビュー結果）が存在するか確認
 if echo "$command" | grep -qE '(^|[;&|])\s*gh\s+pr\s+merge\b'; then
-    pr_number=$(echo "$command" | grep -oE 'gh\s+pr\s+merge\s+([0-9]+)' | awk '{print $NF}')
+    # merge コマンドの引数を解析（対象指定と -R フラグを抽出）
+    # shlex.split をコマンド全体に適用し、クォート内のメタ文字を正しく処理する
+    merge_info=$(echo "$command" | python3 -c "
+import sys, shlex
+cmd = sys.stdin.read().strip()
+try:
+    tokens = shlex.split(cmd)
+except ValueError:
+    tokens = cmd.split()
+# gh pr merge の最後の出現位置を使用（前段コマンドの引数に含まれるケースを回避）
+merge_idx = -1
+for i in range(len(tokens) - 2):
+    if tokens[i] == 'gh' and tokens[i+1] == 'pr' and tokens[i+2] == 'merge':
+        merge_idx = i + 3
+if merge_idx < 0:
+    print('\t'); sys.exit(0)
+flags_with_value = {'-R', '--repo', '-t', '--subject', '-b', '--body', '-F', '--body-file', '--match-head-commit', '--author'}
+shell_operators = {';', '&', '|', '&&', '||', ';;'}
+repo = ''
+target = ''
+skip_next = False
+for j in range(merge_idx, len(tokens)):
+    tok = tokens[j]
+    if tok in shell_operators:
+        break
+    if skip_next:
+        skip_next = False
+        continue
+    if '=' in tok and tok.startswith('-'):
+        flag_name = tok.split('=', 1)[0]
+        if flag_name in ('-R', '--repo'):
+            repo = tok.split('=', 1)[1]
+        continue
+    if tok in ('-R', '--repo'):
+        if j + 1 < len(tokens):
+            repo = tokens[j + 1]
+            skip_next = True
+        continue
+    if tok in flags_with_value:
+        skip_next = True
+        continue
+    if tok.startswith('-'):
+        continue
+    if not target:
+        target = tok
+print(target + '\t' + repo)
+" 2>/dev/null) || {
+        echo "🚫 [hook] コマンド解析に失敗しました。python3 が必要です。" >&2
+        exit 2
+    }
 
-    # PR番号が省略された場合、現在のブランチのPR番号を取得
-    if [ -z "$pr_number" ]; then
-        pr_number=$(gh pr view --json number -q .number 2>/dev/null || true)
-        if [ -z "$pr_number" ]; then
-            echo "🚫 [hook] 現在のブランチに紐づくPRが見つかりません。PR番号を指定してください。" >&2
-            exit 2
-        fi
+    merge_target=$(printf '%s' "$merge_info" | cut -f1)
+    repo_flag=$(printf '%s' "$merge_info" | cut -f2)
+
+    # gh pr view で PR 番号と URL を解決（数値/URL/branch/省略すべてに対応）
+    view_args=()
+    [ -n "$merge_target" ] && view_args+=("$merge_target")
+    [ -n "$repo_flag" ] && view_args+=("-R" "$repo_flag")
+
+    pr_info=$(gh pr view "${view_args[@]}" --json number,url \
+      -q '"\(.number)\t\(.url)"' 2>/dev/null || true)
+
+    if [ -z "$pr_info" ]; then
+        echo "🚫 [hook] マージ対象のPRが見つかりません。" >&2
+        exit 2
     fi
 
-    repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)
-    if [ -z "$repo" ]; then
-        echo "🚫 [hook] リポジトリ情報の取得に失敗しました。ネットワーク接続と gh auth を確認してください。" >&2
+    pr_number=$(echo "$pr_info" | cut -f1)
+    pr_url=$(echo "$pr_info" | cut -f2)
+    repo=$(echo "$pr_url" | sed -nE 's|https://github\.com/([^/]+/[^/]+)/pull/[0-9]+|\1|p')
+
+    if [ -z "$pr_number" ] || [ -z "$repo" ]; then
+        echo "🚫 [hook] PR情報の解決に失敗しました。ネットワーク接続と gh auth を確認してください。" >&2
         exit 2
     fi
 
