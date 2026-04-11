@@ -60,11 +60,24 @@
           {
             "type": "command",
             "command": "bash {{HOME}}/.claude/hooks/check-permissions.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash {{HOME}}/.claude/hooks/check-verify-before-push.sh"
           }
         ]
       }
     ],
     "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash {{HOME}}/.claude/hooks/record-verify-stamp.sh"
+          }
+        ]
+      },
       {
         "matcher": "Edit",
         "hooks": [

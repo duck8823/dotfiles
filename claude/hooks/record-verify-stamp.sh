@@ -1,0 +1,51 @@
+#!/bin/bash
+# Claude Code PostToolUse hook: 検証コマンド成功時にスタンプを記録する
+# git commit 時にスタンプをクリアする（再検証が必要）
+
+input=$(cat)
+command=$(echo "$input" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    print(d.get('tool_input', {}).get('command', ''))
+except:
+    print('')
+" 2>/dev/null || echo "")
+
+# リポジトリのハッシュをスタンプファイル名に使用
+repo_dir=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
+if [ -z "$repo_dir" ]; then
+    exit 0
+fi
+repo_hash=$(echo "$repo_dir" | md5 -q 2>/dev/null || echo "$repo_dir" | md5sum | cut -d' ' -f1)
+stamp_file="/tmp/.claude-verify-stamp-${repo_hash}"
+
+# git commit 実行時はスタンプをクリア（新コミットで再検証が必要）
+if echo "$command" | grep -qE '(^|[;&|])\s*git\s+commit\b'; then
+    rm -f "$stamp_file" 2>/dev/null
+    exit 0
+fi
+
+# 検証コマンドのパターンマッチ
+if ! echo "$command" | grep -qE '(flutter\s+analyze|flutter\s+test|go\s+vet|go\s+test|npm\s+test|npm\s+run\s+lint)'; then
+    exit 0
+fi
+
+# tool_response にエラーパターンが含まれていなければ成功とみなしスタンプ記録
+has_error=$(echo "$input" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    resp = str(d.get('tool_response', ''))
+    # 一般的な失敗パターンを検出
+    indicators = ['FAILED', 'FAIL', 'error:', 'Error:', 'ERRORS', 'panic:', 'exit code', 'exit status']
+    print('1' if any(ind in resp for ind in indicators) else '0')
+except:
+    print('0')
+" 2>/dev/null || echo "0")
+
+if [ "$has_error" = "0" ]; then
+    date +%s > "$stamp_file"
+fi
+
+exit 0
