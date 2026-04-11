@@ -123,8 +123,8 @@
 詳細: `~/.claude/guidelines/ai-cli-integration.md`
 
 - 並列実行は cmux を第一選択（`/Applications/cmux.app/Contents/Resources/bin/cmux`）。フォールバックは Bash バックグラウンド → tmux
-- Codex: `codex exec --full-auto -o <file> - < <prompt>`
-- Gemini: `TERM=xterm-256color gemini --approval-mode plan -p ' ' -e none < <prompt> > <output>`
+- Codex: `codex exec --full-auto - < <prompt> | tee <file>`
+- Gemini: `TERM=xterm-256color gemini --approval-mode plan -p ' ' -e none < <prompt> 2>&1 | tee <output>`
 - エージェント指定: Codex は `-c 'agents.default.config_file=...'`、Gemini は `GEMINI_SYSTEM_MD=...`
 - Gemini は read-only scout、Codex は background worker として扱う
 - 失敗時は1回リトライ、2回目はスキップして記録
