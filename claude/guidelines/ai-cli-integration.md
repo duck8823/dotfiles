@@ -124,6 +124,9 @@ GEMINI_SYSTEM_MD=$HOME/.gemini/agents/reviewer.md \
 PID_GEMINI=$!
 
 wait $PID_CODEX $PID_GEMINI
+# wait の exit code はパイプ末尾 (tee) のもの。成否は結果ファイルの存在・サイズで判断する
+[[ -s /tmp/codex-architect-result.json ]] || echo "WARN: Codex result empty"
+[[ -s /tmp/gemini-architect-result.json ]] || echo "WARN: Gemini result empty"
 ```
 
 ### 第三選択: tmux（レガシー）
@@ -146,7 +149,7 @@ wait $PID_CODEX $PID_GEMINI
 | **Codex タイムアウト** | 結果ファイル未出現（10分超過） | 1回リトライ → Claude が直接実行 |
 | **Gemini タイムアウト** | 同上 | 1回リトライ → Codex scout で代替 |
 | **Codex capacity failure** | stderr に `rate_limit` / `capacity` | 30秒待ってリトライ → スキップ |
-| **Gemini capacity failure** | stderr に `429` / `RESOURCE_EXHAUSTED`、または exit 0 + 空出力 | 30秒待ってリトライ → スキップ |
+| **Gemini capacity failure** | 出力ファイルに `429` / `RESOURCE_EXHAUSTED`、または exit 0 + 空出力 | 30秒待ってリトライ → スキップ |
 | **JSON パース失敗** | jq / python3 でパース不能 | 1回リトライ → 統合ログに記録してスキップ |
 | **部分レビュー** | multi-AI レビュー中の一部のみ完了 | 完了分で統合判断を続行。欠落を記録 |
 
