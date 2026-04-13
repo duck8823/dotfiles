@@ -3,6 +3,7 @@ name: reviewer
 description: PRレビューで使う。既存コードとの一貫性、パターン準拠、diff外の対応漏れ、README/設定更新漏れを検出する
 tools:
   - read_file
+  - read_many_files
   - list_directory
   - glob
   - grep_search
