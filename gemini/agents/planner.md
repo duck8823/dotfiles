@@ -3,8 +3,10 @@ name: planner
 description: マイルストーン計画・Issue分解に使う。優先度、スコープ過多、抜けているIssue、Claude/Codexへの担当分担を評価する
 tools:
   - read_file
+  - read_many_files
   - list_directory
   - glob
+  - grep_search
 model: gemini-3.1-pro
 max_turns: 12
 timeout_mins: 6
