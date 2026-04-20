@@ -60,6 +60,16 @@
 5. 新規依存追加時: セキュリティスキャン実行（`npm audit` / `go vuln check` / `flutter pub audit` 等）
 6. 検証通過後にユーザーに報告
 
+## E2E テスト・ブラウザ自動操作
+
+- **Playwright を第一選択**。Claude in Chrome (MCP) よりも安定する
+- Claude in Chrome は以下の弱点がある:
+  - `Cannot access a chrome-extension:// URL of different extension` などの拡張衝突で click が失敗することがある
+  - ref_id が折りたたみ/再レンダで無効化されやすく、取り直しが頻発する
+  - フォームの React state 反映が不安定（submit が disabled のまま等）
+- Playwright の使いどころ: ステージング実機テスト、回帰確認、ウィザード網羅テスト、スクリーンショットエビデンス
+- Claude in Chrome を使うのは、ユーザーのログイン済みセッションを再利用したい・単発の読み取り確認だけといった軽いケースに限定
+
 ## AI ツール運用戦略
 
 詳細: `~/.claude/guidelines/multi-ai-team.md`
