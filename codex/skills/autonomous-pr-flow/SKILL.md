@@ -23,6 +23,7 @@ description: 自律実行要求時に、1Issueではなく全体進行（複数I
 
 - Codex / Gemini の2AI体制で進行する
 - Gemini を一次レビューに使う
+- Gemini が headless 認証プロンプト・quota・空出力で失敗した場合は、理由を記録し Codex scout / independent reviewer で代替する
 - PR上 `@codex review` の指摘を解消して収束させる
 
 ## レベル1: 全体ループ（複数Issue/PR）
@@ -37,14 +38,17 @@ description: 自律実行要求時に、1Issueではなく全体進行（複数I
 2. `lint / typecheck / test`
 3. コミット分割（1コミット1関心事）
 4. Draft PR 作成（Motivation必須）
-5. Gemini レビュー依頼 → 指摘反映を繰り返し
+5. Gemini レビュー依頼 → 指摘反映を繰り返し（認証プロンプト等で失敗した場合は代替 reviewer を使う）
 6. Ready/Open + `@codex review`
 7. Codex 指摘反映 → 再レビュー依頼を繰り返し
-8. ブロッカー解消後にマージ
+8. 追加修正・rebase・force-with-lease push 後は再度 `@codex review` を依頼する
+9. ブロッカー解消後にマージ
 
 ## 実行ルール
 - ユーザーから明示指示がない限り `main` へ直接 push しない（全リポジトリ共通）。
 - 各修正後に必ず `lint / typecheck / test` を再実行する。
+- docs-only PR では `git diff --check`、関連 grep、既存の軽量テスト、シェル構文チェックを標準検証にする。
+- `gh pr checks` が `no checks reported` の場合だけ CI未設定/未報告として扱う。失敗・キャンセル・pending・認証/通信エラーはマージ不可として分離してPRコメントに明記する。
 - レビュー待機はポーリングで監視し、停止せず並行可能な作業を進める。
 - 誤検知レビューは「却下理由 + 検証結果」をスレッドに残す。
 - レビューコメント返信は「何をどう直したか」を簡潔に記録する。

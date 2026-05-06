@@ -23,6 +23,8 @@
 - 既定は `--approval-mode plan`（read-only）
 - repo-wide scan、既存パターン比較、docs / config / l10n drift 検出に使う
 - 書き込みをさせるのは、明示的に許可した isolated worktree 実験時のみ
+- **自律レビュー中のブラウザ認証禁止**: headless 実行で `Opening authentication page in your browser` / `Do you want to continue?` が出たら、その場で Gemini プロセスを停止し、ブラウザを開かずフォールバックする
+- **headless 事前確認**: multi-AI review 前に短い read-only prompt をタイムアウト付きで実行し、認証プロンプト・空出力・quota を先に検出する。`gemini --version` だけでは認証可否の確認にならない
 - **1プロンプト1質問**: 複合的な質問（多項目チェック等）ではツールエラー後にリカバリできず空出力で終了する。質問は短く単一にして個別実行する
 - **クォータ枯渇のサイレント失敗**: 連続実行で `429 QUOTA_EXHAUSTED` が発生しても exit code 0 で終了し出力が空になる。出力ファイルが空の場合はクォータ枯渇を疑う
 
@@ -30,6 +32,7 @@
 - scoped 実装、テスト、CI/CD、セキュリティ、シェル自動化に使う
 - 実装タスクでは dedicated branch / worktree を使う
 - 返却させる内容は **変更ファイル / 実行コマンド / 残リスク**
+- **固定ロール/モデル非互換**: `reviewer` / `qa` などのサブエージェントロールがアカウント種別と非互換な固定モデルで失敗する場合がある。その場合は同じ依頼を `agent_type` 未指定の default subagent、またはメインセッションの直接検証にフォールバックする
 - **sandbox 制約**: `go test` / `golangci-lint` 等のビルドキャッシュを使うツールは sandbox でブロックされる場合がある。read-only レビュータスクではプロンプトに「テスト・ビルド実行禁止。ソースコードを読んでレビューせよ」を明示する
 - **スキル自動ロード**: `~/.codex/skills/` のスキルがプロンプトより優先される場合がある。レビュー等の明確なタスクでは、プロンプト冒頭に目的を強調して記載する
 
@@ -151,6 +154,8 @@ wait $PID_CODEX $PID_GEMINI
 |---|---|---|
 | **Codex タイムアウト** | 結果ファイルが空のまま 10分超過 | 1回リトライ → Claude が直接実行 |
 | **Gemini タイムアウト** | 同上 | 1回リトライ → Codex scout で代替 |
+| **Gemini headless 認証待ち** | 出力ファイルに `Opening authentication page in your browser` / `Do you want to continue?` | ブラウザを開かずプロセス停止 → Codex scout / default subagent で代替 |
+| **Codex fixed-role model failure** | subagent エラーに `model is not supported` | `agent_type` 未指定の default subagent で再実行 → 失敗時はメインセッションで直接検証 |
 | **Codex capacity failure** | stderr ファイルに `rate_limit` / `capacity` | 30秒待ってリトライ → スキップ |
 | **Gemini capacity failure** | 出力ファイルに `429` / `RESOURCE_EXHAUSTED`、または exit 0 + 空出力 | 30秒待ってリトライ → スキップ |
 | **JSON パース失敗** | jq / python3 でパース不能 | 1回リトライ → 統合ログに記録してスキップ |

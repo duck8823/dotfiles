@@ -60,7 +60,24 @@ PREV_REVIEWS=$(gh pr view "$PR_NUMBER" --json reviews   --jq '.reviews[] | "【"
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 PREV_COMMENTS=$(gh api repos/$REPO/pulls/$PR_NUMBER/comments   --jq '.[] | .path + " L" + (.line|tostring) + ": " + .body' 2>/dev/null || true)
 
-CI_STATUS=$(gh pr checks "$PR_NUMBER" --json name,status,conclusion   --jq '.[] | .name + ": " + (.conclusion // .status)' 2>/dev/null || true)
+CHECKS_JSON=/tmp/${PROJECT}-pr${PR_NUMBER}-checks-context.json
+CHECKS_ERR=/tmp/${PROJECT}-pr${PR_NUMBER}-checks-context.err
+set +e
+gh pr checks "$PR_NUMBER" --json name,bucket,state,workflow,link >"$CHECKS_JSON" 2>"$CHECKS_ERR"
+CHECKS_EXIT=$?
+set -e
+if [ -s "$CHECKS_JSON" ] && jq -e 'length > 0' "$CHECKS_JSON" >/dev/null 2>&1; then
+  CI_STATUS=$(jq -r '.[] | "- " + .name + ": " + .bucket + " (" + .state + ")" + (if .link then " " + .link else "" end)' "$CHECKS_JSON")
+  if jq -e 'any(.[]; .bucket == "fail" or .bucket == "cancel")' "$CHECKS_JSON" >/dev/null; then
+    CI_STATUS=$'BLOCKING checks (fail/cancel):\n'"$CI_STATUS"
+  elif jq -e 'any(.[]; .bucket == "pending")' "$CHECKS_JSON" >/dev/null; then
+    CI_STATUS=$'BLOCKING checks (pending):\n'"$CI_STATUS"
+  fi
+elif grep -qi 'no checks reported' "$CHECKS_ERR"; then
+  CI_STATUS="no checks reported"
+else
+  CI_STATUS="checks unavailable/error (exit ${CHECKS_EXIT}): $(cat "$CHECKS_ERR")"
+fi
 
 CODEX_TEST_CMD=$(grep 'test_command' CLAUDE.md 2>/dev/null | sed 's/.*`\([^`]*\)`[^`]*$/\1/' | tr -d '\n')
 CODEX_ANALYZE_CMD=$(grep 'analyze_command' CLAUDE.md 2>/dev/null | sed 's/.*`\([^`]*\)`[^`]*$/\1/' | tr -d '\n')
@@ -158,10 +175,89 @@ PROMPT_EOF
 
 ## ステップ5: ヘッドレスでレビュアー起動
 
+### Gemini preflight
+
+Gemini は本実行前に短い prompt を `python3` の timeout 付きで実行し、認証待ち・ハング・空出力を先に検出する。
+
+```bash
+GEMINI_AVAILABLE=true
+GEMINI_PREFLIGHT_OUT=/tmp/${PROJECT}-pr${PR_NUMBER}-gemini-preflight.md
+export GEMINI_PREFLIGHT_OUT
+python3 - <<'PY'
+import os, subprocess, sys
+prompt = "read-only preflight。1行だけ返してください。"
+env = os.environ.copy()
+env["GEMINI_SYSTEM_MD"] = os.path.expanduser("~/.gemini/agents/reviewer.md")
+env["TERM"] = "xterm-256color"
+out_path = os.environ["GEMINI_PREFLIGHT_OUT"]
+try:
+    proc = subprocess.run(
+        ["gemini", "--approval-mode", "plan", "-p", " ", "-e", "none"],
+        input=prompt,
+        text=True,
+        capture_output=True,
+        timeout=20,
+        env=env,
+    )
+    text = (proc.stdout or "") + (proc.stderr or "")
+except subprocess.TimeoutExpired as exc:
+    text = ((exc.stdout or "") if isinstance(exc.stdout, str) else "") + ((exc.stderr or "") if isinstance(exc.stderr, str) else "") + "\nTIMEOUT_AFTER=20\n"
+    open(out_path, "w").write(text)
+    sys.exit(124)
+open(out_path, "w").write(text)
+if "Opening authentication page in your browser" in text or "Do you want to continue?" in text:
+    sys.exit(42)
+if not text.strip() or proc.returncode != 0:
+    sys.exit(proc.returncode or 1)
+PY
+case $? in
+  0) ;;
+  42|124) GEMINI_AVAILABLE=false ;;
+  *) GEMINI_AVAILABLE=false ;;
+esac
+```
+
+`GEMINI_AVAILABLE=false` の場合は Gemini 本実行を起動せず、理由を PR コメントに記録して Codex scout / independent reviewer にフォールバックする。
+
 ### Gemini CLI
 
 ```bash
-tmux new-session -d -s ${PROJECT}-pr${PR_NUMBER}-gemini   "TERM=xterm-256color gemini --approval-mode plan -p ' ' -e none    < $GEMINI_PROMPT_FILE > /tmp/${PROJECT}-pr${PR_NUMBER}-gemini-review.md 2>&1;    printf 'EXIT_CODE=%s\n' \$? >> /tmp/${PROJECT}-pr${PR_NUMBER}-gemini-review.md;    tmux wait-for -S ${PROJECT}-pr${PR_NUMBER}-gemini-done"
+if [ "$GEMINI_AVAILABLE" = true ]; then
+  GEMINI_REVIEW_OUT=/tmp/${PROJECT}-pr${PR_NUMBER}-gemini-review.md
+  export GEMINI_PROMPT_FILE GEMINI_REVIEW_OUT
+  python3 - <<'PY'
+import os, subprocess, sys
+prompt = open(os.environ["GEMINI_PROMPT_FILE"]).read()
+env = os.environ.copy()
+env["GEMINI_SYSTEM_MD"] = os.path.expanduser("~/.gemini/agents/reviewer.md")
+env["TERM"] = "xterm-256color"
+out_path = os.environ["GEMINI_REVIEW_OUT"]
+try:
+    proc = subprocess.run(
+        ["gemini", "--approval-mode", "plan", "-p", " ", "-e", "none"],
+        input=prompt,
+        text=True,
+        capture_output=True,
+        timeout=600,
+        env=env,
+    )
+    text = (proc.stdout or "") + (proc.stderr or "") + f"\nEXIT_CODE={proc.returncode}\n"
+except subprocess.TimeoutExpired as exc:
+    text = ((exc.stdout or "") if isinstance(exc.stdout, str) else "") + ((exc.stderr or "") if isinstance(exc.stderr, str) else "") + "\nTIMEOUT_AFTER=600\nKILLED=true\n"
+    open(out_path, "w").write(text)
+    sys.exit(124)
+open(out_path, "w").write(text)
+if "Opening authentication page in your browser" in text or "Do you want to continue?" in text:
+    sys.exit(42)
+if not text.strip() or proc.returncode != 0:
+    sys.exit(proc.returncode or 1)
+PY
+  case $? in
+    0) ;;
+    42|124) GEMINI_AVAILABLE=false ;;
+    *) GEMINI_AVAILABLE=false ;;
+  esac
+fi
 ```
 
 ### Codex CLI
@@ -173,11 +269,14 @@ tmux new-session -d -s ${PROJECT}-pr${PR_NUMBER}-codex   "cd ${PROJECT_DIR} && c
 ### 待機と取得
 
 ```bash
-tmux wait-for ${PROJECT}-pr${PR_NUMBER}-gemini-done &
 [ -f "$CODEX_PROMPT_FILE" ] && tmux wait-for ${PROJECT}-pr${PR_NUMBER}-codex-done &
 wait
 
-cat /tmp/${PROJECT}-pr${PR_NUMBER}-gemini-review.md
+if [ "$GEMINI_AVAILABLE" = true ]; then
+  cat /tmp/${PROJECT}-pr${PR_NUMBER}-gemini-review.md
+else
+  echo "Gemini skipped; see $GEMINI_PREFLIGHT_OUT"
+fi
 [ -f "$CODEX_PROMPT_FILE" ] && cat /tmp/${PROJECT}-pr${PR_NUMBER}-codex-review.md
 ```
 
@@ -188,9 +287,11 @@ cat /tmp/${PROJECT}-pr${PR_NUMBER}-gemini-review.md
 
 ### フォールバック
 - 空出力 or `EXIT_CODE != 0` は失敗とみなす
+- Gemini 出力に `Opening authentication page in your browser` / `Do you want to continue?` が出たら、ブラウザを開かずプロセスを止めて失敗扱いにする
+- Codex / Task の固定ロールが `model is not supported` で失敗したら、ロール未指定の default subagent で同じ依頼を再実行する
 - 1回だけリトライする
-- 2回目も失敗したら Claude reviewer / Task で補完する
-- 最低2レビュアーが成功すればレビュー継続可
+- 2回目も失敗したら Claude reviewer / Task / Codex scout で補完する
+- 最低2レビュアーが成功すればレビュー継続可。失敗した系統と理由は PR コメントに明記する
 
 ## ステップ6: 統合・修正ループ
 
@@ -198,8 +299,9 @@ cat /tmp/${PROJECT}-pr${PR_NUMBER}-gemini-review.md
 2. Codex のセキュリティ / テスト / 再現指摘を確認する
 3. Claude が diff 全体を再読し、変更意図・ユーザー影響・プロジェクト規約との整合を判定する
 4. Critical / Major を修正する
-5. `test_command` / `analyze_command` を再実行する
-6. `/review-and-merge` のステップ3〜6を繰り返す
+5. `test_command` / `analyze_command` を再実行する。docs-only PR では `git diff --check`、関連 grep、既存の軽量テスト、シェル構文チェックを標準検証にする
+6. 追加修正・rebase・force-with-lease push 後は、最新 head に対して再度 `@codex review` を依頼する
+7. `/review-and-merge` のステップ3〜6を繰り返す
 
 ### コメント投稿フォーマット
 
@@ -234,9 +336,35 @@ EOF
 ## ステップ7: マージ
 
 ```bash
-gh pr checks <number>
+CHECKS_JSON=/tmp/${PROJECT}-pr${PR_NUMBER}-checks.json
+CHECKS_ERR=/tmp/${PROJECT}-pr${PR_NUMBER}-checks.err
+set +e
+gh pr checks <number> --json name,bucket,state,workflow,link >"$CHECKS_JSON" 2>"$CHECKS_ERR"
+CHECKS_EXIT=$?
+set -e
+if [ -s "$CHECKS_JSON" ] && jq -e 'length > 0' "$CHECKS_JSON" >/dev/null 2>&1; then
+  if jq -e 'any(.[]; .bucket == "fail" or .bucket == "cancel")' "$CHECKS_JSON" >/dev/null; then
+    echo "failing/cancelled checks exist" >&2
+    cat "$CHECKS_JSON" >&2
+    exit 1
+  fi
+  if jq -e 'any(.[]; .bucket == "pending")' "$CHECKS_JSON" >/dev/null; then
+    echo "pending checks exist" >&2
+    cat "$CHECKS_JSON" >&2
+    exit 1
+  fi
+elif grep -qi 'no checks reported' "$CHECKS_ERR"; then
+  echo "no checks reported"
+else
+  echo "gh pr checks failed with exit ${CHECKS_EXIT}" >&2
+  cat "$CHECKS_ERR" >&2
+  exit 1
+fi
+
 gh pr merge <number> --merge --delete-branch
 ```
+
+`no checks reported` だけを CI 未設定/未報告として扱う。`fail` / `cancel` / `pending` / 認証・通信エラーはマージ不可。
 
 マージ後:
 1. 関連する GitHub イシューをクローズする

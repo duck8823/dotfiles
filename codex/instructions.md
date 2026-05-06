@@ -28,11 +28,12 @@
 2. Draft PR 作成（Motivation必須）
 3. Gemini レビュー依頼
 4. 指摘をトリアージして反映
-5. Gemini がブロッカーなしになるまで 3-4 を繰り返す
+5. Gemini がブロッカーなしになるまで 3-4 を繰り返す（headless 認証プロンプト等で失敗した場合は代替 reviewer を使い、欠落理由を記録）
 6. PR を Ready/Open にして `@codex review`
 7. Codex 指摘をトリアージして反映
-8. Codex の issue がなくなるまで 6-7 を繰り返す
-9. マージしてレベル1へ戻る
+8. 追加修正・rebase・force-with-lease push 後は再度 `@codex review` を依頼する
+9. Codex の issue がなくなるまで 6-8 を繰り返す
+10. マージしてレベル1へ戻る
 
 Claude 側の構成対応:
 - 全体ループ: `claude/commands/sprint.md`
@@ -44,6 +45,8 @@ Claude 側の構成対応:
 - コミットは 1コミット1関心事で分割
 - コミット時は `Co-authored-by: Codex <noreply@openai.com>` トレーラーを付与する
 - 各修正後に `lint / typecheck / test` を再実行
+- docs-only PR では `git diff --check`、関連 grep、既存の軽量テスト、シェル構文チェックを標準検証にする
+- `gh pr checks` が `no checks reported` の場合だけ CI未設定/未報告として扱う。失敗・キャンセル・pending・認証/通信エラーはマージ不可として分離してPRコメントに明記する
 - レビュー待機はポーリングで確認し、停止せず並行可能な作業を進める
 - 「次は何をするか」を毎回ユーザーに聞かず、優先順位に基づき自律で次対象へ進む
 
