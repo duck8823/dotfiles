@@ -64,6 +64,10 @@
           {
             "type": "command",
             "command": "bash {{HOME}}/.claude/hooks/check-verify-before-push.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash {{HOME}}/.claude/hooks/check-codex-worktree.sh"
           }
         ]
       }
