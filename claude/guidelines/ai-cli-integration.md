@@ -8,6 +8,21 @@
 - すべて **ヘッドレス実行** を基本とする
 - 書き込みタスクは isolated branch / worktree 前提
 
+## キャッシュ・作業ディレクトリの env 強制
+
+Codex / Gemini / Claude サブエージェントを起動する前に、ビルドキャッシュ系 env を `$HOME` 配下に固定して export する。AI ツールが `$PWD/.cache` `$PWD/.gocache` `$PWD/.gopath` 等を勝手に作って ENOSPC を引き起こす事象を防ぐため。
+
+```bash
+export GOCACHE="$HOME/Library/Caches/go-build"
+export GOMODCACHE="$HOME/go/pkg/mod"
+export GOLANGCI_LINT_CACHE="$HOME/.cache/golangci-lint"
+export PUB_CACHE="$HOME/.pub-cache"
+```
+
+- プロジェクトルートに `.cache/` `.gocache/` `.gopath/` `.golangci-cache/` `.gotmp/` 等を作らせない
+- 既に作成されたらサイズ確認後に削除する（`du -sh .cache .gocache .gopath 2>/dev/null`）
+- `.gitignore` で弾いていても物理削除しない限りディスクは消費する
+
 ## ヘッドレス実行コマンド
 
 | ツール | 目的 | コマンド例 | 補足 |
