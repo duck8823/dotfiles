@@ -24,6 +24,29 @@
 - ドラフト PR を使用。マージはスカッシュしない（`--merge`）
 - PR マージ後は必ず関連する GitHub イシューをクローズする
 
+## PR ライフサイクル（フックブロック先回り）
+
+Claude Code の PreToolUse / PostToolUse hook が `--draft` 不付与・Multi-AI レビュー欠如・検証未実施・コマンドチェーンをブロックする。事前に以下のフローで進める。
+
+### 1. 作成
+- `gh pr create --draft` で必ずドラフト作成。`--draft` 不付与は hook でブロックされる
+- PR body に `Closes #<番号>` を含める
+
+### 2. レビュー
+- Multi-AI レビューコメント（Gemini / Codex / Claude の少なくとも 2 系統）を `gh pr comment` で投稿してから ready に移す
+- レビュー対応は新しいコミットを積む（「レビュー指摘対応」というメッセージは禁止）
+
+### 3. Ready
+- `gh pr ready` の前に検証スタンプ（`analyze` / `test` 通過）が記録されている必要がある。記録がないと hook が警告する（詳細: `~/.claude/guidelines/harness-hooks.md`）
+
+### 4. マージ
+- `gh pr comment && gh pr ready && gh pr merge` のチェーンは hook がチェーン全体をブロックするため、必ず分離して順番に実行する
+- マージは `--merge`（squash しない）
+
+### 5. タグ・配信
+- `git tag` を直叩きしない。タグ作成はユーザー承認後
+- ストア・TestFlight 配信は明示承認後に実行
+
 ## リリースプロセス
 
 - リリースタグの作成・バージョンバンプ・リリーススコープの変更はユーザーの明示的な承認なしに行わない
