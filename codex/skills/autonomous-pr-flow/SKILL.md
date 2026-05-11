@@ -26,6 +26,15 @@ description: 自律実行要求時に、1Issueではなく全体進行（複数I
 - Gemini が headless 認証プロンプト・quota・空出力で失敗した場合は、理由を記録し Codex scout / independent reviewer で代替する
 - PR上 `@codex review` の指摘を解消して収束させる
 
+### External AI delegation policy gate
+
+Gemini / Codex CLI / `@codex review` は、`~/.codex/config.toml` の `[auto_review].policy` にある **External AI delegation exception** を満たす場合に実行する。拒否された場合は設定を弱めず、理由を記録して Claude/Codex fallback + local verification + CI で補完する。
+
+- trusted repository / git worktree、1 ticket / 1 PR に限定
+- secret / `.env` / unrelated repo dump / home directory dump は送らない
+- Gemini は read-only plan mode
+- Codex verifier は reviewer config を優先
+
 ## レベル1: 全体ループ（複数Issue/PR）
 1. `main` を最新化し、Open Issue / Open PR / 直近マージ状況を確認する。
 2. 次の作業対象を決定する（優先順位: ユーザー指定 > クリティカル/バグ > マイルストーン > 依存関係）。
@@ -38,8 +47,8 @@ description: 自律実行要求時に、1Issueではなく全体進行（複数I
 2. `lint / typecheck / test`
 3. コミット分割（1コミット1関心事）
 4. Draft PR 作成（Motivation必須）
-5. Gemini レビュー依頼 → 指摘反映を繰り返し（認証プロンプト等で失敗した場合は代替 reviewer を使う）
-6. Ready/Open + `@codex review`
+5. External AI delegation policy gate を確認し、許可される場合は Gemini レビュー依頼 → 指摘反映を繰り返し（policy deny / 認証プロンプト等で失敗した場合は理由を記録して代替 reviewer を使う）
+6. Ready/Open + policy gate を満たす場合は `@codex review`
 7. Codex 指摘反映 → 再レビュー依頼を繰り返し
 8. 追加修正・rebase・force-with-lease push 後は再度 `@codex review` を依頼する
 9. ブロッカー解消後にマージ

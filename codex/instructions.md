@@ -12,6 +12,18 @@
 - アクション優先: 合理的な仮定で実装を進めること。本当にブロックされない限り、確認で手を止めないこと
 - 中間的な計画・状態報告・前置きを出力しないこと。最終成果物のみ報告すること
 
+
+## External AI delegation policy gate
+
+Gemini / Codex CLI / `@codex review` / Claude CLI delegation は、`~/.codex/config.toml` の `[auto_review].policy` にある **External AI delegation exception** を満たす場合のみ実行する。
+
+- trusted repository / git worktree 上で、1 ticket / 1 PR 単位に限定する
+- PR diff / local branch diff / 関連ソース / テスト出力など、必要最小限だけを渡す
+- `.env`、credentials、tokens、private keys、shell history、無関係な repo / home directory dump を渡さない
+- Gemini は `gemini --approval-mode plan -p ' ' -e none` の read-only scout に限定する
+- Codex verifier は `codex exec --full-auto -c 'agents.default.config_file="$HOME/.codex/agents/reviewer.toml"'` を優先する
+- policy deny 時は Guardian / sandbox / approval を弱めず、`skipped: policy_denied` と理由を記録して Claude-only fallback + local verification + CI で補完する
+
 ## 自律運用フロー（全体）
 
 ユーザーから自律実行要求があった場合、`autonomous-pr-flow` を**1Issue単位ではなく全体進行（複数Issue/PR）**に適用する。
@@ -26,10 +38,10 @@
 ### レベル2: 作業対象ループ（Issue/PR単位）
 1. 実装
 2. Draft PR 作成（Motivation必須）
-3. Gemini レビュー依頼
+3. External AI delegation policy gate を確認し、許可される場合は Gemini レビュー依頼
 4. 指摘をトリアージして反映
-5. Gemini がブロッカーなしになるまで 3-4 を繰り返す（headless 認証プロンプト等で失敗した場合は代替 reviewer を使い、欠落理由を記録）
-6. PR を Ready/Open にして `@codex review`
+5. Gemini がブロッカーなしになるまで 3-4 を繰り返す（policy deny / headless 認証プロンプト等で失敗した場合は理由を記録して代替 reviewer を使う）
+6. PR を Ready/Open にして、policy gate を満たす場合は `@codex review`
 7. Codex 指摘をトリアージして反映
 8. 追加修正・rebase・force-with-lease push 後は再度 `@codex review` を依頼する
 9. Codex の issue がなくなるまで 6-8 を繰り返す
@@ -56,8 +68,8 @@ Codex 設定では **Codex 主体フローのみ** を定義する。
 （Claude 主体フローは `claude/` 側の設定・コマンドで管理する）
 
 - 実装/進行: Codex
-- 1st pass レビュー: Gemini
-- PR上の自動レビュー: `@codex review`（GitHub App）
+- 1st pass レビュー: policy gate を満たす場合は Gemini、満たさない場合は Claude/Codex fallback
+- PR上の自動レビュー: policy gate を満たす場合は `@codex review`（GitHub App）
 - 最終ゲート: PR上の指摘解消 + ユーザー承認フロー
 
 ## ブランチ保護運用
