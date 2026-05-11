@@ -42,6 +42,20 @@ diff の内容を確認した後、以下の観点で diff 外のソースコー
 - Codex の固定ロール subagent がモデル非互換で失敗した場合は、同じ依頼を `agent_type` 未指定の default subagent で再実行する
 - Claude は残った論点を統合し、PR の意図とユーザー価値で最終判断する
 
+
+## External AI delegation policy gate
+
+Multi-AI review は `~/.codex/config.toml` の `[auto_review].policy` に定義された **External AI delegation exception** を満たす場合に実行する。満たさない場合は、拒否条件を記録して Claude-only review + local verification + CI にフォールバックする。
+
+許可条件の要点:
+
+- trusted repository / git worktree 上で実行する
+- 1 ticket / 1 PR 単位に限定する
+- PR diff / local branch diff / 関連ソース / テスト出力など、レビューに必要な最小情報だけを渡す
+- secret / `.env` / unrelated repo dump / home directory dump を渡さない
+- Gemini は read-only plan mode、Codex verifier は reviewer config を使う
+- policy deny 時に Guardian / sandbox / approval 設定を弱めない
+
 ## AI レビュー設定（プロジェクト CLAUDE.md 規約）
 
 各プロジェクトの `CLAUDE.md` には以下のセクションを設けること。

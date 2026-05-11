@@ -8,6 +8,17 @@ allowed-tools: ["Bash", "Read", "Edit", "Write", "Glob", "Grep", "Task"]
 
 対象PR: **$ARGUMENTS** (省略時は `gh pr view` で現在のブランチのPRを使用)
 
+
+## ステップ0: External AI delegation policy gate
+
+Gemini / Codex / `@codex review` に PR diff・関連ソース・テスト出力を渡す前に、`~/.codex/config.toml` の `[auto_review].policy` を確認する。
+
+- trusted repository / git worktree 上で、1 ticket / 1 PR に限定されていること
+- `.env` / credentials / tokens / private keys / shell history / unrelated repo dump を含めないこと
+- Gemini は `gemini --approval-mode plan -p ' ' -e none` の read-only scout として実行すること
+- Codex verifier は reviewer config を指定して実行すること
+- policy deny の場合は設定を弱めず、該当 reviewer を `skipped: policy_denied` として記録し、Claude final + local verification + CI で補完すること
+
 ## ステップ1: PR情報の取得
 
 ```bash
@@ -263,7 +274,7 @@ fi
 ### Codex CLI
 
 ```bash
-tmux new-session -d -s ${PROJECT}-pr${PR_NUMBER}-codex   "cd ${PROJECT_DIR} && codex exec --full-auto    -o /tmp/${PROJECT}-pr${PR_NUMBER}-codex-review.md -    < $CODEX_PROMPT_FILE    2>/tmp/${PROJECT}-pr${PR_NUMBER}-codex-review.err;    printf 'EXIT_CODE=%s\n' \$? >> /tmp/${PROJECT}-pr${PR_NUMBER}-codex-review.md;    tmux wait-for -S ${PROJECT}-pr${PR_NUMBER}-codex-done"
+tmux new-session -d -s ${PROJECT}-pr${PR_NUMBER}-codex   "cd ${PROJECT_DIR} && codex exec --full-auto    -c 'agents.default.config_file="$HOME/.codex/agents/reviewer.toml"'    -o /tmp/${PROJECT}-pr${PR_NUMBER}-codex-review.md -    < $CODEX_PROMPT_FILE    2>/tmp/${PROJECT}-pr${PR_NUMBER}-codex-review.err;    printf 'EXIT_CODE=%s\n' \$? >> /tmp/${PROJECT}-pr${PR_NUMBER}-codex-review.md;    tmux wait-for -S ${PROJECT}-pr${PR_NUMBER}-codex-done"
 ```
 
 ### 待機と取得
@@ -310,8 +321,8 @@ gh pr comment <number> --body "$(cat <<'EOF'
 ## 🤖 AI コードレビュー結果
 
 ### レビュアー
-- Gemini CLI: ✅ / ❌
-- Codex CLI or Claude reviewer: ✅ / ❌
+- Gemini CLI: ✅ / ❌ / skipped: <reason>
+- Codex CLI or Claude reviewer: ✅ / ❌ / skipped: <reason>
 - Claude Code (final): ✅ / ❌
 
 ### 🔴 Critical Issues
