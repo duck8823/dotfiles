@@ -282,7 +282,21 @@ async function findBodyTextarea(page) {
 function replaceFromMarker(body, marker, replacementPrefix) {
   const index = body.indexOf(marker);
   if (index < 0) return `${body.trimEnd()}\n\n${replacementPrefix}`;
-  return `${body.slice(0, index).trimEnd()}\n\n${replacementPrefix}`;
+
+  const before = body.slice(0, index).trimEnd();
+  const afterMarker = body.slice(index + marker.length);
+  const nextHeadingMatch = afterMarker.match(/\n#{1,6}\s/u);
+  const tail = nextHeadingMatch ? afterMarker.slice(nextHeadingMatch.index) : '';
+  return `${before}\n\n${replacementPrefix}${tail}`;
+}
+
+function mimeType(fileName) {
+  const lower = fileName.toLowerCase();
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+  if (lower.endsWith('.gif')) return 'image/gif';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  if (lower.endsWith('.svg')) return 'image/svg+xml';
+  return 'image/png';
 }
 
 function buildCommandDetails(command) {
@@ -304,11 +318,7 @@ function buildCommandDetails(command) {
 async function dropImage(page, textarea, imagePath) {
   const data = readFileSync(imagePath).toString('base64');
   const fileName = path.basename(imagePath);
-  const mimeType = fileName.toLowerCase().endsWith('.jpg') || fileName.toLowerCase().endsWith('.jpeg')
-    ? 'image/jpeg'
-    : fileName.toLowerCase().endsWith('.gif')
-      ? 'image/gif'
-      : 'image/png';
+  const type = mimeType(fileName);
 
   const dataTransfer = await page.evaluateHandle(
     ({ base64, name, type }) => {
@@ -318,22 +328,28 @@ async function dropImage(page, textarea, imagePath) {
       transfer.items.add(file);
       return transfer;
     },
-    { base64: data, name: fileName, type: mimeType },
+    { base64: data, name: fileName, type },
   );
 
   await textarea.dispatchEvent('drop', { dataTransfer });
   log(`dropped ${fileName} into GitHub markdown textarea`);
 }
 
-async function waitForUploadedMarkdown(page) {
+async function waitForUploadedMarkdown(page, beforeDropValue) {
   await page.waitForFunction(
-    (patternSource) => {
+    ({ patternSource, before }) => {
       const field = document.querySelector(
-        'textarea[name="issue[body]"], textarea[name="comment[body]"], textarea.js-comment-field, textarea[aria-label*="Comment" i]',
+        'textarea[name="pull_request[body]"], textarea[name="issue[body]"], textarea[name="comment[body]"], textarea.js-comment-field, textarea[aria-label*="Comment" i]',
       );
-      return Boolean(field && new RegExp(patternSource, 'u').test(field.value));
+      if (!field) return false;
+      const value = field.value;
+      return (
+        value !== before &&
+        new RegExp(patternSource, 'u').test(value) &&
+        !/\[Uploading |Uploading /u.test(value)
+      );
     },
-    USER_ATTACHMENT_PATTERN.source,
+    { patternSource: USER_ATTACHMENT_PATTERN.source, before: beforeDropValue },
     { timeout: 90_000 },
   );
 }
@@ -395,8 +411,9 @@ async function main() {
     await textarea.fill(replaceFromMarker(before, args.marker, replacementPrefix));
     await textarea.focus();
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+End' : 'Control+End');
+    const beforeDrop = await textarea.inputValue();
     await dropImage(page, textarea, args.image);
-    await waitForUploadedMarkdown(page);
+    await waitForUploadedMarkdown(page, beforeDrop);
 
     const uploadedBody = await textarea.inputValue();
     const nextBody = `${uploadedBody.trimEnd()}${buildCommandDetails(args.command)}`;
