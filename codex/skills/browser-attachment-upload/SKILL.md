@@ -1,27 +1,26 @@
 ---
 name: browser-attachment-upload
-description: Upload or embed screenshots/images into web products, especially GitHub PR descriptions/comments and Confluence Cloud pages. Use when Codex needs to attach local Playwright screenshots, generated images, or other image files to PRs, Jira/Confluence documentation, review evidence, or Markdown/ADF/storage-backed pages using a logged-in browser session, GitHub Web UI user-attachments, or Confluence REST attachments.
+description: GitHub PR description/comment や Confluence Cloud ページへ、ローカルの Playwright スクリーンショット・生成画像・画像ファイルをアップロード/埋め込みする。PRレビュー証跡、Jira/Confluenceドキュメント、Markdown/Confluence storage body に画像を貼る必要があるときに使う。ログイン済みブラウザ、GitHub Web UI user-attachments、Confluence REST attachments を安全に使い分ける。
 ---
 
 # Browser Attachment Upload
 
-Use this skill to turn a local image file into an artifact embedded in a remote work item.
-Prefer official APIs when they support attachments; otherwise drive the product Web UI with Playwright using a dedicated logged-in browser profile.
+ローカル画像をリモートの作業アイテムへ添付・埋め込みするためのスキル。公式APIで添付できる場合はAPIを優先し、APIがない場合は専用ログイン済みブラウザプロファイルをPlaywrightで操作する。
 
-## Decision tree
+## 判断フロー
 
-1. **GitHub PR description / comment**: use `scripts/github-pr-attach-screenshot.mjs`.
-   - GitHub REST can update PR body text, but does not provide a public image upload API for PR Markdown attachments.
-   - The script uses GitHub Web UI drag-and-drop upload, waits for a `user-attachments` Markdown URL, then saves the PR body.
-2. **Confluence Cloud page**: use `scripts/confluence-attach-image.mjs`.
-   - Upload the image as a page attachment via Confluence REST.
-   - With `--embed`, append an `<ac:image>` storage macro to the page body.
-3. **Jira / Confluence via MCP**: if an MCP tool already accepts an attachment ID but does not upload the file, first upload with the Confluence script or product UI, then call the MCP tool with the returned ID/filename.
-4. **Unknown editor**: use a dedicated Playwright profile and the product's drag/drop file upload control; do not pass secrets through page scripts or logs.
+1. **GitHub PR description / comment**: `scripts/github-pr-attach-screenshot.mjs` を使う。
+   - GitHub REST API は PR body の文字列更新はできるが、PR Markdown attachment の公開画像アップロードAPIはない。
+   - スクリプトは GitHub Web UI の drag-and-drop 添付を使い、`user-attachments` Markdown URL の挿入を待ってからPR本文を保存する。
+2. **Confluence Cloud page**: `scripts/confluence-attach-image.mjs` を使う。
+   - Confluence REST でページ添付ファイルとしてアップロードする。
+   - `--embed` を付けると `<ac:image>` storage macro をページ本文に追加する。
+3. **Jira / Confluence via MCP**: MCPが attachment ID は受け取れるがアップロードできない場合、先にConfluenceスクリプトまたはWeb UIでアップロードし、返却されたID/ファイル名をMCPに渡す。
+4. **未対応のWeb editor**: 専用Playwright profileで対象プロダクトのdrag/drop upload controlを操作する。secretをページスクリプト・ログ・PR本文に渡さない。
 
-## GitHub PR images
+## GitHub PR 画像添付
 
-Run with a dedicated profile so GitHub login survives between sessions:
+GitHubログインを継続できるよう、専用profileで実行する。
 
 ```bash
 PLAYWRIGHT_CORE_REQUIRE=/private/tmp/terra-ma-playwright/node_modules/playwright-core \
@@ -34,7 +33,7 @@ node ~/.codex/skills/browser-attachment-upload/scripts/github-pr-attach-screensh
   --save
 ```
 
-If Chrome was intentionally started with a remote debugging port, attach to the existing logged-in browser:
+Chromeをremote debugging付きで起動している場合は、既存ログイン済みブラウザへattachできる。
 
 ```bash
 node ~/.codex/skills/browser-attachment-upload/scripts/github-pr-attach-screenshot.mjs \
@@ -44,15 +43,15 @@ node ~/.codex/skills/browser-attachment-upload/scripts/github-pr-attach-screensh
   --save
 ```
 
-Rules:
-- Default is dry-run. Pass `--save` to modify GitHub.
-- Complete login and 2FA in the opened browser when `--login-wait` is used.
-- Keep screenshots in `/tmp` or task-local directories; do not commit review-only screenshots unless the user explicitly wants repository artifacts.
-- If GitHub DOM changes, inspect `/tmp/github-pr-attach-*.png` and `/tmp/github-pr-attach-*-buttons.json` produced by the script.
+ルール:
+- デフォルトはdry-run。GitHubを書き換えるときだけ `--save` を付ける。
+- `--login-wait` 使用時は、開いたブラウザでログインと2FAを完了する。
+- review-only screenshot は `/tmp` またはタスクローカルに置く。ユーザーが明示しない限りリポジトリに画像をcommitしない。
+- GitHub DOM変更で壊れた場合は、スクリプトが出力する `/tmp/github-pr-attach-*.png` と `/tmp/github-pr-attach-*-buttons.json` を確認する。
 
-## Confluence Cloud images
+## Confluence Cloud 画像添付
 
-Upload only:
+アップロードのみ:
 
 ```bash
 ATLASSIAN_SITE=https://example.atlassian.net \
@@ -64,7 +63,7 @@ node ~/.codex/skills/browser-attachment-upload/scripts/confluence-attach-image.m
   --save
 ```
 
-Upload and embed at the end of the page body:
+アップロードしてページ末尾へ埋め込む:
 
 ```bash
 ATLASSIAN_SITE=https://example.atlassian.net \
@@ -78,21 +77,21 @@ node ~/.codex/skills/browser-attachment-upload/scripts/confluence-attach-image.m
   --save
 ```
 
-Rules:
-- Use an env var for the API token; do not put the token in command arguments, PR descriptions, or logs.
-- The script uses Confluence Cloud v1 content attachment endpoints because they support multipart page attachment upload.
-- If a same-named attachment already exists, the script attempts to update the attachment data.
-- `--embed` edits the page storage body and increments the page version. Avoid it on heavily edited pages unless the user accepts version-conflict risk.
-- For Confluence docs that intentionally contain a marker, pass `--marker '<!-- codex-attachment-upload -->'` and keep that marker in the page body.
+ルール:
+- API token は環境変数で渡す。コマンド引数、PR本文、ログにtokenを書かない。
+- Confluence Cloud v1 content attachment endpoint を使う。multipart page attachment upload に対応しているため。
+- 同名attachmentが既にある場合、スクリプトはattachment data更新を試みる。
+- `--embed` はページstorage bodyを編集してversionを進める。共同編集中ページではversion conflictリスクをユーザーに明示する。
+- Confluence本文に挿入位置markerを置く場合は `--marker '<!-- codex-attachment-upload -->'` を使い、そのmarkerをページ本文に残す。
 
-## Validation checklist
+## 検証チェックリスト
 
-- Confirm the target URL/page/PR before `--save`.
-- Run `node --check <script>` after editing bundled scripts.
-- For GitHub, confirm the saved PR body visually or via `gh pr view --json body` when available.
-- For Confluence, confirm the upload response contains an attachment and, if embedded, reopen the page or fetch page body after update.
-- Record commands and whether the operation changed the remote artifact.
+- `--save` 前に対象PR URL / Confluence page IDを確認する。
+- bundled scriptを編集したら `node --check <script>` を実行する。
+- GitHubは保存後にPR本文を目視、または可能なら `gh pr view --json body` で確認する。
+- Confluenceはupload responseにattachmentが含まれること、`--embed` 時はページ再取得または画面表示で画像を確認する。
+- 実行コマンド、remote artifactを書き換えたか、残リスクを記録する。
 
 ## References
 
-Load `references/providers.md` when endpoint details, official docs, or troubleshooting notes are needed.
+endpoint詳細、公式doc、troubleshootingが必要なら `references/providers.md` を読む。
