@@ -167,6 +167,23 @@ async function readJson(response) {
   }
 }
 
+function safeErrorSummary(body) {
+  if (!body || typeof body !== 'object') return '';
+  const parts = [];
+  for (const key of ['message', 'errorMessage', 'statusCode']) {
+    if (typeof body[key] === 'string' || typeof body[key] === 'number') {
+      parts.push(`${key}: ${body[key]}`);
+    }
+  }
+  if (Array.isArray(body.errorMessages) && body.errorMessages.length > 0) {
+    parts.push(`errorMessages: ${body.errorMessages.slice(0, 3).join('; ')}`);
+  }
+  if (Array.isArray(body.errors) && body.errors.length > 0) {
+    parts.push(`errors: ${body.errors.slice(0, 3).join('; ')}`);
+  }
+  return parts.length > 0 ? `\n${parts.join('\n')}` : '';
+}
+
 async function confluenceFetch(args, urlPath, init = {}) {
   const headers = {
     Accept: 'application/json',
@@ -176,7 +193,7 @@ async function confluenceFetch(args, urlPath, init = {}) {
   const response = await fetch(`${args.site}${urlPath}`, { ...init, headers });
   const body = await readJson(response);
   if (!response.ok) {
-    throw new Error(`${init.method ?? 'GET'} ${urlPath} failed: ${response.status} ${response.statusText}\n${JSON.stringify(body, null, 2)}`);
+    throw new Error(`${init.method ?? 'GET'} ${urlPath} failed: ${response.status} ${response.statusText}${safeErrorSummary(body)}`);
   }
   return body;
 }
@@ -207,7 +224,7 @@ async function uploadAttachment(args) {
 
   const existing = await findAttachment(args, args.filename).catch(() => undefined);
   if (!existing?.id) {
-    throw new Error(`POST ${urlPath} failed: ${response.status} ${response.statusText}\n${JSON.stringify(body, null, 2)}`);
+    throw new Error(`POST ${urlPath} failed: ${response.status} ${response.statusText}${safeErrorSummary(body)}`);
   }
 
   const updatePath = `/wiki/rest/api/content/${encodeURIComponent(args.pageId)}/child/attachment/${encodeURIComponent(existing.id)}/data`;
@@ -217,7 +234,7 @@ async function uploadAttachment(args) {
   response = await fetch(`${args.site}${updatePath}`, { method: 'POST', headers, body: updateForm });
   body = await readJson(response);
   if (!response.ok) {
-    throw new Error(`POST ${updatePath} failed: ${response.status} ${response.statusText}\n${JSON.stringify(body, null, 2)}`);
+    throw new Error(`POST ${updatePath} failed: ${response.status} ${response.statusText}${safeErrorSummary(body)}`);
   }
   return body;
 }
