@@ -69,13 +69,13 @@ copy_managed() {
     if [ -z "$marker" ]; then
       # JSON / SKILL.md 等コメント非対応: サイドカーファイルで管理判定
       # 旧方式（先頭マーカー）からの移行は許可する
-      if [ ! -f "${dst}.managed" ] && ! head -1 "$dst" | grep -qF "$MANAGED_TAG"; then
+      if [ ! -f "${dst}.managed" ] && ! head -2 "$dst" | grep -qF "$MANAGED_TAG"; then
         echo "  skip:   $dst (local override — no .managed sidecar)"
         return
       fi
     else
       # マーカーなし → ローカル独自ファイル、スキップ
-      if ! head -1 "$dst" | grep -qF "$MANAGED_TAG"; then
+      if ! head -2 "$dst" | grep -qF "$MANAGED_TAG"; then
         echo "  skip:   $dst (local override — no managed marker)"
         return
       fi
@@ -102,6 +102,11 @@ copy_managed() {
         echo "$marker"
         cat "$src"
       } > "$dst"
+    fi
+    if [ -x "$src" ]; then
+      chmod +x "$dst"
+    else
+      chmod a-x "$dst"
     fi
   fi
   echo "  copy:   $dst"

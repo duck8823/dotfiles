@@ -50,6 +50,8 @@ def main() -> None:
         (fixture_scripts / "tool.mjs").write_text(
             "#!/usr/bin/env node\nconsole.log('ok');\n"
         )
+        (fixture_scripts / "tool.py").chmod(0o755)
+        (fixture_scripts / "tool.mjs").chmod(0o755)
         pycache = fixture_scripts / "__pycache__"
         pycache.mkdir(parents=True, exist_ok=True)
         (pycache / "generated.pyc").write_bytes(b"pyc")
@@ -72,8 +74,24 @@ def main() -> None:
             "#!/usr/bin/env node",
             "// managed by duck8823/dotfiles",
         ]
+        assert os.access(installed_py, os.X_OK)
+        assert os.access(installed_mjs, os.X_OK)
         subprocess.run(["node", "--check", str(installed_mjs)], check=True)
         assert not (tmp_home / ".codex/skills/test-shebang/scripts/__pycache__").exists()
+
+        # 2 回目以降も shebang の 2 行目マーカーを管理対象として認識し、同期できる
+        (fixture_scripts / "tool.mjs").write_text(
+            "#!/usr/bin/env node\nconsole.log('updated');\n"
+        )
+        (fixture_scripts / "tool.mjs").chmod(0o755)
+        log = run_install(tmp_repo, tmp_home)
+        assert "test-shebang/scripts/tool.mjs (local override" not in log
+        assert "console.log('updated');" in installed_mjs.read_text()
+        assert installed_mjs.read_text().splitlines()[:2] == [
+            "#!/usr/bin/env node",
+            "// managed by duck8823/dotfiles",
+        ]
+        assert os.access(installed_mjs, os.X_OK)
 
         # 壊れた symlink でも regular file に置き換えて生成できる
         broken_claude_settings = tmp_home / ".claude/settings.json"

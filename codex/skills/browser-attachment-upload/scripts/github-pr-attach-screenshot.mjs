@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { createRequire } from 'node:module';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 
@@ -14,6 +15,7 @@ const DEFAULT_VIEWPORT = { width: 1440, height: 1100 };
 const DEFAULT_MARKER = '## 動作確認スクリーンショット';
 const USER_ATTACHMENT_PATTERN =
   /(?:https:\/\/github\.com\/user-attachments\/assets\/|https:\/\/user-images\.githubusercontent\.com\/|https:\/\/private-user-images\.githubusercontent\.com\/|https:\/\/user-attachments\.githubusercontent\.com\/)/u;
+const ARTIFACT_DIR = mkdtempSync(path.join(tmpdir(), 'github-pr-attach-'));
 
 function printHelp() {
   console.log(`Usage:
@@ -41,7 +43,7 @@ PR body update:
                            (default: "${DEFAULT_MARKER}")
   --command <command>      Command shown under the screenshot regeneration details
   --save                   Actually click GitHub's save/update button
-  --dry-run                Do not save. Writes candidate body under /tmp.
+  --dry-run                Do not save. Writes candidate body under a unique temp dir.
                            Default is dry-run unless --save is specified.
 
 Examples:
@@ -191,8 +193,8 @@ async function clickFirstVisible(locator, description) {
 }
 
 async function dumpDebug(page, name) {
-  const screenshotPath = `/tmp/${name}.png`;
-  const buttonsPath = `/tmp/${name}-buttons.json`;
+  const screenshotPath = path.join(ARTIFACT_DIR, `${name}.png`);
+  const buttonsPath = path.join(ARTIFACT_DIR, `${name}-buttons.json`);
   await page.screenshot({ path: screenshotPath, fullPage: true }).catch(() => {});
   const buttons = await page
     .locator('button, a[role="button"], summary')
@@ -418,10 +420,12 @@ async function main() {
     const uploadedBody = await textarea.inputValue();
     const nextBody = `${uploadedBody.trimEnd()}${buildCommandDetails(args.command)}`;
     await textarea.fill(nextBody);
-    writeFileSync('/tmp/github-pr-description-candidate.md', nextBody);
-    await page.screenshot({ path: '/tmp/github-pr-description-before-save.png', fullPage: false });
-    log('wrote /tmp/github-pr-description-candidate.md');
-    log('wrote /tmp/github-pr-description-before-save.png');
+    const candidatePath = path.join(ARTIFACT_DIR, 'github-pr-description-candidate.md');
+    const beforeSavePath = path.join(ARTIFACT_DIR, 'github-pr-description-before-save.png');
+    writeFileSync(candidatePath, nextBody);
+    await page.screenshot({ path: beforeSavePath, fullPage: false });
+    log(`wrote ${candidatePath}`);
+    log(`wrote ${beforeSavePath}`);
 
     if (args.dryRun) {
       log('dry-run: not saving. Pass --save to update the PR description.');
@@ -431,9 +435,10 @@ async function main() {
     await saveEditor(page);
     await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => {});
     await page.waitForTimeout(1500);
-    await page.screenshot({ path: '/tmp/github-pr-description-saved.png', fullPage: false });
+    const savedPath = path.join(ARTIFACT_DIR, 'github-pr-description-saved.png');
+    await page.screenshot({ path: savedPath, fullPage: false });
     log('saved PR description');
-    log('wrote /tmp/github-pr-description-saved.png');
+    log(`wrote ${savedPath}`);
   } finally {
     if (browser) await browser.close();
     else await context.close();

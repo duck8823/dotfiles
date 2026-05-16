@@ -47,7 +47,7 @@ node ~/.codex/skills/browser-attachment-upload/scripts/github-pr-attach-screensh
 - デフォルトはdry-run。GitHubを書き換えるときだけ `--save` を付ける。
 - `--login-wait` 使用時は、開いたブラウザでログインと2FAを完了する。
 - review-only screenshot は `/tmp` またはタスクローカルに置く。ユーザーが明示しない限りリポジトリに画像をcommitしない。
-- GitHub DOM変更で壊れた場合は、スクリプトが出力する `/tmp/github-pr-attach-*.png` と `/tmp/github-pr-attach-*-buttons.json` を確認する。
+- GitHub DOM変更で壊れた場合は、スクリプトがログ出力する一意の一時ディレクトリ内の screenshot / buttons JSON を確認する。
 
 ## Confluence Cloud 画像添付
 
