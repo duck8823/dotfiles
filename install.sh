@@ -22,11 +22,22 @@ marker_for() {
     return
   fi
 
+  # shebang を持つ実行スクリプトは shebang を維持して 2 行目にマーカーを入れる。
+  # Node.js 系は # コメントを解釈できないため // を使う。
+  if [ -f "$file" ] && head -1 "$file" | grep -q '^#!'; then
+    case "$file" in
+      *.js|*.mjs|*.cjs|*.ts) echo "// $MANAGED_TAG" ;;
+      *)                     echo "# $MANAGED_TAG" ;;
+    esac
+    return
+  fi
+
   case "$file" in
     *.json)    echo "" ;;
     *.yaml|*.yml) echo "# $MANAGED_TAG" ;;
     *.toml)    echo "# $MANAGED_TAG" ;;
     *.sh)      echo "# $MANAGED_TAG" ;;
+    *.js|*.mjs|*.cjs|*.ts) echo "// $MANAGED_TAG" ;;
     *.rules)   echo "# $MANAGED_TAG" ;;
     *.ghostty) echo "# $MANAGED_TAG" ;;
     *)         echo "<!-- $MANAGED_TAG -->" ;;
@@ -76,11 +87,22 @@ copy_managed() {
     cp "$src" "$dst"
     echo "$MANAGED_TAG" > "${dst}.managed"
   else
-    # マーカーを先頭に付けてコピー
-    {
-      echo "$marker"
-      cat "$src"
-    } > "$dst"
+    # shebang がある場合は壊さないよう 2 行目にマーカーを入れる
+    local first_line
+    first_line="$(head -1 "$src")"
+    if [[ "$first_line" == "#!"* ]]; then
+      {
+        echo "$first_line"
+        echo "$marker"
+        tail -n +2 "$src"
+      } > "$dst"
+    else
+      # マーカーを先頭に付けてコピー
+      {
+        echo "$marker"
+        cat "$src"
+      } > "$dst"
+    fi
   fi
   echo "  copy:   $dst"
 }
@@ -102,7 +124,11 @@ copy_managed_dir() {
 
   # ディレクトリ内のファイルを再帰コピー
   local src_dir_clean="${src_dir%/}"
-  find "$src_dir_clean" -type f -print0 | while IFS= read -r -d '' src_file; do
+  find "$src_dir_clean" \
+    -type f \
+    ! -path '*/__pycache__/*' \
+    ! -name '*.pyc' \
+    -print0 | while IFS= read -r -d '' src_file; do
     local rel="${src_file#"${src_dir_clean}"/}"
     local dst_file="$dst_dir/$rel"
     copy_managed "$src_file" "$dst_file"

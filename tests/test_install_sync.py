@@ -37,6 +37,23 @@ def main() -> None:
         tmp_home.mkdir()
         shutil.copytree(REPO_ROOT, tmp_repo)
 
+        # skills 配下の shebang スクリプトは shebang を壊さず、生成物はコピーしない。
+        fixture_skill = tmp_repo / "codex/skills/test-shebang"
+        fixture_scripts = fixture_skill / "scripts"
+        fixture_scripts.mkdir(parents=True, exist_ok=True)
+        (fixture_skill / "SKILL.md").write_text(
+            "---\nname: test-shebang\ndescription: installer fixture\n---\n"
+        )
+        (fixture_scripts / "tool.py").write_text(
+            "#!/usr/bin/env python3\nprint('ok')\n"
+        )
+        (fixture_scripts / "tool.mjs").write_text(
+            "#!/usr/bin/env node\nconsole.log('ok');\n"
+        )
+        pycache = fixture_scripts / "__pycache__"
+        pycache.mkdir(parents=True, exist_ok=True)
+        (pycache / "generated.pyc").write_bytes(b"pyc")
+
         # 初回生成
         run_install(tmp_repo, tmp_home)
         assert (tmp_home / ".claude/settings.json").exists()
@@ -45,6 +62,18 @@ def main() -> None:
         assert (tmp_home / ".gemini/settings.json.managed.sha256").exists()
         assert (tmp_home / ".codex/config.toml").exists()
         assert (tmp_home / ".codex/config.toml.managed.sha256").exists()
+        installed_py = tmp_home / ".codex/skills/test-shebang/scripts/tool.py"
+        assert installed_py.read_text().splitlines()[:2] == [
+            "#!/usr/bin/env python3",
+            "# managed by duck8823/dotfiles",
+        ]
+        installed_mjs = tmp_home / ".codex/skills/test-shebang/scripts/tool.mjs"
+        assert installed_mjs.read_text().splitlines()[:2] == [
+            "#!/usr/bin/env node",
+            "// managed by duck8823/dotfiles",
+        ]
+        subprocess.run(["node", "--check", str(installed_mjs)], check=True)
+        assert not (tmp_home / ".codex/skills/test-shebang/scripts/__pycache__").exists()
 
         # 壊れた symlink でも regular file に置き換えて生成できる
         broken_claude_settings = tmp_home / ".claude/settings.json"
