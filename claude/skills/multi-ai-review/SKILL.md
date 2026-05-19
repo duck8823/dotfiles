@@ -37,8 +37,21 @@ Gemini / Codex / Claude CLI へ PR diff・local branch diff・関連ソースを
 PR_NUMBER=<number>
 PROJECT=$(basename "$(pwd)")
 DIFF_FILE=/tmp/${PROJECT}-pr${PR_NUMBER}-diff.txt
+POLICY_DENIED_FILE=/tmp/${PROJECT}-pr${PR_NUMBER}-policy-denied.md
+: > "$POLICY_DENIED_FILE"
 
-git diff origin/main...HEAD > "$DIFF_FILE"
+SENSITIVE_PATH_RE='(^|/)(\.env(\..*)?|\.aws/|\.ssh/|id_(rsa|dsa|ecdsa|ed25519)(\.pub)?|.*\.(pem|key|p12|pfx)|.*secret.*|.*credential.*|.*token.*|.*history)$'
+if git diff --name-only origin/main...HEAD | grep -Eiq "$SENSITIVE_PATH_RE"; then
+  echo "sensitive path changed; external AI review skipped by policy" > "$POLICY_DENIED_FILE"
+elif git diff origin/main...HEAD --unified=0 | grep -Eq '^\+.*(BEGIN (RSA |DSA |EC |OPENSSH |PGP )?PRIVATE KEY|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9_]{30,}|xox[baprs]-[A-Za-z0-9-]+|AIza[0-9A-Za-z_-]{35}|sk-[A-Za-z0-9]{20,})'; then
+  echo "secret-looking added content; external AI review skipped by policy" > "$POLICY_DENIED_FILE"
+fi
+
+if [ -s "$POLICY_DENIED_FILE" ]; then
+  : > "$DIFF_FILE"
+else
+  git diff origin/main...HEAD > "$DIFF_FILE"
+fi
 gh pr view "$PR_NUMBER"
 CHECKS_JSON=/tmp/${PROJECT}-pr${PR_NUMBER}-checks.json
 CHECKS_ERR=/tmp/${PROJECT}-pr${PR_NUMBER}-checks.err
@@ -79,6 +92,9 @@ PROMPT
 
 GEMINI_PREFLIGHT_OUT=/tmp/gemini-review-preflight.md
 export GEMINI_PREFLIGHT_OUT
+if [ -s "$POLICY_DENIED_FILE" ]; then
+  echo "skipped: policy_denied: $(cat "$POLICY_DENIED_FILE")" > /tmp/gemini-review-result.json
+else
 python3 - <<'PY'
 import os, subprocess, sys
 prompt = "read-only preflight。1行だけ返してください。"
@@ -136,15 +152,19 @@ PY
 else
   echo "Gemini preflight failed; fallback required. See $GEMINI_PREFLIGHT_OUT" > /tmp/gemini-review-result.json
 fi
+fi
 ```
 
-preflight または本実行が timeout / 認証プロンプト / 空出力 / 非0終了になった場合は、Gemini 失敗として Codex scout / independent reviewer へフォールバックする。
+`POLICY_DENIED_FILE` が空でない場合は Gemini / Codex CLI へ diff を渡さず、`skipped: policy_denied` と理由を統合コメントに記録して Claude-only fallback + local verification + CI で補完する。preflight または本実行が timeout / 認証プロンプト / 空出力 / 非0終了になった場合は、Gemini 失敗として Codex scout / independent reviewer へフォールバックする。
 
 ### 3. Codex verifier
 Claude authored PR または外部生成パッチのときのみ実行する。
 
 ```bash
-cat > /tmp/codex-review.md <<PROMPT
+if [ -s "$POLICY_DENIED_FILE" ]; then
+  echo "skipped: policy_denied: $(cat "$POLICY_DENIED_FILE")" > /tmp/codex-review-result.json
+else
+  cat > /tmp/codex-review.md <<PROMPT
 以下の PR を verifier としてレビューしてください。
 
 - セキュリティ
@@ -159,7 +179,8 @@ cat > /tmp/codex-review.md <<PROMPT
 3. <analyze_command>
 PROMPT
 
-codex exec --full-auto   -c 'agents.default.config_file="$HOME/.codex/agents/reviewer.toml"'   -o /tmp/codex-review-result.json   - < /tmp/codex-review.md 2>/tmp/codex-review.err
+  codex exec --full-auto   -c 'agents.default.config_file="$HOME/.codex/agents/reviewer.toml"'   -o /tmp/codex-review-result.json   - < /tmp/codex-review.md 2>/tmp/codex-review.err
+fi
 ```
 
 ### 4. Claude 統合

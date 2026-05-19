@@ -471,7 +471,6 @@ cat << 'PROMPT'
   │ - `source_dirs`: `src/ test/`
   │ - `source_extensions`: `ts js json`
   │ - `source_exclude`: `*.min.js`
-  │ - `external_ai_review`: `policy_gated`
   │
   │ ### Codex レビュー用コマンド
   │ - `test_command`: `npm test`
