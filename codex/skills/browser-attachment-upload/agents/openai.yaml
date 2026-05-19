@@ -1,0 +1,4 @@
+interface:
+  display_name: "Browser Attachment Upload"
+  short_description: "GitHub PR や Confluence ページにスクリーンショット/画像を添付する。"
+  default_prompt: "指定された GitHub PR や Confluence ページに、安全なブラウザ自動化またはAPIを用いてローカル画像を添付してください。"
