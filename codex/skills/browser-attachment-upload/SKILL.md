@@ -44,9 +44,10 @@ node ~/.codex/skills/browser-attachment-upload/scripts/github-pr-attach-screensh
 ```
 
 ルール:
-- デフォルトはdry-run。GitHubを書き換えるときだけ `--save` を付ける。
+- デフォルトはdry-run。dry-run はリモートへ画像をアップロードせず、候補本文だけを一意の一時ディレクトリに書く。GitHubへアップロード・保存するときだけ `--save` を付ける。
 - `--login-wait` 使用時は、開いたブラウザでログインと2FAを完了する。
 - review-only screenshot は `/tmp` またはタスクローカルに置く。ユーザーが明示しない限りリポジトリに画像をcommitしない。
+- `--pr` は `https://github.com/OWNER/REPO/pull/NUMBER` を既定で要求する。GitHub Enterprise は `--github-host` / `GITHUB_PR_HOST` で明示する。
 - GitHub DOM変更で壊れた場合は、スクリプトがログ出力する一意の一時ディレクトリ内の screenshot / buttons JSON を確認する。
 
 ## Confluence Cloud 画像添付

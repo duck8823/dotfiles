@@ -22,8 +22,9 @@ function printHelp() {
   node scripts/github-pr-attach-screenshot.mjs --pr <PR URL> --image <PNG path> [--save]
 
 Updates a GitHub PR description by driving the GitHub Web UI with Playwright.
-The image is uploaded by GitHub's textarea drag-and-drop handler, so the PR body
-gets a normal GitHub user-attachment Markdown URL.
+When --save is used, the image is uploaded by GitHub's textarea drag-and-drop
+handler, so the PR body gets a normal GitHub user-attachment Markdown URL.
+Dry-run never uploads the image or saves the PR body.
 
 Required:
   --pr <url>               GitHub PR URL, e.g. https://github.com/org/repo/pull/123
@@ -36,6 +37,8 @@ Browser connection:
                            (env: GITHUB_PR_USER_DATA_DIR)
   --chrome-profile <name>  Chrome profile name inside --user-data-dir (default: Default)
   --chrome <path>          Chrome executable path
+  --github-host <host>     Allowed GitHub host for --pr (default: github.com)
+                           (env: GITHUB_PR_HOST)
   --login-wait            If GitHub login is required, wait up to 5 minutes
 
 PR body update:
@@ -43,7 +46,7 @@ PR body update:
                            (default: "${DEFAULT_MARKER}")
   --command <command>      Command shown under the screenshot regeneration details
   --save                   Actually click GitHub's save/update button
-  --dry-run                Do not save. Writes candidate body under a unique temp dir.
+  --dry-run                Do not upload or save. Writes candidate body under a unique temp dir.
                            Default is dry-run unless --save is specified.
 
 Examples:
@@ -70,6 +73,7 @@ function parseArgs(argv) {
     userDataDir: process.env.GITHUB_PR_USER_DATA_DIR,
     chromeProfile: process.env.GITHUB_PR_CHROME_PROFILE ?? 'Default',
     chrome: process.env.CHROME_EXECUTABLE ?? DEFAULT_CHROME_EXECUTABLE,
+    githubHost: process.env.GITHUB_PR_HOST ?? 'github.com',
     marker: DEFAULT_MARKER,
     command: undefined,
     loginWait: false,
@@ -109,6 +113,9 @@ function parseArgs(argv) {
       case '--chrome':
         args.chrome = next();
         break;
+      case '--github-host':
+        args.githubHost = next();
+        break;
       case '--marker':
         args.marker = next();
         break;
@@ -130,6 +137,7 @@ function parseArgs(argv) {
   }
 
   if (!args.pr) throw new Error('--pr is required');
+  args.pr = normalizePrUrl(args.pr, args.githubHost);
   if (!args.image) throw new Error('--image is required');
   if (!existsSync(args.image)) throw new Error(`image not found: ${args.image}`);
   if (!args.cdp && !args.userDataDir) {
@@ -137,6 +145,29 @@ function parseArgs(argv) {
   }
   args.dryRun = args.dryRun ?? !args.save;
   return args;
+}
+
+function normalizePrUrl(value, githubHost) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`--pr must be a valid URL: ${value}`);
+  }
+
+  const expectedHost = String(githubHost || 'github.com').toLowerCase();
+  const pathPattern = /^\/[^/]+\/[^/]+\/pull\/\d+\/?$/u;
+  if (url.protocol !== 'https:' || url.hostname.toLowerCase() !== expectedHost || !pathPattern.test(url.pathname)) {
+    throw new Error(
+      `--pr must be an https://${expectedHost}/OWNER/REPO/pull/NUMBER URL. ` +
+        'For GitHub Enterprise, pass --github-host <host> or set GITHUB_PR_HOST.',
+    );
+  }
+
+  url.hash = '';
+  url.search = '';
+  url.pathname = url.pathname.replace(/\/$/u, '');
+  return url.toString();
 }
 
 function loadPlaywright() {
@@ -301,6 +332,14 @@ function mimeType(fileName) {
   return 'image/png';
 }
 
+function buildDryRunImageNotice(imagePath) {
+  const fileName = path.basename(imagePath);
+  return [
+    `<!-- dry-run: ${fileName} would be uploaded by GitHub only when --save is used. -->`,
+    '',
+  ].join('\n');
+}
+
 function buildCommandDetails(command) {
   if (!command) return '';
   return [
@@ -378,8 +417,11 @@ async function main() {
 
   let browser;
   let context;
+  let page;
+  let connectedOverCdp = false;
   if (args.cdp) {
     log(`connecting to logged-in browser: ${args.cdp}`);
+    connectedOverCdp = true;
     browser = await chromium.connectOverCDP(args.cdp);
     context = browser.contexts()[0] ?? (await browser.newContext({ viewport: DEFAULT_VIEWPORT }));
   } else {
@@ -395,10 +437,9 @@ async function main() {
     });
   }
 
-  const page = context.pages()[0] ?? (await context.newPage());
-  page.setDefaultTimeout(15_000);
-
   try {
+    page = await context.newPage();
+    page.setDefaultTimeout(15_000);
     log(`opening ${args.pr}`);
     await page.goto(args.pr, { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => {});
@@ -410,7 +451,22 @@ async function main() {
     log(`PR body length before: ${before.length}`);
 
     const replacementPrefix = `${args.marker}\n\n`;
-    await textarea.fill(replaceFromMarker(before, args.marker, replacementPrefix));
+    const baseBody = replaceFromMarker(before, args.marker, replacementPrefix);
+    const candidatePath = path.join(ARTIFACT_DIR, 'github-pr-description-candidate.md');
+    const beforeSavePath = path.join(ARTIFACT_DIR, 'github-pr-description-before-save.png');
+
+    if (args.dryRun) {
+      const dryRunBody = `${baseBody.trimEnd()}\n\n${buildDryRunImageNotice(args.image)}${buildCommandDetails(args.command)}`;
+      await textarea.fill(dryRunBody);
+      writeFileSync(candidatePath, dryRunBody);
+      await page.screenshot({ path: beforeSavePath, fullPage: false });
+      log(`wrote ${candidatePath}`);
+      log(`wrote ${beforeSavePath}`);
+      log('dry-run: not uploading or saving. Pass --save to upload the image and update the PR description.');
+      return;
+    }
+
+    await textarea.fill(baseBody);
     await textarea.focus();
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+End' : 'Control+End');
     const beforeDrop = await textarea.inputValue();
@@ -420,17 +476,10 @@ async function main() {
     const uploadedBody = await textarea.inputValue();
     const nextBody = `${uploadedBody.trimEnd()}${buildCommandDetails(args.command)}`;
     await textarea.fill(nextBody);
-    const candidatePath = path.join(ARTIFACT_DIR, 'github-pr-description-candidate.md');
-    const beforeSavePath = path.join(ARTIFACT_DIR, 'github-pr-description-before-save.png');
     writeFileSync(candidatePath, nextBody);
     await page.screenshot({ path: beforeSavePath, fullPage: false });
     log(`wrote ${candidatePath}`);
     log(`wrote ${beforeSavePath}`);
-
-    if (args.dryRun) {
-      log('dry-run: not saving. Pass --save to update the PR description.');
-      return;
-    }
 
     await saveEditor(page);
     await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => {});
@@ -440,7 +489,9 @@ async function main() {
     log('saved PR description');
     log(`wrote ${savedPath}`);
   } finally {
-    if (browser) await browser.close();
+    if (page) await page.close().catch(() => {});
+    if (connectedOverCdp) browser?.disconnect();
+    else if (browser) await browser.close();
     else await context.close();
   }
 }
