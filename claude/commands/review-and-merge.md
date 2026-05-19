@@ -8,6 +8,17 @@ allowed-tools: ["Bash", "Read", "Edit", "Write", "Glob", "Grep", "Task"]
 
 対象PR: **$ARGUMENTS** (省略時は `gh pr view` で現在のブランチのPRを使用)
 
+
+## ステップ0: External AI delegation policy gate
+
+Gemini / Codex / `@codex review` に PR diff・関連ソース・テスト出力を渡す前に、`~/.codex/config.toml` の `[auto_review].policy` を確認する。
+
+- trusted repository / git worktree 上で、1 ticket / 1 PR に限定されていること
+- `.env` / credentials / tokens / private keys / shell history / unrelated repo dump を含めないこと
+- Gemini は `gemini --approval-mode plan -p ' ' -e none` の read-only scout として実行すること
+- Codex verifier は reviewer config を指定して実行すること
+- policy deny の場合は設定を弱めず、該当 reviewer を `skipped: policy_denied` として記録し、Claude final + local verification + CI で補完すること
+
 ## ステップ1: PR情報の取得
 
 ```bash
@@ -82,6 +93,14 @@ fi
 CODEX_TEST_CMD=$(grep 'test_command' CLAUDE.md 2>/dev/null | sed 's/.*`\([^`]*\)`[^`]*$/\1/' | tr -d '\n')
 CODEX_ANALYZE_CMD=$(grep 'analyze_command' CLAUDE.md 2>/dev/null | sed 's/.*`\([^`]*\)`[^`]*$/\1/' | tr -d '\n')
 REVIEW_EXCLUDE=$(grep -m 1 'source_exclude' CLAUDE.md 2>/dev/null | sed 's/.*`\([^`]*\)`[^`]*$/\1/' | tr -d '\n')
+
+POLICY_DENY_REASON=""
+SENSITIVE_PATH_RE='(^|/)(\.env(\..*)?|\.aws/|\.ssh/|id_(rsa|dsa|ecdsa|ed25519)(\.pub)?|.*\.(pem|key|p12|pfx)|.*secret.*|.*credential.*|.*token.*|.*history)$'
+if git diff --name-only "origin/${BASE_BRANCH}...HEAD" | grep -Eiq "$SENSITIVE_PATH_RE"; then
+  POLICY_DENY_REASON="sensitive path changed; external AI review skipped by policy"
+elif git diff "origin/${BASE_BRANCH}...HEAD" --unified=0 | grep -Eq '^\+.*(BEGIN (RSA |DSA |EC |OPENSSH |PGP )?PRIVATE KEY|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9_]{30,}|xox[baprs]-[A-Za-z0-9-]+|AIza[0-9A-Za-z_-]{35}|sk-[A-Za-z0-9]{20,})'; then
+  POLICY_DENY_REASON="secret-looking added content; external AI review skipped by policy"
+fi
 ```
 
 ## ステップ4: レビュー用プロンプトの生成
@@ -90,7 +109,11 @@ REVIEW_EXCLUDE=$(grep -m 1 'source_exclude' CLAUDE.md 2>/dev/null | sed 's/.*`\(
 
 ```bash
 GEMINI_PROMPT_FILE="/tmp/${PROJECT}-pr${PR_NUMBER}-gemini-prompt.md"
-DIFF=$(git diff origin/${BASE_BRANCH}..HEAD --unified=10)
+if [ -n "$POLICY_DENY_REASON" ]; then
+  DIFF=""
+else
+  DIFF=$(git diff "origin/${BASE_BRANCH}...HEAD" --unified=10)
+fi
 
 {
   echo "以下の PR をレビューしてください。"
@@ -180,9 +203,14 @@ PROMPT_EOF
 Gemini は本実行前に短い prompt を `python3` の timeout 付きで実行し、認証待ち・ハング・空出力を先に検出する。
 
 ```bash
-GEMINI_AVAILABLE=true
+if [ -n "${POLICY_DENY_REASON:-}" ]; then
+  GEMINI_AVAILABLE=false
+else
+  GEMINI_AVAILABLE=true
+fi
 GEMINI_PREFLIGHT_OUT=/tmp/${PROJECT}-pr${PR_NUMBER}-gemini-preflight.md
 export GEMINI_PREFLIGHT_OUT
+if [ "$GEMINI_AVAILABLE" = true ]; then
 python3 - <<'PY'
 import os, subprocess, sys
 prompt = "read-only preflight。1行だけ返してください。"
@@ -215,6 +243,7 @@ case $? in
   42|124) GEMINI_AVAILABLE=false ;;
   *) GEMINI_AVAILABLE=false ;;
 esac
+fi
 ```
 
 `GEMINI_AVAILABLE=false` の場合は Gemini 本実行を起動せず、理由を PR コメントに記録して Codex scout / independent reviewer にフォールバックする。
@@ -263,21 +292,35 @@ fi
 ### Codex CLI
 
 ```bash
-tmux new-session -d -s ${PROJECT}-pr${PR_NUMBER}-codex   "cd ${PROJECT_DIR} && codex exec --full-auto    -o /tmp/${PROJECT}-pr${PR_NUMBER}-codex-review.md -    < $CODEX_PROMPT_FILE    2>/tmp/${PROJECT}-pr${PR_NUMBER}-codex-review.err;    printf 'EXIT_CODE=%s\n' \$? >> /tmp/${PROJECT}-pr${PR_NUMBER}-codex-review.md;    tmux wait-for -S ${PROJECT}-pr${PR_NUMBER}-codex-done"
+CODEX_AVAILABLE=true
+if [ -n "${POLICY_DENY_REASON:-}" ]; then
+  CODEX_AVAILABLE=false
+fi
+if [ "$CODEX_AVAILABLE" = true ]; then
+  tmux new-session -d -s ${PROJECT}-pr${PR_NUMBER}-codex   "cd ${PROJECT_DIR} && codex exec --full-auto    -c 'agents.default.config_file="$HOME/.codex/agents/reviewer.toml"'    -o /tmp/${PROJECT}-pr${PR_NUMBER}-codex-review.md -    < $CODEX_PROMPT_FILE    2>/tmp/${PROJECT}-pr${PR_NUMBER}-codex-review.err;    printf 'EXIT_CODE=%s\n' \$? >> /tmp/${PROJECT}-pr${PR_NUMBER}-codex-review.md;    tmux wait-for -S ${PROJECT}-pr${PR_NUMBER}-codex-done"
+fi
 ```
 
 ### 待機と取得
 
 ```bash
-[ -f "$CODEX_PROMPT_FILE" ] && tmux wait-for ${PROJECT}-pr${PR_NUMBER}-codex-done &
+if [ "${CODEX_AVAILABLE:-false}" = true ] && [ -f "$CODEX_PROMPT_FILE" ]; then
+  tmux wait-for ${PROJECT}-pr${PR_NUMBER}-codex-done &
+fi
 wait
 
 if [ "$GEMINI_AVAILABLE" = true ]; then
   cat /tmp/${PROJECT}-pr${PR_NUMBER}-gemini-review.md
+elif [ -n "${POLICY_DENY_REASON:-}" ]; then
+  echo "Gemini skipped: ${POLICY_DENY_REASON}"
 else
   echo "Gemini skipped; see $GEMINI_PREFLIGHT_OUT"
 fi
-[ -f "$CODEX_PROMPT_FILE" ] && cat /tmp/${PROJECT}-pr${PR_NUMBER}-codex-review.md
+if [ "${CODEX_AVAILABLE:-false}" = true ] && [ -f "$CODEX_PROMPT_FILE" ]; then
+  cat /tmp/${PROJECT}-pr${PR_NUMBER}-codex-review.md
+elif [ -n "${POLICY_DENY_REASON:-}" ]; then
+  echo "Codex skipped: ${POLICY_DENY_REASON}"
+fi
 ```
 
 ### ヘッドレスを使う理由
@@ -310,8 +353,8 @@ gh pr comment <number> --body "$(cat <<'EOF'
 ## 🤖 AI コードレビュー結果
 
 ### レビュアー
-- Gemini CLI: ✅ / ❌
-- Codex CLI or Claude reviewer: ✅ / ❌
+- Gemini CLI: ✅ / ❌ / skipped: <reason>
+- Codex CLI or Claude reviewer: ✅ / ❌ / skipped: <reason>
 - Claude Code (final): ✅ / ❌
 
 ### 🔴 Critical Issues

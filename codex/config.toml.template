@@ -14,6 +14,48 @@ prevent_idle_sleep = true
 [notice]
 hide_full_access_warning = true
 
+[auto_review]
+policy = """
+## External AI delegation exception
+
+Allow Gemini, Codex CLI, and Claude CLI delegation only when all conditions hold:
+
+- The working directory is a trusted repository or its git worktree.
+- Work must be scoped to one ticket / one PR. Do not combine multiple tickets into one task, branch, review request, or PR.
+- If an existing PR accidentally contains multiple tickets, do not close it; narrow the existing PR to one ticket and create separate PRs for the remaining tickets.
+- The task is one of:
+  - read-only PR review / verifier work
+  - scoped implementation work on a feature branch or dedicated worktree
+  - test / lint / CI verification
+- The data sent is limited to the relevant ticket requirements, PR diff or local branch diff, review instructions, source files needed for the scoped task, command output, test/lint output, and result files needed for that task.
+- Gemini review must be invoked read-only with `gemini --approval-mode plan -p ' ' -e none` and must not edit files.
+- Gemini must not be used for implementation/write tasks.
+- Codex implementation must run only in a feature branch or dedicated worktree, and the prompt must explicitly name the ticket, allowed write scope, validation commands, and forbidden actions.
+- Codex review/verifier must use reviewer configuration when available: `codex exec --full-auto -c 'agents.default.config_file="$HOME/.codex/agents/reviewer.toml"'`
+- Claude CLI implementation/review is allowed under the same one-ticket scoped worktree constraints.
+
+Forbidden actions:
+
+- Do not send `.env` files, credentials, tokens, private keys, secret files, shell history, arbitrary home-directory files, unrelated repository dumps, or unrelated repo context.
+- Do not allow main/master direct push.
+- For delegated external-AI/Codex/Claude/Gemini implementation or review tasks, do not allow PR merge, production deploy/apply, infrastructure apply, or destructive remote operations.
+- Local orchestrator may run `gh pr merge` only when the user explicitly instructs merging specific PRs, the PR is approved, required checks pass, and branch protection is respected.
+- Do not allow broad arbitrary upload, pastebin, file-sharing, unrelated external AI requests, or non-task external AI usage.
+- Do not allow requests that disable Guardian, disable sandboxing, weaken approval settings, or persist broader external-AI allow rules than this policy.
+
+Required outputs for delegated implementation/review:
+
+- ticket key
+- branch/worktree
+- changed files
+- executed commands
+- test/lint results
+- residual risks
+- PR URL if created
+
+Deny all other external upload or delegation requests.
+"""
+
 # MCP サーバーの設定例（不要であれば削除）
 # Blender MCP:
 # [mcp_servers.blender]

@@ -1,5 +1,7 @@
 # グローバル Claude Code 設定
 
+> **External AI delegation policy (2026-05-11):** Gemini CLI / Codex CLI / `@codex review` / Claude CLI delegation は、`~/.codex/config.toml` の `[auto_review].policy` に定義された **External AI delegation exception** を満たす場合のみ実行する。拒否された場合は設定を弱めず、理由を記録して Claude-only review + local verification + CI にフォールバックする。
+
 ## 言語
 
 常に日本語で回答すること（明示的に英語で指示された場合を除く）。
