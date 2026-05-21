@@ -12,6 +12,10 @@ allowed-tools: ["Read", "Glob", "Grep", "Bash", "Write", "Edit"]
 Claudeの制限節約と品質維持のため、Codexへ渡す依頼文を標準化する。
 
 ## 手順
+
+0. データ送信境界を確認する
+   - 渡してよい: 対象リポジトリのソース、PR diff、関連 Issue、レビューコメント、テストログ、リポジトリ内 artifact
+   - 追加確認が必要: secrets / 認証情報 / `.env*` / repo 外 private file / 本番・個人データ raw dump
 1. 関連情報を収集する
    - 仕様/Issue/PR/関連ファイル
    - ブランチ名、制約、期限
@@ -30,6 +34,11 @@ Claudeの制限節約と品質維持のため、Codexへ渡す依頼文を標準
 ## Objective
 - <達成したいこと>
 
+## Approved Input / Data Boundary
+- May use: repository files, PR diff, related Issue / PR comments, review comments, test logs, repo-local design artifacts
+- Do not include or request: secrets, tokens, credentials, `.env*`, repo-external private files, raw production/personal data
+- Repo-external artifact approved for this task: <none | explicit path and reason>
+
 ## Acceptance Criteria
 - [ ] <検証可能な条件1>
 - [ ] <検証可能な条件2>
@@ -42,16 +51,29 @@ Claudeの制限節約と品質維持のため、Codexへ渡す依頼文を標準
 - Branch: <branch>
 - Files/Modules: <対象範囲>
 - Prohibitions: <禁止事項>
+- Do not revert edits made by other agents; this is a multi-AI workspace
 
 ## Required Validation
 - <test command 1>
 - <test command 2>
 
 ## Output Format
+Return the following fields:
 - Summary of changes
 - File list
 - Test results
 - Remaining risks / open questions
+- Verification evidence JSON:
+
+```json
+{
+  "source": "codex-worker",
+  "validated_commands": ["<commands actually run>"],
+  "results": {"passed": [], "failed": []},
+  "residual_risks": [],
+  "findings": []
+}
+```
 ```
 
 ## 注意

@@ -1,3 +1,6 @@
+sandbox_mode = "workspace-write"
+approvals_reviewer = "guardian_subagent"
+approval_policy = "on-request"
 model_instructions_file = "instructions.md"
 
 # プロジェクトごとに trust_level を設定する
@@ -7,6 +10,7 @@ model_instructions_file = "instructions.md"
 # trust_level = "trusted"
 
 [features]
+guardian_approval = true
 multi_agent = true
 apps = true
 prevent_idle_sleep = true

@@ -1,2 +1,4 @@
 prefix_rule(pattern=["gh", "pr", "diff"], decision="allow")
 prefix_rule(pattern=["gh", "pr", "review"], decision="allow")
+prefix_rule(pattern=["gh", "pr", "comment"], decision="allow")
+prefix_rule(pattern=["gh", "pr", "checks"], decision="allow")

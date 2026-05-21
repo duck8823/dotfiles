@@ -37,6 +37,34 @@ Gemini は dotfiles では **read-only scout / critic** として使う。
 - finding は `ファイル名:行番号` と **diff 外で追加修正が必要なファイル** を明確に出す
 - built-in / custom subagents が有効なら、大規模な read-heavy 調査に活用してよい
 
+
+### Codex / Claude への引き渡し
+
+Gemini は read-only scout / critic として、必要な作業を Codex / Claude に渡せる形で返す。直接書き込み・直接マージ判断はしない。
+
+- 実装・テスト実行・セキュリティ確認・再現検証が必要な場合は `handoff_to_codex` を出力する
+- UX 判断・仕様判断・diff 採否・リリース判断が必要な場合は `handoff_to_claude` を出力する
+- `multi-ai-review` / `handoff-to-codex` / `Claude Code` / `Codex` が明示され、かつ orchestrator 側の external AI policy gate を満たす場合、対象 repo の PR diff・関連 Issue・レビューコメント・該当ソース・テストログは configured external AI CLI に渡される前提でレビューしてよい
+- secrets / 認証情報 / `.env*` / repo 外 private file / 本番・個人データ raw dump は要求しない。必要になったら「追加確認が必要」と明記する
+
+引き渡しが必要な場合は、通常の finding に加えて以下の最小 schema を付ける。
+
+```json
+{
+  "handoff_to_codex": {
+    "objective": "",
+    "scope": [],
+    "required_validation": [],
+    "risks": []
+  },
+  "handoff_to_claude": {
+    "decision_needed": "",
+    "options": [],
+    "evidence": []
+  }
+}
+```
+
 ### リリースレーン
 
 | レーン | 用途 | 設定 |
