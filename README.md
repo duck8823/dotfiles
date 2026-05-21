@@ -97,6 +97,9 @@ Gemini / Codex / Claude CLI への delegation は `~/.codex/config.toml` の `[a
 | `skills/*` | handoff / triage / review / research などの再利用可能スキル |
 | `config.toml` | Codex CLI のローカル設定（テンプレート生成） |
 
+AI knowledge の分類基準（rules / skills / agents / prompts / guidelines）は
+`conventions/ai/knowledge-organization.md` を参照してください。
+
 #### Codex / Claude 共通スキル
 
 | スキル | 用途 |
