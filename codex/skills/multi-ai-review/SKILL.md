@@ -26,6 +26,7 @@ Codex 主体の作業でも、Claude 側 dotfiles と同じ考え方で **Gemini
 - **sandbox拒否時の扱い**: 外部 AI CLI が sandbox / auth / quota で拒否された場合、代替禁止の明示がない限りユーザー確認で停止せず、拒否理由を PR コメントへ記録して default subagent / Codex verifier / local gate で補完する。
 - **generated code**: 生成物は原則レビュー対象外。generator / schema / template / build 設定を優先する。
 - **CIゲート**: `gh pr checks` の `no checks reported` だけを CI 未設定扱いにする。`fail` / `cancel` / `pending` / 認証・通信エラーはマージ不可として扱う。
+- **Structure-Behavior**: Medium / High risk の変更では、手続き化・責務配置・境界/IF・振る舞いテストの観点を必ず統合レビューに含める。
 - **rtk等のプロジェクト規約優先**: `AGENTS.md` / `CLAUDE.md` が shell wrapper（例: `rtk`）を要求する場合、すべての shell 実行に従う。
 
 ## レビュアー構成
@@ -156,6 +157,7 @@ cat > "$GEMINI_PROMPT_FILE" <<PROMPT
 - 命名 drift
 - docs / config / l10n 更新漏れ
 - diff 外影響
+- Structure-Behavior drift（肥大 usecase / handler、責務漏れ、data-only model、primitive obsession、IF劣化、振る舞いテスト不足）
 - generated code は原則スキップし、generator / schema / template / build 設定を見る
 
 出力:
@@ -287,6 +289,7 @@ cat > "$VERIFIER_PROMPT_FILE" <<PROMPT
 - エッジケース
 - テスト不足
 - 実装意図との不一致
+- Structure-Behavior risk（手続き的実装、責務配置、境界/IF、振る舞いテスト）
 - generated code は原則スキップし、generator / schema / template / build 設定を見る
 
 必ず確認すること:

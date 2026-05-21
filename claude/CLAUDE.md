@@ -85,6 +85,15 @@
 - Gemini = read-only scout（一貫性レビュー・計画の俯瞰チェック）
 - 失敗時は1回リトライ → スキップして記録
 
+## Structure-Behavior Design
+
+非自明な実装では `~/.claude/skills/structure-behavior-design/SKILL.md` を使い、要求から即コードへ飛ばない。
+
+- Medium 以上: 要求・概念モデル・責務表・境界/IF・振る舞いテスト・TDD plan を Design Note として残す
+- High risk: rollback/移行方針、分割PR案、実装前 design checkpoint を残す
+- 自律進行を止め続けず、確認不能な High risk は小さな Draft PR / migration-safe step に分割する
+- レビューでは `structure-reviewer` 観点（手続き化・責務配置・境界/IF・振る舞いテスト）を含める
+
 ## コードレビュー・AI CLI 連携
 
 - レビュー指針: `~/.claude/guidelines/review-workflow.md`

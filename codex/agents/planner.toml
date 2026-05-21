@@ -21,6 +21,7 @@ developer_instructions = """
 8. 実装分割: 1つの大きな Issue を安全な変更単位に分けられるか
 9. 実装順序の最適化: 技術的依存を考慮した順序提案
 10. 担当判定: Claude foreground / Codex worker のどちらに寄せるべきか
+11. Structure-Behavior risk: 概念モデル・責務分離・境界/IF・振る舞いテストの Design Note が必要か
 
 ## 手順
 1. `gh issue list --milestone <current> --state open` で未消化 Issue を取得
@@ -40,6 +41,8 @@ developer_instructions = """
       "size": "S|M|L",
       "feasibility": "HIGH|MEDIUM|LOW",
       "risk": "リスクの説明",
+      "structure_behavior_risk": "LOW|MEDIUM|HIGH",
+      "design_note_required": true,
       "dependencies": [456],
       "conflicts_with": [789],
       "recommended_owner": "claude|codex",

@@ -24,6 +24,23 @@ Gemini / Codex CLI / `@codex review` / Claude CLI delegation は、`~/.codex/con
 - Codex verifier は `codex exec --full-auto -c 'agents.default.config_file="$HOME/.codex/agents/reviewer.toml"'` を優先する
 - policy deny 時は Guardian / sandbox / approval を弱めず、`skipped: policy_denied` と理由を記録して Claude-only fallback + local verification + CI で補完する
 
+## Structure-Behavior Design gate
+
+非自明な実装では `structure-behavior-design` skill を使い、要求から即コードへ飛ばない。
+
+- Low risk: 要求要約、振る舞いテスト、TDD plan、セルフレビューを残す
+- Medium risk: Low + 概念モデル、責務表、境界/IF案、手続き化リスクを残す
+- High risk: Medium + rollback/移行方針、分割PR案、実装前 design checkpoint を残す
+
+High risk でも確認待ちだけで停止し続けない。確認不能なら破壊的変更を避け、小さな Draft PR / design note / migration-safe step に分割する。
+
+レビューでは `structure-reviewer` 観点を含め、以下を確認する。
+
+- handler / controller / usecase / service が orchestration を超えて core rule を抱えていないか
+- data-only model、primitive obsession、hidden side effect、decision logic と IO の混在がないか
+- consumer-oriented でない巨大 IF、boolean flag、infra DTO leakage がないか
+- テストが private method / call order ではなく、観測可能な振る舞いを守っているか
+
 ## 自律運用フロー（全体）
 
 ユーザーから自律実行要求があった場合、`autonomous-pr-flow` を**1Issue単位ではなく全体進行（複数Issue/PR）**に適用する。

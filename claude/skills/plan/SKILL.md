@@ -27,6 +27,7 @@ MILESTONE_JSON=$(gh api repos/{owner}/{repo}/milestones --jq '.[] | select(.titl
 cat > /tmp/codex-planner.md <<PROMPT
 以下の Issue 一覧のスプリント計画を技術分析してください。
 コードベースを実際に読んで、依存関係・影響範囲・Wave構成・リスク・担当判定を行ってください。
+Structure-Behavior risk（概念モデル・責務分離・境界/IF・振る舞いテストの Design Note が必要か）も分類してください。
 
 ## Issue 一覧
 ${ISSUES_JSON}
@@ -74,11 +75,12 @@ GEMINI_SYSTEM_MD=$HOME/.gemini/agents/planner.md \
 - 各 Issue の順序は Codex のリスク + Gemini の優先度を加味
 - Gemini の「漏れ検出」で新 Issue 作成を提案
 - Codex の「過剰リスク」警告があれば Issue 分割を提案
+- Medium / High の Structure-Behavior risk は、実装前に `structure-behavior-design` の Design Note を必須にする
 
 ### 4. ユーザーに提示
 
-| Wave | Issue | タイトル | 種別 | サイズ | リスク | 担当 | 並列可 |
-|------|-------|---------|------|--------|--------|------|--------|
+| Wave | Issue | タイトル | 種別 | サイズ | リスク | S/B risk | 担当 | 並列可 |
+|------|-------|---------|------|--------|--------|----------|------|--------|
 
 ### 5. ユーザー承認後
 - プロジェクトメモリにスプリント状態を保存

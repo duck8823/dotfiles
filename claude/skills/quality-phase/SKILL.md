@@ -37,11 +37,21 @@ codex exec --full-auto \
   - < /tmp/codex-qp-architect.md 2>/tmp/codex-qp-architect.err
 ```
 
-### 3. デザインチェック（Claude のみ）
+### 3. Structure-Behavior drift レビュー
+
+Medium / High risk の Issue や大きめの refactor を含む場合、`~/.claude/agents/structure-reviewer.md` または `~/.codex/agents/structure-reviewer.toml` を使い、以下を確認する。
+
+- handler / controller / usecase / service の肥大化
+- data-only model、primitive obsession、hidden side effect
+- decision logic と IO / persistence / SDK call の混在
+- oversized interface、boolean flag、infra DTO leakage
+- 振る舞いテスト不足、または brittle tests
+
+### 4. デザインチェック（Claude のみ）
 `~/.claude/agents/designer.md` をサブエージェントとして起動。
 プロジェクトの CLAUDE.md のデザインシステムセクションを参照させる。
 
-### 4. 探索的テスト（Codex QA）
+### 5. 探索的テスト（Codex QA）
 ```bash
 CLOSED_ISSUES=$(gh issue list --milestone "<current>" --state closed --json number,title,body)
 
@@ -57,7 +67,7 @@ codex exec --full-auto \
   - < /tmp/codex-qp-qa.md 2>/tmp/codex-qp-qa.err
 ```
 
-### 5. 結果統合 & トリアージ
+### 6. 結果統合 & トリアージ
 
 全結果を統合し、重大度で分類:
 
@@ -66,14 +76,14 @@ codex exec --full-auto \
 | **CRITICAL** | バグ・セキュリティ脆弱性・データ破損・クラッシュ | 即座に修正 & PR |
 | **HIGH以下** | 技術的負債・改善・一貫性・デザイン・テスト追加 | `gh issue create` で同マイルストーンに登録 |
 
-### 6. CRITICAL 修正
+### 7. CRITICAL 修正
 CRITICAL が検出された場合:
 1. 修正ブランチ作成
 2. 修正実装
 3. 修正箇所のみ Claude reviewer で再レビュー
 4. ドラフト PR → マージ
 
-### 7. Issue 登録
+### 8. Issue 登録
 HIGH 以下の指摘を Issue 化:
 ```bash
 gh issue create \
@@ -83,7 +93,7 @@ gh issue create \
   --label "tech-debt"
 ```
 
-### 8. 完了報告
+### 9. 完了報告
 - アーキテクチャレビュー結果（2AI統合）
 - デザインチェック結果
 - 探索的テスト結果（PASS/FAIL 一覧）

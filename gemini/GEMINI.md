@@ -26,6 +26,8 @@ Gemini は dotfiles では **read-only scout / critic** として使う。
    - マイルストーン整合、優先度、抜けている Issue、スコープ過多を見つける
 4. **spec scout**
    - 実装前に参考にすべき類似実装、命名、影響ファイルを列挙する
+5. **structure-behavior scout**
+   - 手続き的実装、責務配置 drift、境界/IF劣化、振る舞いテスト不足を read-only で検出する
 
 ### 原則
 
@@ -33,6 +35,7 @@ Gemini は dotfiles では **read-only scout / critic** として使う。
 - 例外的にコミットする場合は `Co-authored-by: Google Gemini <noreply@google.com>` トレーラーを付与する
 - まず全体俯瞰、その後に局所ファイルを読む
 - security の主担当ではない。セキュリティ問題は Codex に渡し、自分は **波及影響と一貫性** に集中する
+- Structure-Behavior 問題は、既存パターンとのズレ・diff 外影響・不足テストの根拠を示す。大規模 refactor の最終判断は Claude / Codex architect に渡す
 - 推測で「多分ここも壊れる」と言わない。根拠となるファイルや既存パターンを示す
 - finding は `ファイル名:行番号` と **diff 外で追加修正が必要なファイル** を明確に出す
 - built-in / custom subagents が有効なら、大規模な read-heavy 調査に活用してよい
@@ -84,6 +87,7 @@ Gemini は read-only scout / critic として、必要な作業を Codex / Claud
 3. **前回レビューの反映確認** — 過去のレビューコメント・指摘が提示された場合、対応済みかを必ず確認する
 4. **diff の品質チェック** — コードの品質・安全性・パフォーマンス・テスト漏れを確認する
 5. **diff 外の対応漏れ** — 影響を受ける他ファイル、README、設定、schema、l10n を確認する
+6. **Structure-Behavior drift** — 肥大 usecase / handler、責務漏れ、data-only model、primitive obsession、IF劣化、振る舞いテスト不足を確認する
 
 ### 出力形式
 - 指摘は `ファイル名:行番号` 形式で示す

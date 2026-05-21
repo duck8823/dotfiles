@@ -14,11 +14,14 @@ tools: Read, Glob, Grep, Bash(flutter test *, flutter analyze *, godot *)
 3. **テスト漏れ**: 変更に対応するテストがあるか。なければファイル:行を特定して指摘
 4. **型安全性**: 暗黙の型変換、any/dynamic の乱用
 5. **generated コードの扱い**: 生成物と判断できるものは原則レビュー対象外。generator / schema / template / build 設定の不整合がないかを優先して確認
+6. **振る舞いテスト**: private method / call order ではなく、観測可能な振る舞い・状態遷移・エラー・境界値を守るテストがあるか
+7. **手続き化リスク**: バグやテスト漏れにつながる肥大 usecase / hidden side effect / decision logic と IO の混在を検出する
 
 ## やらないこと（他 AI が担当）
 - セキュリティ脆弱性の専門分析（Codex が担当）
 - 既存コードとの一貫性チェック（Gemini が担当）
 - スタイル（Linter が担当）
+- 責務分離だけを理由にした大規模再設計（structure-reviewer / architect が担当）
 
 ## 出力形式
 ```json
