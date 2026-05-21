@@ -8,6 +8,19 @@
 - すべて **ヘッドレス実行** を基本とする
 - 書き込みタスクは isolated branch / worktree 前提
 
+## 外部AIへのデータ送信境界
+
+`multi-ai-review` / `handoff-to-codex` / `Claude Code` / `Gemini` / `Codex` / `ai-review` が明示され、かつ `~/.codex/config.toml` の `[auto_review].policy` を満たす場合、対象リポジトリの PR diff・関連 Issue・レビューコメント・該当ソース・テストログ・リポジトリ内の設計 artifact は configured external AI CLI（`claude` / `codex` / `gemini` / `ai-review`）へ渡してよい。これは multi-AI 協業の標準運用であり、同じ確認を毎回求めない。policy gate を満たさない場合は外部AI CLIを起動しない。
+
+追加確認が必要なもの:
+
+- secrets / token / API key / 認証情報 / `.env*`
+- リポジトリ外の private file（例: `~/Downloads`, `~/Desktop`, 個人メモ）
+- ユーザー個人情報・顧客データ・本番データの raw dump
+- 外部サービスへの書き込み（メール送信、Slack 投稿、本番操作など）
+
+Claude / Gemini から Codex / Claude Code へ渡すプロンプトには、上記の境界を明記し、secrets を貼り付けない。repo 外 artifact を渡す必要がある場合は、その path と目的を明示して人間確認を取る。
+
 ## キャッシュ・作業ディレクトリの env 強制
 
 Codex / Gemini / Claude サブエージェントを起動する前に、ビルドキャッシュ系 env を `$HOME` 配下に固定して export する。AI ツールが `$PWD/.cache` `$PWD/.gocache` `$PWD/.gopath` 等を勝手に作って ENOSPC を引き起こす事象を防ぐため。
@@ -29,6 +42,7 @@ export PUB_CACHE="$HOME/.pub-cache"
 |--------|------|-----------|------|
 | Codex | review / plan / worker | `codex exec --full-auto - < <prompt> \| tee <file>` | `-c 'agents.default.config_file=...'` で役割付与 |
 | Gemini | scout / review / planning | `gemini --approval-mode plan -p ' ' -e none < <prompt> 2>&1 \| tee <output>` | `GEMINI_SYSTEM_MD=...` で役割付与 |
+| Claude Code | design / implementation delegation | `claude -p < /tmp/claude-worker.md \| tee <output>` | `claude --print` も同じ headless 用途で使う |
 
 > `gemini -e none` は公式にサポートされた「拡張を無効化する」指定。旧来の `-e ''` は使わない。
 
@@ -72,6 +86,26 @@ GEMINI_SYSTEM_MD=$HOME/.gemini/agents/<agent-name>.md \
   gemini --approval-mode plan -p ' ' -e none \
   < /tmp/<agent>-prompt.md 2>&1 | tee /tmp/<agent>-result.json
 ```
+
+## 相互委譲の標準パターン
+
+### Claude → Codex
+
+- scoped implementation / verifier / security / CI / shell は Codex に渡す
+- 依頼文には Objective / Acceptance Criteria / Out of Scope / Constraints / Required Validation / Output Format を含める
+- Codex の返却は `validated_commands` 付きの検証証跡を必須にする
+
+### Claude → Claude Code
+
+- UX を伴う UI 実装、設計意図の保持、大きめの統合実装は Claude Code に渡してよい
+- headless (`claude -p` / `claude --print`) を優先し、ブラウザ認証プロンプトや secrets 要求が出たら停止する
+- repo 外 artifact（デザイン zip 等）は、ユーザーがその path の送信を明示承認した場合だけ渡す
+
+### Gemini → Codex / Claude
+
+- Gemini は原則 read-only のため直接実装しない
+- 実装・検証が必要な場合は `handoff_to_codex`、UX / 統合判断が必要な場合は `handoff_to_claude` の依頼文 artifact を返す
+- 実行は foreground orchestrator（Claude または Codex メイン）が行う
 
 ## worktree 運用
 

@@ -1,4 +1,10 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(gh pr comment:*)",
+      "Bash(gh pr checks:*)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {

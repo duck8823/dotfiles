@@ -8,6 +8,18 @@
 - **Codex**: background worker / verifier
 - **Gemini**: read-only scout / critic
 
+## 相互委譲ポリシー
+
+multi-AI 協業は一方向ではなく、各 AI が自分の不得意領域を Codex / Claude に渡せる前提で運用する。
+
+- **Claude → Codex**: scoped 実装、テスト、CI/CD、セキュリティ確認、再現検証を渡す
+- **Claude → Claude Code**: UX を含む設計・UI 実装・大きめの統合実装を渡す
+- **Gemini → Codex**: セキュリティ、テスト実行、修正実装が必要な指摘は `handoff_to_codex` として返す
+- **Gemini → Claude**: UX 判断、仕様判断、diff 採否判断が必要な指摘は `handoff_to_claude` として返す
+- **Codex → Claude**: ユーザー体験・リリース判断・大きい設計変更は実装せず Claude に戻す
+
+`multi-ai-review` / `handoff-to-codex` / `Claude Code` / `Gemini` / `Codex` が明示され、かつ `~/.codex/config.toml` の `[auto_review].policy` を満たす場合、対象リポジトリの PR diff・関連 Issue・レビューコメント・該当ソース・テストログは configured external AI CLI に渡してよい。secrets・認証情報・repo 外 private file・本番/個人データ raw dump は毎回追加確認または policy deny とする。
+
 ## 運転モード別ルーティング
 
 | タスクの形 | 主担当 | 補助 |

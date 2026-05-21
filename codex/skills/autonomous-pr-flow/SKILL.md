@@ -22,8 +22,11 @@ description: 自律実行要求時に、1Issueではなく全体進行（複数I
 （Claude 主体の運用定義は `claude/` 側に置く）
 
 - Codex / Gemini の2AI体制で進行する
+- PR作成後の多重レビューは `multi-ai-review` skill を使う
 - Gemini を一次レビューに使う
 - Gemini が headless 認証プロンプト・quota・空出力で失敗した場合は、理由を記録し Codex scout / independent reviewer で代替する
+- GitHub 上の `@claude @gemini multi-ai-review` メンションは使わず、ローカル実行結果を `gh pr comment` で集約する
+- multi-ai-review 明示時は、policy gate を満たす場合に限り、PR diff・関連 Issue・レビューコメントを configured external AI CLI に渡す承認済みとして扱う（secrets・認証情報・repo外 private file は除く）
 - PR上 `@codex review` の指摘を解消して収束させる
 
 ### External AI delegation policy gate
@@ -47,7 +50,7 @@ Gemini / Codex CLI / `@codex review` は、`~/.codex/config.toml` の `[auto_rev
 2. `lint / typecheck / test`
 3. コミット分割（1コミット1関心事）
 4. Draft PR 作成（Motivation必須）
-5. External AI delegation policy gate を確認し、許可される場合は Gemini レビュー依頼 → 指摘反映を繰り返し（policy deny / 認証プロンプト等で失敗した場合は理由を記録して代替 reviewer を使う）
+5. External AI delegation policy gate を確認し、許可される場合は `multi-ai-review` skill で Gemini scout / independent verifier / Codex integrator の統合レビューを実行し、指摘反映を繰り返す（policy deny / 認証プロンプト等で失敗した場合は理由を記録して代替 reviewer を使う）
 6. Ready/Open + policy gate を満たす場合は `@codex review`
 7. Codex 指摘反映 → 再レビュー依頼を繰り返し
 8. 追加修正・rebase・force-with-lease push 後は再度 `@codex review` を依頼する
