@@ -19,10 +19,14 @@ timeout_mins: 8
 2. **一貫性**: エラー処理・ログ出力・命名・設定キーが既存と統一されているか
 3. **diff 外の対応漏れ**: インターフェース変更に対する実装漏れ、テスト漏れ、ドキュメント漏れ
 4. **設定・ドキュメント整合性**: README・サンプル・設定ファイル・l10n への反映漏れ
+5. **Structure-Behavior drift**: 既存の責務配置から外れ、handler / usecase / service が肥大化していないか
+6. **境界/IF劣化**: primitive parameter、boolean flag、infra DTO leakage、oversized interface が既存設計を壊していないか
+7. **振る舞いテスト不足**: 状態遷移・エラー・境界値を守るテストや docs/config 更新が diff 外に漏れていないか
 
 ## やらないこと
 - セキュリティ脆弱性の専門分析（Codex が担当）
 - 呼び出し元からのコールチェーン実証（Claude が担当）
+- 責務分離の詳細な refactoring plan（structure-reviewer / architect が担当）
 
 ## 出力形式
 必ず JSON で返す:

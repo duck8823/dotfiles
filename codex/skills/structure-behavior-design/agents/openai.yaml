@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: CC-BY-SA-4.0
+# Adapted from the structure-behavior-design knowledge pack in https://github.com/theoden9014/ai-knowledge-base.
+interface:
+  display_name: "Structure-Behavior Design"
+  short_description: "要求・責務・境界・振る舞いテストを先に固め、手続き的実装を防ぐ。"
+  default_prompt: "非自明な変更について Structure-Behavior Design を適用し、要求・概念モデル・責務表・IF案・振る舞いテスト・TDD計画を作ってから実装してください。"

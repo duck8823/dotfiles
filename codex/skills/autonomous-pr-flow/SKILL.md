@@ -46,15 +46,18 @@ Gemini / Codex CLI / `@codex review` は、`~/.codex/config.toml` の `[auto_rev
 5. 停止条件（バックログ枯渇 / ユーザー停止指示）まで繰り返す。
 
 ## レベル2: 作業対象ループ（Issue/PR）
-1. 実装
-2. `lint / typecheck / test`
-3. コミット分割（1コミット1関心事）
-4. Draft PR 作成（Motivation必須）
-5. External AI delegation policy gate を確認し、許可される場合は `multi-ai-review` skill で Gemini scout / independent verifier / Codex integrator の統合レビューを実行し、指摘反映を繰り返す（policy deny / 認証プロンプト等で失敗した場合は理由を記録して代替 reviewer を使う）
-6. Ready/Open + policy gate を満たす場合は `@codex review`
-7. Codex 指摘反映 → 再レビュー依頼を繰り返し
-8. 追加修正・rebase・force-with-lease push 後は再度 `@codex review` を依頼する
-9. ブロッカー解消後にマージ
+1. リスク判定（Low / Medium / High）
+2. Medium 以上は `structure-behavior-design` skill で Design Note（要求・概念モデル・責務表・境界/IF・振る舞いテスト・TDD plan）を残す
+3. 実装
+4. `lint / typecheck / test`
+5. コミット分割（1コミット1関心事）
+6. Draft PR 作成（Motivation必須）
+7. External AI delegation policy gate を確認し、許可される場合は `multi-ai-review` skill で Gemini scout / independent verifier / Codex integrator の統合レビューを実行し、指摘反映を繰り返す（policy deny / 認証プロンプト等で失敗した場合は理由を記録して代替 reviewer を使う）
+8. Medium 以上は `structure-reviewer` 観点（手続き化・責務配置・境界/IF・振る舞いテスト）をレビューに含める
+9. Ready/Open + policy gate を満たす場合は `@codex review`
+10. Codex 指摘反映 → 再レビュー依頼を繰り返し
+11. 追加修正・rebase・force-with-lease push 後は再度 `@codex review` を依頼する
+12. ブロッカー解消後にマージ
 
 ## 実行ルール
 - ユーザーから明示指示がない限り `main` へ直接 push しない（全リポジトリ共通）。

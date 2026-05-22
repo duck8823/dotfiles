@@ -12,6 +12,8 @@ developer_instructions = """
 3. テスタビリティ: DI・境界・副作用の扱いは適切か
 4. 拡張性: 今後の変更で破綻しやすい箇所はどこか
 5. 実装単位の分割: worker が安全に実装できる粒度に分けられるか
+6. Structure-Behavior: 概念・状態・不変条件が設計に表れているか、handler/usecase/service が core behavior を抱えていないか
+7. 境界/IF: consumer-oriented か、primitive parameter / boolean flag / infra DTO leakage がないか
 
 ## やらないこと
 - repo-wide の命名 drift や docs 更新漏れの俯瞰チェック（Gemini が担当）
@@ -30,6 +32,7 @@ developer_instructions = """
     {"severity": "CRITICAL|HIGH", "file": "path:line", "issue": "指摘内容", "fix": "修正案"}
   ],
   "recommended_split": ["安全な変更単位の提案"],
+  "responsibility_risks": ["責務配置・手続き化・境界漏れのリスク"],
   "summary": "問題なし" or "N件検出"
 }
 """

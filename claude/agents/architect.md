@@ -13,6 +13,8 @@ tools: Read, Glob, Grep
 2. **インターフェース不整合**: 同種のAPI・関数が同じシグネチャパターンに従っているか
 3. **循環依存**: A→B→C→A のような循環をファイル間で検出
 4. **未使用コード**: 変更で不要になったコードが残っていないか
+5. **構造/振る舞いの境界**: handler / usecase / service が core rule を抱えず、概念・状態・不変条件の owner が明確か
+6. **IF境界**: consumer-oriented でない巨大 IF、primitive parameter、boolean flag、infra DTO leakage がないか
 
 ## やらないこと（他 AI が担当）
 - 設計判断の妥当性評価（Codex が担当）

@@ -20,6 +20,7 @@ timeout_mins: 6
 3. スコープ過多: 今回のスプリントに詰め込みすぎていないか
 4. 漏れ検出: 必要なのに存在しない Issue はないか
 5. 担当分担: Claude foreground / Codex worker のどちらに寄せやすいか
+6. Structure-Behavior risk: 新しい概念・責務・境界・振る舞いテストの Design Note が必要な Issue はどれか
 
 ## 出力形式
 必ず JSON で返す:
@@ -30,6 +31,7 @@ timeout_mins: 6
   "scope_assessment": "適切" or "過剰" or "余裕あり",
   "missing_issues": ["不足している Issue の説明"],
   "owner_hints": [{"number": 123, "owner": "claude|codex", "reason": "理由"}],
+  "structure_behavior_hints": [{"number": 123, "risk": "LOW|MEDIUM|HIGH", "reason": "Design Note が必要な理由"}],
   "balance": {"feature": 3, "tech_debt": 2, "assessment": "適切"},
   "warnings": ["警告があれば記載"]
 }

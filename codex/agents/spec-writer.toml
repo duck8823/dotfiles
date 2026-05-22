@@ -16,19 +16,29 @@ developer_instructions = """
 7. セキュリティ考慮: この変更で生まれうる脆弱性と防御策
 8. エラーシナリオ: 外部依存（API、DB、ファイルシステム）の失敗ケース
 9. 検証計画: 何をどの順で走らせればマージ可否を判断できるか
+10. Structure-Behavior Design: Medium 以上では概念モデル、責務表、境界/IF案、振る舞いテスト、手続き化リスクを明示する
 
 ## 出力形式
 必ず JSON で返す:
 {
   "source": "codex-spec",
+  "structure_behavior_risk": "LOW|MEDIUM|HIGH",
   "scope": ["lib/xxx.dart", "lib/yyy.dart"],
   "out_of_scope": ["lib/zzz.dart"],
+  "requirement_summary": ["目的・現状・期待する振る舞い・非対象"],
+  "conceptual_model": [{"concept": "名前", "state": "状態", "behavior": "振る舞い", "invariant": "不変条件"}],
+  "responsibility_assignment": [{"responsibility": "責務", "owner": "所有者", "reason_to_change": "変更理由", "not_owner": "非所有者と理由"}],
+  "interfaces": [{"name": "IF/関数", "consumer": "利用者", "hidden_detail": "隠す詳細", "error_contract": "エラー契約"}],
   "steps": ["1. ...", "2. ..."],
   "completion_criteria": ["flutter test test/xxx_test.dart passes"],
   "integration_points": ["XxxService.method() を呼び出し"],
   "test_cases": [
     {"type": "normal|edge|error|security", "description": "テスト内容", "expected": "期待結果"}
   ],
+  "behavior_tests": [
+    {"behavior": "振る舞い", "given": "前提", "when": "操作", "then": "期待結果", "level": "unit|integration|e2e"}
+  ],
+  "procedural_risks": ["肥大usecase、責務漏れ、primitive obsession等のリスク"],
   "security_considerations": ["セキュリティ考慮事項"],
   "error_scenarios": ["エラーシナリオ"],
   "validation_plan": ["実行すべきコマンドや確認項目"],

@@ -41,6 +41,7 @@ PR番号・タイトル・変更ファイルを把握する。
 - **Gemini**: repo-wide 一貫性、命名 drift、docs / config / l10n drift、diff 外影響
 - **Codex**: セキュリティ、エッジケース、`test_command` / `analyze_command` 実行
 - **Claude**: 変更意図との整合、ユーザー影響、最終マージ可否
+- **structure-reviewer**: Medium / High risk で、手続き化・責務配置・境界/IF・振る舞いテスト不足を確認
 
 ## ステップ3: コンテキスト収集
 
@@ -119,7 +120,7 @@ fi
   echo "以下の PR をレビューしてください。"
   echo ""
   echo "**あなたの役割**: repo-wide scout / critic です。"
-  echo "既存パターンとの整合性、命名 drift、diff 外影響、docs / config / l10n 更新漏れを中心に確認してください。"
+  echo "既存パターンとの整合性、命名 drift、diff 外影響、docs / config / l10n 更新漏れ、Structure-Behavior drift（手続き化・責務配置・境界/IF・振る舞いテスト不足）を中心に確認してください。"
   echo ""
   echo "## PR"
   echo "- head: ${HEAD_BRANCH}"
@@ -162,7 +163,7 @@ cat > "$CODEX_PROMPT_FILE" <<PROMPT_EOF
 以下の PR をレビューしてください。
 
 **あなたの役割**: verifier です。
-セキュリティ脆弱性、実装の正確性、テストカバレッジ、再現手順を中心に確認してください。
+セキュリティ脆弱性、実装の正確性、テストカバレッジ、再現手順、Structure-Behavior risk（手続き的実装・責務配置・境界/IF・振る舞いテスト）を中心に確認してください。
 
 まず以下のコマンドを実行して変更内容を把握してください:
 1. \`git diff origin/${BASE_BRANCH}..HEAD\`

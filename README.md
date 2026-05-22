@@ -93,16 +93,27 @@ Gemini / Codex / Claude CLI への delegation は `~/.codex/config.toml` の `[a
 | ファイル | 用途 |
 |--------|------|
 | `instructions.md` | Codex 全体のグローバル運用方針 |
-| `agents/*.toml` | planner / architect / reviewer / spec-writer の専門エージェント |
+| `agents/*.toml` | planner / architect / reviewer / spec-writer / structure-reviewer などの専門エージェント |
 | `skills/*` | handoff / triage / review / research などの再利用可能スキル |
 | `config.toml` | Codex CLI のローカル設定（テンプレート生成） |
+
+AI knowledge の分類基準（rules / skills / agents / prompts / guidelines）は
+`conventions/ai/knowledge-organization.md` を参照してください。
+
+#### Codex / Claude 共通スキル
+
+| スキル | 用途 |
+|--------|------|
+| `structure-behavior-design` | 非自明な変更で、要求・概念モデル・責務分離・境界/IF・振る舞いテスト・TDD・構造レビューを実装前後に通す |
+
+このスキルは、AI が要件から手続き的実装へ直行するリスクを抑えつつ、Claude / Codex / Gemini の役割分担に合わせて軽量に使えるよう調整しています。
 
 ### Gemini 設定（`~/.gemini/`）
 
 | ファイル | 用途 |
 |--------|------|
 | `GEMINI.md` | Gemini 全体のグローバル運用方針 |
-| `agents/*.md` | planner / architect / reviewer / spec-writer の専門エージェント |
+| `agents/*.md` | planner / reviewer / structure-reviewer などの read-only scout / critic エージェント |
 | `settings.json` | read-only scout 運用向けのユーザー設定 |
 
 ### Claude Code フック（`~/.claude/hooks/`）
@@ -220,4 +231,8 @@ dotfiles 側の更新とローカル編集が衝突した場合は `~/.gemini/se
 
 ## ライセンス
 
-MIT
+原則 MIT。
+
+例外として、`NOTICE.md` に記載した一部の AI workflow knowledge は
+`theoden9014/ai-knowledge-base` の `structure-behavior-design` knowledge pack を翻訳・要約・統合した派生物であり、CC BY-SA 4.0 として扱います。
+該当ファイルは `SPDX-License-Identifier: CC-BY-SA-4.0` を付け、ライセンス参照は `LICENSES/CC-BY-SA-4.0.md` に置いています。

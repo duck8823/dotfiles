@@ -34,6 +34,7 @@
 
 スプリント全体の変更を俯瞰し、個別 PR レビューでは見えなかった問題を検出する。
 Architect ロールを Claude / Codex / Gemini の3AI並列で実行。
+Medium / High risk の Issue が含まれる場合は、Structure-Behavior drift（手続き化・責務配置・境界/IF・振る舞いテスト不足）も確認する。
 
 ```bash
 git log --oneline $(git describe --tags --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD)..HEAD
