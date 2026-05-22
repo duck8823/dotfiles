@@ -93,7 +93,7 @@ Gemini / Codex / Claude CLI への delegation は `~/.codex/config.toml` の `[a
 | ファイル | 用途 |
 |--------|------|
 | `instructions.md` | Codex 全体のグローバル運用方針 |
-| `agents/*.toml` | planner / architect / reviewer / spec-writer の専門エージェント |
+| `agents/*.toml` | planner / architect / reviewer / spec-writer / structure-reviewer などの専門エージェント |
 | `skills/*` | handoff / triage / review / research などの再利用可能スキル |
 | `config.toml` | Codex CLI のローカル設定（テンプレート生成） |
 
@@ -113,7 +113,7 @@ AI knowledge の分類基準（rules / skills / agents / prompts / guidelines）
 | ファイル | 用途 |
 |--------|------|
 | `GEMINI.md` | Gemini 全体のグローバル運用方針 |
-| `agents/*.md` | planner / architect / reviewer / spec-writer の専門エージェント |
+| `agents/*.md` | planner / reviewer / structure-reviewer などの read-only scout / critic エージェント |
 | `settings.json` | read-only scout 運用向けのユーザー設定 |
 
 ### Claude Code フック（`~/.claude/hooks/`）
