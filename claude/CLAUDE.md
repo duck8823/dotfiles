@@ -73,6 +73,7 @@
   - ref_id が折りたたみ/再レンダで無効化されやすく、取り直しが頻発する
   - フォームの React state 反映が不安定（submit が disabled のまま等）
 - Playwright の使いどころ: ステージング実機テスト、回帰確認、ウィザード網羅テスト、スクリーンショットエビデンス
+- Playwright の locator / assertion / trace・screenshot・video 証跡ルール: `~/.claude/rules/playwright.md`
 - API / Go E2E などブラウザ以外の E2E は各プロジェクト・言語別規約（例: `conventions/go/testing.md` の runn）を優先
 - Claude in Chrome を使うのは、ユーザーのログイン済みセッションを再利用したい・単発の読み取り確認だけといった軽いケースに限定
 
