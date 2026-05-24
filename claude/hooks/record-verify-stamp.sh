@@ -42,14 +42,14 @@ try:
     d = json.load(sys.stdin)
     resp = str(d.get('tool_response', ''))
     patterns = [
-        r'(?im)^\\s*(FAILED|FAIL)\\b',
-        r'(?im)^\\s*ERRORS?\\b',
-        r'(?im)^\\s*(error|Error):\\s',
-        r'(?im)\\berror\\s+TS[0-9]+:',
-        r'(?im)\\bpanic:\\s',
-        r'(?im)\\bexit status\\s+[1-9][0-9]*\\b',
-        r'(?im)\\bexit code\\s+[1-9][0-9]*\\b',
-        r'(?im)^\\s*Command failed\\b',
+        r'(?im)^\s*(FAILED|FAIL)\b',
+        r'(?im)^\s*ERRORS?\b',
+        r'(?im)^\s*(error|Error):\s',
+        r'(?im)\berror\s+TS[0-9]+:',
+        r'(?im)\bpanic:\s',
+        r'(?im)\bexit status\s+[1-9][0-9]*\b',
+        r'(?im)\bexit code\s+[1-9][0-9]*\b',
+        r'(?im)^\s*Command failed\b',
     ]
     print('1' if any(re.search(p, resp) for p in patterns) else '0')
 except:
