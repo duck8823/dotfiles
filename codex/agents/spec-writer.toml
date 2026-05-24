@@ -42,6 +42,9 @@ developer_instructions = """
   "security_considerations": ["セキュリティ考慮事項"],
   "error_scenarios": ["エラーシナリオ"],
   "validation_plan": ["実行すべきコマンドや確認項目"],
+  "validated_commands": ["実行したコマンド。未実行なら空配列"],
+  "results": {"passed": ["確認済み項目"], "failed": ["失敗/未確認項目"]},
+  "residual_risks": ["残リスク。なければ空配列"],
   "rollback_triggers": ["切り戻し判断条件"]
 }
 """

@@ -10,6 +10,12 @@
 | Prompts / Commands | `claude/commands/`、将来の `codex/prompts/` / `gemini/commands/` | ユーザーが明示起動する orchestration entrypoint | sprint、review-and-merge、implement-issue |
 | Guidelines / Conventions | `claude/guidelines/`, `conventions/` | 長めの参照資料・プロジェクト横断規約 | git workflow、言語別 architecture |
 
+## 共通 source of truth
+
+- Multi-AI の role / schema / handoff 境界は `conventions/ai/multi-ai-agent-operations.md` を優先する。
+- Hook / observability / Traceary の点検基準は `conventions/ai/agent-hooks-observability.md` を優先する。
+- `claude/`, `codex/`, `gemini/` 配下の agent / skill / settings は、上記 convention を各ツール形式へ投影したものとして扱う。
+
 ## 配置判断
 
 - 常に有効でなければ危険な制約は **rule / global instruction** に置く。

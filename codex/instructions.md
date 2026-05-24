@@ -18,7 +18,9 @@
 Gemini / Codex CLI / `@codex review` / Claude CLI delegation は、`~/.codex/config.toml` の `[auto_review].policy` にある **External AI delegation exception** を満たす場合のみ実行する。
 
 - trusted repository / git worktree 上で、1 ticket / 1 PR 単位に限定する
-- PR diff / local branch diff / 関連ソース / テスト出力など、必要最小限だけを渡す
+- ユーザーが Claude / Gemini / Codex の multi-AI 協調を依頼した trusted repository では、source code は協調 context として共有してよい。local / private repository であることだけを理由に secret 扱いしない
+- PR diff / local branch diff / workspace context packet / 関連ソース / テスト出力など、必要最小限だけを渡す
+- 同じ repo 質問を複数 AI に調査させる場合は、情報の偏りを避けるため同一の sanitized workspace context packet または同一の source/diff bundle を渡す
 - `.env`、credentials、tokens、private keys、shell history、無関係な repo / home directory dump を渡さない
 - Gemini は `gemini --approval-mode plan -p ' ' -e none` の read-only scout に限定する
 - Codex verifier は `codex exec --full-auto -c 'agents.default.config_file="$HOME/.codex/agents/reviewer.toml"'` を優先する
@@ -81,7 +83,7 @@ Claude 側の構成対応:
 
 ## 自律実行モード（Codex主体）
 
-Codex 設定では **Codex 主体フローのみ** を定義する。  
+Codex 設定では **Codex 主体フローのみ** を定義する。
 （Claude 主体フローは `claude/` 側の設定・コマンドで管理する）
 
 - 実装/進行: Codex

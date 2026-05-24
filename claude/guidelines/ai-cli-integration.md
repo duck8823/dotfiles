@@ -8,6 +8,11 @@
 - すべて **ヘッドレス実行** を基本とする
 - 書き込みタスクは isolated branch / worktree 前提
 
+共通 role / handoff schema / Traceary memory 昇格ルールは
+`conventions/ai/multi-ai-agent-operations.md` を source of truth とする。
+Claude / Gemini / Codex の headless 調査は `~/.local/bin/multi-ai-research.sh`
+（未 install 時は `scripts/multi-ai-research.sh`）を優先し、同一の workspace context packet を各 engine に渡して情報の偏りを避ける。
+
 ## 外部AIへのデータ送信境界
 
 `multi-ai-review` / `handoff-to-codex` / `Claude Code` / `Gemini` / `Codex` / `ai-review` が明示され、かつ `~/.codex/config.toml` の `[auto_review].policy` を満たす場合、対象リポジトリの PR diff・関連 Issue・レビューコメント・該当ソース・テストログ・リポジトリ内の設計 artifact は configured external AI CLI（`claude` / `codex` / `gemini` / `ai-review`）へ渡してよい。これは multi-AI 協業の標準運用であり、同じ確認を毎回求めない。policy gate を満たさない場合は外部AI CLIを起動しない。

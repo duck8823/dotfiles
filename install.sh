@@ -299,6 +299,20 @@ sync_managed_settings() {
 }
 
 # ============================================================
+# Helper scripts
+# ============================================================
+
+echo ""
+echo "[Helper scripts]"
+
+mkdir -p "$HOME/.local/bin"
+for f in "$DOTFILES_DIR/scripts/"*.sh; do
+  [ -f "$f" ] || continue
+  fname="$(basename "$f")"
+  copy_managed_sh "$f" "$HOME/.local/bin/$fname"
+done
+
+# ============================================================
 # Claude Code
 # ============================================================
 

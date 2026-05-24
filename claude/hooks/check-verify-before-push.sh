@@ -41,6 +41,8 @@ has_verify_target=false
 [ -f "$repo_dir/pubspec.yaml" ] && has_verify_target=true
 [ -f "$repo_dir/go.mod" ] && has_verify_target=true
 [ -f "$repo_dir/package.json" ] && has_verify_target=true
+[ -f "$repo_dir/Cargo.toml" ] && has_verify_target=true
+[ -f "$repo_dir/pyproject.toml" ] && has_verify_target=true
 
 # 検証対象でなければスキップ
 if [ "$has_verify_target" = false ]; then

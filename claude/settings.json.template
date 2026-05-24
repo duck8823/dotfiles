@@ -106,6 +106,46 @@
           }
         ]
       }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmux claude-hook post-tool-use-failure 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmux claude-hook subagent-stop 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmux claude-hook stop-failure 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmux claude-hook session-end 2>/dev/null || true"
+          }
+        ]
+      }
     ]
   },
   "skipDangerousModePermissionPrompt": false,

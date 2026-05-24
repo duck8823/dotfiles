@@ -33,6 +33,9 @@ timeout_mins: 8
   "findings": [
     {"severity": "MUST|SHOULD|NIT", "file": "path:line", "issue": "指摘内容", "better_owner": "より良い責務先", "fix": "修正案"}
   ],
+  "validated_commands": ["実行したコマンド。未実行なら空配列"],
+  "results": {"passed": ["確認済み項目"], "failed": ["失敗/未確認項目"]},
+  "residual_risks": ["残リスク。なければ空配列"],
   "impacted_files": ["diff外で対応が必要なファイル"],
   "summary": "問題なし" or "N件検出"
 }

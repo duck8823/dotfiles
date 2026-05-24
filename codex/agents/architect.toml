@@ -31,6 +31,9 @@ developer_instructions = """
   "findings": [
     {"severity": "CRITICAL|HIGH", "file": "path:line", "issue": "指摘内容", "fix": "修正案"}
   ],
+  "validated_commands": ["実行したコマンド。未実行なら空配列"],
+  "results": {"passed": ["確認済み項目"], "failed": ["失敗/未確認項目"]},
+  "residual_risks": ["残リスク。なければ空配列"],
   "recommended_split": ["安全な変更単位の提案"],
   "responsibility_risks": ["責務配置・手続き化・境界漏れのリスク"],
   "summary": "問題なし" or "N件検出"

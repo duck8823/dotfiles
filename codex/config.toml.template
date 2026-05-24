@@ -29,9 +29,12 @@ Allow Gemini, Codex CLI, and Claude CLI delegation only when all conditions hold
 - If an existing PR accidentally contains multiple tickets, do not close it; narrow the existing PR to one ticket and create separate PRs for the remaining tickets.
 - The task is one of:
   - read-only PR review / verifier work
+  - read-only repository / workspace research requested by the user
   - scoped implementation work on a feature branch or dedicated worktree
   - test / lint / CI verification
-- The data sent is limited to the relevant ticket requirements, PR diff or local branch diff, review instructions, source files needed for the scoped task, command output, test/lint output, and result files needed for that task.
+- Repository source code in a trusted repository is allowed collaboration context when the user requests Claude/Gemini/Codex multi-AI work. Do not treat source code as secret by default solely because the repository is local or private.
+- The data sent is limited to the relevant ticket requirements, PR diff or local branch diff, workspace context packet, review instructions, source files needed for the scoped task, command output, test/lint output, and result files needed for that task.
+- When multiple external AI engines are asked to collaborate on the same repository question, send the same sanitized workspace context packet or the same reviewed source/diff bundle to each engine to avoid information asymmetry.
 - Gemini review must be invoked read-only with `gemini --approval-mode plan -p ' ' -e none` and must not edit files.
 - Gemini must not be used for implementation/write tasks.
 - Codex implementation must run only in a feature branch or dedicated worktree, and the prompt must explicitly name the ticket, allowed write scope, validation commands, and forbidden actions.

@@ -29,19 +29,29 @@ if echo "$command" | grep -qE '(^|[;&|])\s*git\s+commit\b'; then
 fi
 
 # 検証コマンドのパターンマッチ
-if ! echo "$command" | grep -qE '(flutter\s+analyze|flutter\s+test|go\s+vet|go\s+test|npm\s+test|npm\s+run\s+lint)'; then
+if ! echo "$command" | grep -qE '(flutter\s+analyze|flutter\s+test|go\s+vet|go\s+test|npm\s+test|npm\s+run\s+(lint|typecheck)|cargo\s+(test|clippy)|pytest\b|python3?\s+-m\s+pytest|uv\s+run\s+pytest|ruff\s+check)'; then
     exit 0
 fi
 
-# tool_response にエラーパターンが含まれていなければ成功とみなしスタンプ記録
+# tool_response に失敗パターンが含まれていなければ成功とみなしスタンプ記録
+# `exit code 0` や `No errors` のような成功出力を誤検出しないよう、
+# 非0 exit と行頭エラーに限定する。
 has_error=$(echo "$input" | python3 -c "
-import sys, json
+import sys, json, re
 try:
     d = json.load(sys.stdin)
     resp = str(d.get('tool_response', ''))
-    # 一般的な失敗パターンを検出
-    indicators = ['FAILED', 'FAIL', 'error:', 'Error:', 'ERRORS', 'panic:', 'exit code', 'exit status']
-    print('1' if any(ind in resp for ind in indicators) else '0')
+    patterns = [
+        r'(?im)^\s*(FAILED|FAIL)\b',
+        r'(?im)^\s*ERRORS?\b',
+        r'(?im)^\s*(error|Error):\s',
+        r'(?im)\berror\s+TS[0-9]+:',
+        r'(?im)\bpanic:\s',
+        r'(?im)\bexit status\s+[1-9][0-9]*\b',
+        r'(?im)\bexit code\s+[1-9][0-9]*\b',
+        r'(?im)^\s*Command failed\b',
+    ]
+    print('1' if any(re.search(p, resp) for p in patterns) else '0')
 except:
     print('0')
 " 2>/dev/null || echo "0")
