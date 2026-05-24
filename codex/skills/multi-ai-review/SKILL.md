@@ -1,12 +1,12 @@
 ---
 name: multi-ai-review
-description: Gemini scout・独立 verifier・Codex integrator を組み合わせ、GitHubメンションではなくローカル実行結果をPRコメントに集約する
+description: policy-controlled scout・独立 verifier・Codex integrator を組み合わせ、GitHubメンションではなくローカル実行結果をPRコメントに集約する
 ---
 
 # Multi-AI Review for Codex
 
 ## 目的
-Codex 主体の作業でも、Claude 側 dotfiles と同じ考え方で **Gemini scout / 独立 verifier / Codex integrator** の多重レビューを実行する。
+Codex 主体の作業でも、Claude 側 dotfiles と同じ考え方で **policy-controlled scout / 独立 verifier / Codex integrator** の多重レビューを実行する。
 
 この skill は `@claude @gemini multi-ai-review` のような GitHub メンション方式を使わない。外部 AI を GitHub reviewer / collaborator として追加せず、ローカル CLI / subagent の結果を Codex が統合し、`gh pr comment` で PR に記録する。
 
@@ -26,8 +26,8 @@ Codex 側の PR review orchestration だけを定義する。
 - **投稿はPRコメント**: 統合結果は `gh pr comment` で投稿する。`gh pr review` はユーザーまたはプロジェクト規約で明示される場合以外は使わない。
 - **headless優先**: Gemini / Claude Code CLI は headless で実行し、ブラウザ認証プロンプトが出たら止める。
 - **外部AIへのデータ送信境界**: PR diff / issue / review comment を Gemini / Claude Code CLI / Codex CLI / ai-review へ渡す前に `~/.codex/config.toml` の `[auto_review].policy` を満たすことを確認する。ユーザーが `multi-ai-review` / Claude / Gemini / Codex / ai-review 利用を明示し、かつ policy gate を満たす場合は、このリポジトリの PR diff・関連 Issue・レビューコメントを configured external AI CLI に渡す承認済みとして扱う。secrets・認証情報・repo外 private file・Downloads 等を追加で渡す場合だけ確認する。明示がない場合、または policy gate を満たさない場合は確認・skip する。
-- **最低2系統**: 2系統以上のレビューが成功すれば統合を続行できる。失敗した系統と理由はコメントに記録する。
-- **sandbox拒否時の扱い**: 外部 AI CLI が sandbox / auth / quota で拒否された場合、代替禁止の明示がない限りユーザー確認で停止せず、拒否理由を PR コメントへ記録して default subagent / Codex verifier / local gate で補完する。
+- **最低2系統**: 2系統以上のレビューが成功すれば統合を続行できる。local policy で無効な系統は `local_policy_disabled` としてコメントに記録する。
+- **拒否/無効化時の扱い**: 外部 AI CLI が local policy / sandbox / auth / quota で拒否された場合、代替禁止の明示がない限りユーザー確認で停止せず、拒否理由を PR コメントへ記録して default subagent / Codex verifier / local gate で補完する。
 - **調査失敗の分類**: Claude / Gemini / Codex の workspace packet 調査や repo 外一次情報調査では `multi-ai-research` skill / `scripts/multi-ai-research.sh` を使い、`trust_failed` / `auth_prompt` / `quota_or_capacity` / `policy_or_permission_denied` / `prompt_file_reference_expansion` / `process_oom` / `timeout` / `command_failed` / `empty_output` を記録する。
 - **generated code**: 生成物は原則レビュー対象外。generator / schema / template / build 設定を優先する。
 - **CIゲート**: `gh pr checks` の `no checks reported` だけを CI 未設定扱いにする。`fail` / `cancel` / `pending` / 認証・通信エラーはマージ不可として扱う。
@@ -38,10 +38,10 @@ Codex 側の PR review orchestration だけを定義する。
 
 | authored by | 1st pass | 2nd pass | integrator |
 |---|---|---|---|
-| Codex | Gemini scout | Claude Code reviewer（不可なら default subagent reviewer） | Codex |
-| Claude | Gemini scout | Codex verifier | Codex |
+| Codex | Gemini/policy scout | Claude Code reviewer（不可なら default subagent reviewer） | Codex |
+| Claude | Gemini/policy scout | Codex verifier | Codex |
 | Gemini / 外部生成 | Codex verifier | Claude Code reviewer（不可なら default subagent reviewer） | Codex |
-| 不明 | Gemini scout | Codex verifier + 必要なら default subagent reviewer | Codex |
+| 不明 | Gemini/policy scout | Codex verifier + 必要なら default subagent reviewer | Codex |
 
 Codex authored PR では利益相反を避け、Codex verifier を独立レビュー扱いにしない。Claude Code CLI が使えない場合は、代替 reviewer の欠落理由を明記する。
 
@@ -145,7 +145,7 @@ else
 fi
 ```
 
-### 3. Gemini scout
+### 3. Gemini/policy scout
 
 Gemini は repo-wide consistency scout として使う。ブラウザ認証プロンプト、timeout、空出力、非0終了は失敗として扱い、ブラウザを開かない。
 
@@ -155,7 +155,7 @@ GEMINI_PREFLIGHT_OUT="$WORK_DIR/gemini-preflight.md"
 GEMINI_REVIEW_OUT="$WORK_DIR/gemini-review.md"
 
 cat > "$GEMINI_PROMPT_FILE" <<PROMPT
-以下の PR を read-only scout / critic としてレビューしてください。
+以下の PR を local policy に従う scout / critic としてレビューしてください。共有デフォルトでは書き込み不要です。
 
 観点:
 - 既存パターンとの整合性
@@ -431,7 +431,7 @@ cat > "$COMMENT_FILE" <<'MD'
 ## 🤖 Multi-AI Review Results
 
 ### レビュアー
-- Gemini scout: ✅ / ❌（理由）
+- Gemini/policy scout: ✅ / ❌（理由）
 - Independent verifier: ✅ / ❌（理由）
 - Codex integrator: ✅ / ❌
 

@@ -10,6 +10,7 @@
 - Claude Code の lifecycle event 名は公式 hooks reference を一次情報とし、`PostToolUseFailure` / `StopFailure` / `SubagentStop` / `SessionEnd` は 2026-05-24 時点の確認済み event として扱う。
 - Gemini hooks は stdout に最終 JSON、ログは stderr に出す。
 - 監査ログには prompt / command / transcript / session boundary を残す。ただし trace に sensitive data を含める設定は明示管理する。
+- agent の有効/無効や Gemini の write 可否は hook に直書きせず、`conventions/ai/local-agent-policy.md` のローカルポリシーと deterministic gate に分ける。
 
 ## 現在の対応状況
 
@@ -62,6 +63,9 @@ warning の内訳:
 
 | classification | 主な原因 | 対応 |
 |---|---|---|
+| `local_policy_disabled` | `~/.config/ai-agent-policy.env` / env で engine 無効化 | 起動せず skip として記録し、残りの engine / local verification / CI で補完する |
+| `no_effective_engines` | local policy filtering 後に有効 engine が 0 | dry-run 以外は非0終了。local verification / CI へ切り替える |
+| `tool_not_found` | CLI 未インストール / PATH 不備 | 該当 engine を skip し、残りの engine で補完する |
 | `trust_failed` | Gemini の untrusted workspace | workspace packet を生成後、実行は `/private/tmp` + `--skip-trust`。直接 repo を読ませる運用には戻さない |
 | `auth_prompt` | headless 認証待ち | ブラウザを開かず失敗記録。local reviewer / Codex verifier へ fallback |
 | `quota_or_capacity` | quota / capacity / 429 | 1回だけ retry。再失敗なら欠落理由を統合結果に記録 |
@@ -72,7 +76,9 @@ warning の内訳:
 | `command_failed` | CLI 非0終了 / wrapper エラー | stderr / exit code を残し、成功 engine の結果だけ採用する |
 | `empty_output` | CLI crash / quota silent failure / stderr-only | stderr と exit code を確認し未検証扱い |
 
-repo research ではローカル repo 内容を隠すのではなく、foreground orchestrator が sanitized workspace packet を作成してから Claude / Gemini / Codex に同一 packet を共有する。Gemini など file-reference expansion がある CLI は送信直前の transport escape で byte-level prompt が異なる場合があるが、source packet は同一 `packet_sha256` で監査する。これにより policy / trust 問題を抑えつつ、情報の偏りを避ける。repo と無関係な一般調査だけ `--mode general` を使う。
+repo research ではローカル repo 内容を隠すのではなく、current orchestrator が sanitized workspace packet を作成してから Claude / Gemini / Codex に同一 packet を共有する。Gemini など file-reference expansion がある CLI は送信直前の transport escape で byte-level prompt が異なる場合があるが、source packet は同一 `packet_sha256` で監査する。これにより policy / trust 問題を抑えつつ、情報の偏りを避ける。repo と無関係な一般調査だけ `--mode general` を使う。
+
+ローカルポリシーで無効化された engine は起動しない。これは調査失敗ではなく `local_policy_disabled` として記録し、残りの engine / local verification / CI で補完する。
 
 ## 点検コマンド
 

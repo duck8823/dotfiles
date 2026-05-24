@@ -2,169 +2,100 @@
 
 ## コンセプト
 
-同じ役割を Claude / Codex / Gemini の3AIで多重化するが、**モデル比較ではなく運転モードで分担**する。
+同じ役割を Claude / Codex / Gemini の3AIで多重化するが、**モデル比較ではなく運転モードとローカルポリシーで分担**する。
 
-- **Claude**: foreground orchestrator
-- **Codex**: background worker / verifier
-- **Gemini**: read-only scout / critic
+- **Codex**: primary orchestrator / worker / verifier
+- **Claude**: foreground specialist / integrator
+- **Gemini**: policy-controlled scout / critic / optional worker
 
-## 相互委譲ポリシー
+共有 dotfiles は安全側のデフォルトを配るだけで、Gemini を恒久的に read-only 固定しない。各マシン・各リポジトリでは `conventions/ai/local-agent-policy.md` に従い、Gemini の無効化・approval mode・write 可否を上書きできる。
 
-multi-AI 協業は一方向ではなく、各 AI が自分の不得意領域を Codex / Claude に渡せる前提で運用する。
+## 相互協調ポリシー
 
-- **Claude → Codex**: scoped 実装、テスト、CI/CD、セキュリティ確認、再現検証を渡す
-- **Claude → Claude Code**: UX を含む設計・UI 実装・大きめの統合実装を渡す
-- **Gemini → Codex**: セキュリティ、テスト実行、修正実装が必要な指摘は `handoff_to_codex` として返す
-- **Gemini → Claude**: UX 判断、仕様判断、diff 採否判断が必要な指摘は `handoff_to_claude` として返す
-- **Codex → Claude**: ユーザー体験・リリース判断・大きい設計変更は実装せず Claude に戻す
+multi-AI 協業は一方向の handoff ではなく、Traceary / git / PR / Issue から context を復元し、現在の orchestrator が次の agent を選ぶ。
 
-`multi-ai-review` / `handoff-to-codex` / `Claude Code` / `Gemini` / `Codex` が明示され、かつ `~/.codex/config.toml` の `[auto_review].policy` を満たす場合、対象リポジトリの PR diff・関連 Issue・レビューコメント・該当ソース・テストログは configured external AI CLI に渡してよい。secrets・認証情報・repo 外 private file・本番/個人データ raw dump は毎回追加確認または policy deny とする。
+- **Codex orchestrator**: 全体進行、実装、検証、レビュー反映、PR コメント集約を担当する
+- **Claude specialist**: UX・仕様・大きめの統合判断、Claude Code 固有の作業、最終説明を担当する
+- **Gemini scout / worker**: repo-wide consistency、計画漏れ、diff 外影響、local policy が許す scoped task を担当する
+- **Traceary**: 手書き引き継ぎの代替。session handoff / recent context / durable memory / command audit から resume packet を作る
+
+`multi-ai-review` / `context-resume` / `Claude Code` / `Gemini` / `Codex` が明示され、かつ `~/.codex/config.toml` の `[auto_review].policy` を満たす場合、対象リポジトリの PR diff・関連 Issue・レビューコメント・該当ソース・テストログは configured external AI CLI に渡してよい。secrets・認証情報・repo 外 private file・本番/個人データ raw dump は毎回追加確認または policy deny とする。
 
 ## 運転モード別ルーティング
 
-| タスクの形 | 主担当 | 補助 |
+| タスクの形 | 標準担当 | 補助 |
 |---|---|---|
-| ユーザー体験を変える仕様判断 | Claude | Gemini で影響範囲確認 |
-| リポジトリ横断の一貫性・命名・波及影響調査 | Gemini | Codex architect |
-| 概念・責務・境界・振る舞いテストの drift 検出 | structure-reviewer（Claude/Codex/Gemini） | Claude final |
-| scoped 実装・テスト追加・CI/CD・スクリプト | Codex | Claude が統合判断 |
-| テスト作成・リファクタリング | Codex | Claude がレビュー |
-| セキュリティ・エッジケース・再現確認 | Codex | Claude reviewer |
-| コード調査・ドキュメント調査 | Codex | Gemini（補助） |
-| 複数レイヤー統合・大規模 refactor・UI 実装 | Claude | Gemini/Codex が scout |
-| マイルストーン計画・Issue 分解 | Codex + Gemini | Claude が統合 |
-| レポーティング | Codex | Gemini（補助） |
+| 自律的な Issue/PR 進行 | Codex | Claude / Gemini |
+| scoped 実装・テスト追加・CI/CD・スクリプト | Codex | Gemini / Claude review |
+| セキュリティ・エッジケース・再現確認 | Codex verifier | Claude reviewer |
+| コード調査・ドキュメント調査 | Codex | Gemini / Claude |
+| リポジトリ横断の一貫性・命名・波及影響調査 | Gemini または Codex scout | Claude / Codex integrator |
+| ユーザー体験を変える仕様判断 | Claude | Codex / Gemini が影響範囲確認 |
+| 複数レイヤー統合・大規模 refactor | Codex + Claude | Gemini scout |
+| マイルストーン計画・Issue 分解 | Codex + Gemini | Claude が必要時に統合 |
 
 ### 原則
 
-1. **Gemini を先に書かせない** — まず scout / critic として使う
-2. **Codex は isolated branch / worktree 前提で書かせる**
-3. **Claude は最終 diff とユーザー影響を引き受ける**
-4. 迷ったら Claude を foreground、Gemini を read-only、Codex を worker として置く
+1. **現在の orchestrator を固定する** — 多くの作業では Codex が主導し、Claude / Gemini は専門 role として参加する。
+2. **agent の可否は local policy で決める** — Gemini 禁止環境では無理に起動せず `local_policy_disabled` として記録する。
+3. **write は branch / worktree gate を通す** — Gemini でも Claude でも Codex でも、write は main/master 直下で実行しない。
+4. **停止より記録と代替** — auth / quota / policy deny / disabled は理由を残し、別 agent / local verification / CI へ進む。
 
 ## 開発フェーズ別の AI 活用
 
-| フェーズ | Claude | Codex | Gemini |
+| フェーズ | Codex | Claude | Gemini |
 |---|---|---|---|
-| **Plan** | 統合・最終判断 | 依存分析・Wave構成・フィジビリティ・リスク | 優先度・スコープ・漏れ検出 |
-| **Scout** | structure-behavior design note 統合 | セキュリティ事前スキャン・コード調査・Structure-Behavior risk 分類 | repo-wide 影響範囲・一貫性・構造 drift |
-| **Build** | UX判断を伴う実装 | scoped 実装（isolated branch） | — |
-| **Verify** | — | テスト実行・lint・セキュリティスキャン・QA | docs/config/l10n 更新漏れ |
-| **Review** | 最終レビュー・統合判断・責務配置確認 | セキュリティ・エッジケース・構造レビュー | パターン一貫性・diff外影響・構造 drift |
-| **Merge** | マージゲート | — | — |
+| **Plan** | 依存分析・Wave構成・フィジビリティ・リスク・統合 | UX/仕様判断が必要な論点の整理 | 優先度・スコープ・漏れ検出 |
+| **Scout** | セキュリティ事前スキャン・コード調査・Structure-Behavior risk 分類 | structure-behavior design note 統合 | repo-wide 影響範囲・一貫性・構造 drift |
+| **Build** | scoped 実装（isolated branch） | UX判断を伴う実装 | local policy が許す scoped task |
+| **Verify** | テスト実行・lint・セキュリティスキャン・QA | 失敗解釈・追加確認 | docs/config/l10n 更新漏れ |
+| **Review** | セキュリティ・エッジケース・構造レビュー・PR コメント集約 | 変更意図とユーザー影響 | パターン一貫性・diff外影響・構造 drift |
+| **Merge** | PR gate / review 収束 | 必要時の最終説明・ユーザー確認 | — |
 
 ### リスク別ルーティング
 
 | リスク | ルーティング |
 |---|---|
-| **Low**（定型・テスト追加等） | Codex build → Codex verify → Gemini review → Claude final |
-| **Medium**（通常の機能実装） | structure-behavior design note → Gemini scout → Codex build → Claude verify/integrate → multi-AI review |
-| **High**（アーキテクチャ変更等） | structure-behavior design note + 分割PR案 → Claude plan/build 主体、Gemini scout、Codex verifier / structure-reviewer |
+| **Low**（定型・テスト追加等） | Codex build → Codex verify → optional Gemini/Claude review |
+| **Medium**（通常の機能実装） | structure-behavior design note → Codex build → multi-AI review → Codex integrate |
+| **High**（アーキテクチャ変更等） | structure-behavior design note + 分割PR案 → Codex/Claude で設計判断 → scoped PR → multi-AI review |
 
 ### フォールバック
 
 | 障害 | 対応 |
 |---|---|
-| Codex タイムアウト/失敗 | 1回リトライ → スキップ → Claude が直接実行 |
-| Gemini タイムアウト/失敗 | 1回リトライ → スキップ → Codex scout で代替（一貫性精度低下を許容） |
+| local policy disabled | 起動せず `local_policy_disabled` として記録。残りの agent で補完 |
+| Codex タイムアウト/失敗 | 1回リトライ → Claude / local shell verification で補完 |
+| Gemini タイムアウト/失敗 | 1回リトライ → Codex scout / Claude reviewer で代替 |
+| Claude headless 失敗 | Codex が repo context と Traceary を読んで継続 |
 | 部分レビュー（一部 AI のみ完了） | 完了した AI の結果で統合判断を続行。欠落を統合ログに記録 |
-
-## タスク適性ガイド（METR RCT 2025 に基づく）
-
-METR の RCT 研究で「経験者×馴染みのコードベースでは AI 利用で 19% 遅くなった」ことが実証された。
-タスク特性に応じた使い分けが重要。
-
-| タスク特性 | AI 活用 | 根拠 |
-|---|---|---|
-| ボイラープレート・テスト生成・定型コード | ◎ 積極活用 | 30-55% 高速化が一貫して確認 |
-| 不慣れなコードベース・新技術の探索 | ○ 有効 | コンテキスト補完が利得 |
-| 熟知したコードの小修正 | △ 任意 | 認知マップ完成済みの領域ではオーバーヘッド |
-| 大規模アーキテクチャ変更 | △ 計画のみ | 実装は段階的に人間が判断 |
-
-### 運用規則への接続
-
-- **High risk タスクでは Claude foreground を必須**とし、Codex/Gemini は補助に留める
-- **熟知したコードの小修正では AI を必須にしない**（レビューのみ任意で使用）
-- タスク起票時にリスク判定を行い、上記ルーティングに従う
 
 ## 役割×AI マトリクス
 
-| ロール | Claude (サブエージェント) | Codex (TOML) | Gemini (MD) |
-|--------|------------------------|--------------|-------------|
-| **Planner** | — (メインセッションで統合) | 依存分析・Wave構成・フィジビリティ・リスク・担当判定 | 優先度・マイルストーン整合・漏れ検出 |
-| **Spec** | — (メインセッションで統合) | テスト戦略・セキュリティ・検証計画・ファイルスコープ | — |
-| **Architect** | 依存追跡・レイヤー違反 | 責務分離・設計分割・変更単位 | — |
-| **Structure Reviewer** | 手続き化・責務配置・境界/IF | 手続き化・責務配置・振る舞いテスト | read-only 構造 drift・diff外影響 |
-| **Reviewer** | バグ・コールチェーン・エラー処理 | セキュリティ・エッジケース・テスト実行 | 一貫性・パターン準拠・docs/config drift |
-| **QA** | — | 探索的テスト・テスト実行 | — |
-| **Designer** | デザインシステム準拠 | — | — |
+| ロール | Codex | Claude | Gemini |
+|--------|-------|--------|--------|
+| **Orchestrator** | 標準 | 必要時 | local policy 次第 |
+| **Planner** | 依存分析・Wave構成・フィジビリティ | 統合・仕様論点 | 優先度・マイルストーン整合・漏れ検出 |
+| **Spec** | テスト戦略・セキュリティ・検証計画・ファイルスコープ | UX/仕様の補足 | 既存パターン・影響範囲 |
+| **Architect** | 責務分離・設計分割・変更単位 | 依存追跡・レイヤー違反 | 構造 drift |
+| **Structure Reviewer** | 手続き化・責務配置・振る舞いテスト | 手続き化・責務配置・境界/IF | 構造 drift・diff外影響 |
+| **Reviewer** | セキュリティ・エッジケース・テスト実行 | バグ・コールチェーン・エラー処理 | 一貫性・パターン準拠・docs/config drift |
+| **QA** | 探索的テスト・テスト実行 | UX 確認 | local policy 次第 |
+| **Designer** | — | デザインシステム準拠 | — |
 
-- Planner / Spec は Claude サブエージェント不要。Codex が技術分析、Gemini が俯瞰チェック、Claude メインセッションが統合
-- QA は Codex に移動（テスト実行・コマンド実行は Codex の得意領域）
-- Designer は Claude のみ（視覚判断・UX が必要なため）
-- Gemini は reviewer + planner に集中（read-only scout として最も価値が出る領域）
+## Context resume
 
-## 実装担当の決め方
+廃止済みの手書き Codex 引き継ぎコマンドではなく、以下を標準にする。
 
-### Claude に寄せる条件
-- UI を含む
-- 仕様が曖昧でユーザー体験判断が必要
-- 5ファイル超の連鎖変更
-- 既存実装との差分が大きく、途中で設計を変える可能性が高い
-- 最終統合責任を Claude が持つべき変更
-
-### Codex に寄せる条件
-- スコープが明確
-- CLI / shell / CI / config / test が中心
-- セキュリティ修正やバリデーション追加
-- 既存パターンがあり、背景調査より実装・検証が主
-- 背景で長く走らせたい
-
-### Gemini に寄せる条件
-- 原則として **実装担当ではなく scout**
-- 実装前の impact scan、PR レビュー前の consistency scan、計画時の scope scan に使う
-- 例外的にドキュメント草案や分割案だけ作らせることはあるが、コード書き込みの主担当にはしない
-
-## レビュー構成ルール
-
-### Claude が実装した PR
-- Gemini reviewer
-- Codex reviewer
-- Claude final review
-
-### Codex が実装した PR
-- Gemini reviewer
-- Claude reviewer（Codex 代替）
-- Claude final review
-- Codex reviewer は利益相反回避のためスキップ
-
-### 外部生成パッチ / Gemini 由来の変更
-- Codex reviewer
-- Claude reviewer
-- Claude final review
-- Gemini は必要なら architect 的 scout に限定
-
-## 連携の仕方
-
-### Gemini の実行ポリシー
-- 原則 `--approval-mode plan` の read-only で実行
-- `GEMINI.md` と `agents/*.md` を使い、repo-wide scan に集中させる
-- finding は「どこがズレたか」「diff 外で何を追加修正すべきか」に絞る
-
-### Codex の実行ポリシー
-- write タスクは isolated branch / worktree で実行
-- 返却値には **変更ファイル / 実行コマンド / 残リスク** を含める
-- security / tests / CI では、憶測ではなく実行証跡を優先する
-
-### Claude の実行ポリシー
-- blocking な統合判断はメインセッションで持つ
-- sidecar 調査は named subagents / Task agents に分離する
-- ユーザー体験を変える最終判断は常に Claude が行う
+1. Traceary handoff / recent context / durable memory を確認する。
+2. `git status --short --branch`、base diff、open PR / Issue を確認する。
+3. objective / current_state / blockers / validation state を resume packet にまとめる。
+4. 足りない情報だけ質問し、安全に進められる作業は止めない。
+5. 外部 AI へ渡す場合は sanitized workspace packet に蒸留する。
 
 ## 開発 artifact 規約
 
-各フェーズの中間成果物をプロジェクトルートの `.ai/` に保存する。
-フェーズ間の引き継ぎに使い、PR マージ後に削除する。
+各フェーズの中間成果物をプロジェクトルートの `.ai/` に保存できる。Traceary にも session / command / review context を残し、次の agent が復元できるようにする。
 
 ```text
 project/
@@ -174,160 +105,7 @@ project/
 │   ├── verify/<issue番号>.json  # Verify フェーズ: 実行コマンド・結果・残リスク
 │   └── review/<pr番号>.json     # Review フェーズ: 統合レビュー結果
 ├── .ai-logs/                    # 観測可能性ログ（.gitignore 対象）
-├── .claude/agents/
-├── .codex/agents/
-├── .gemini/agents/
-└── AGENTS.md
+├── AGENTS.md
+├── CLAUDE.md
+└── GEMINI.md
 ```
-
-### ルール
-
-- `.ai/` は**バージョン管理に含める**（レビュー対象にするため）
-- PR マージ後に該当 Issue/PR の artifact を削除する
-- `.ai-logs/` は**バージョン管理に含めない**（`.gitignore` 対象）
-- 既存の `.spec/` を使っているプロジェクトは `.ai/spec/` に移行する
-
-### artifact の所有者
-
-| artifact | 生成者 | 消費者 |
-|---|---|---|
-| `plan/` | Claude メインセッション（Codex/Gemini planner の統合結果） | 実装担当（Claude or Codex） |
-| `spec/` | `/spec-driven` + `structure-behavior-design`（要求・概念・責務・境界・振る舞いテスト） | 実装担当 |
-| `verify/` | Codex verifier | Claude（最終レビュー時に参照） |
-| `review/` | `/multi-ai-review` スキル（multi-AI 統合） | Claude（マージ判断時に参照） |
-
-## エージェント自律性の境界線（AGENTS.md Guardrails）
-
-各プロジェクトの `AGENTS.md` に以下を明記すること。承認境界は **無条件自律 / 条件付き自律 / 明示承認必須** の 3 段階で定義し、Claude をブロッカーにしないために中間域（条件付き自律）を活用する。
-
-```markdown
-## Guardrails
-
-### 無条件で自律実行を許可する範囲
-- ファイルの読み取り・検索
-- テスト・lint・静的解析の実行
-- .ai/ artifact の生成・更新
-- ドラフト PR の作成・レビュー実施・差分修正
-
-### 条件付きで自律実行可能（条件を満たせばユーザー確認なしで進めてよい）
-- **PR のマージ**: 実装者別レビュー構成（本ファイル「レビュー構成ルール」参照）に従い、必須レビュアーのコメントが投稿済み（最低 2 系統）。CRITICAL / HIGH が解消され、CI が green であること
-- **ドラフト解除（`gh pr ready`）**: 検証スタンプ（analyze / test 通過）が記録済みであること
-- **マイルストーンへの新規 Issue 割り当て**: 対象バージョンが未リリースであること
-
-### 人間の明示承認が必要な範囲
-- リリースタグの作成・バージョンバンプ・リリーススコープの変更
-- マイルストーンのクローズ（リリース完了・配信・ストア反映をユーザーが確認した後にユーザーが操作）
-- ストア審査提出・本番リリース配信（TestFlight 等の内部配信はスプリント完了フローでの自動アップロードを許容する）
-- 本番環境への操作・外部サービスへの書き込み（Slack, メール等）
-- セキュリティに関わる設定変更
-- ユーザー体験を変える仕様判断・既存画面の責務範囲を超える UI 追加
-
-### 禁止事項
-- main への直接 push
-- シークレット・認証情報のコミット
-- .gitignore 対象ファイルのコミット
-- クローズ済みマイルストーンの再オープン・再投入
-```
-
-「条件付き自律」の対象は AI が独立して条件を検証できるものに限定する。条件検証ができない / 不確実な場合は明示承認側に倒す。
-
-## エージェント定義の配置
-
-```text
-project/
-├── .claude/agents/     # Claude サブエージェント
-├── .codex/agents/      # Codex エージェント
-├── .gemini/agents/     # Gemini エージェント
-└── AGENTS.md           # クロスツール共通コンテキスト + Guardrails
-```
-
-## 共通出力形式（Reviewer / Architect ロール）
-
-```json
-{
-  "source": "<ai>-<role>",
-  "findings": [
-    {"severity": "CRITICAL|HIGH", "file": "path:line", "issue": "...", "fix": "..."}
-  ],
-  "summary": "問題なし"
-}
-```
-
-必要に応じて `evidence`, `impacted_files`, `validated_commands` 等の補助フィールドを追加してよい。
-
-## 観測可能性（エージェント実行ログ）
-
-Multi-AI 実行の結果と統合判断を構造化ログとして保存し、ハーネス改善の材料にする。
-
-### ログ保存ルール
-- 各エージェントの結果 JSON をプロジェクトルートの `.ai-logs/{YYYY-MM-DD}-{role}-{ai}.json` に保存
-- 統合判断時に各指摘の「採用/棄却」理由を統合ログ `{date}-integration.json` に記録
-- 失敗・スキップしたエージェントは理由を統合ログに含め、`gh pr comment` にも記載
-
-### 統合ログ形式
-```json
-{
-  "date": "2026-04-02",
-  "pr": "#123",
-  "agents": [
-    {"source": "codex-reviewer", "status": "success", "findings_count": 2},
-    {"source": "gemini-architect", "status": "skipped", "reason": "timeout after retry"}
-  ],
-  "decisions": [
-    {"file": "path:line", "adopted": true, "agreed_by": ["codex-reviewer", "claude-reviewer"], "reason": "2AI一致"},
-    {"file": "path:line", "adopted": false, "agreed_by": ["gemini-architect"], "reason": "repo 実読で誤検出"}
-  ]
-}
-```
-
-### ログの活用
-- `.ai-logs/` はバージョン管理に含めない（`.gitignore` に追加）
-- マイルストーン完了時のハーネスレトロスペクティブで参照する
-
-## 出力バリデーション
-
-| 状況 | 対応 |
-|---|---|
-| JSON パース失敗 | 1回リトライ、2回目失敗 → スキップ＋統合ログに記録 |
-| `findings` 要素に `file` / `severity` / `issue` が欠落 | 該当エントリを除外、残りは処理続行 |
-| `source` フィールドが期待値と不一致 | 警告付きで処理続行 |
-| 出力が空 or `findings` が空配列 | 正常（指摘なし）として扱う |
-
-## 統合判断ルール（Claude メイン）
-
-1. 各ロールの結果を読み込む
-2. 同じファイル:行に対する指摘を統合（2AI以上 → 高信頼）
-3. 1AIのみの指摘 → ソースコード実読で誤検出フィルタ
-4. CRITICAL は無条件採用
-5. PR コメントに統合結果を投稿
-6. Critical / High があれば修正して再レビュー
-
-### 衝突解決ルール
-
-別 AI の指摘を別 AI 助言だけで棄却しない。衝突が起きたら Claude が独立検証する。
-
-- ある AI の CRITICAL / HIGH を、別 AI が「OK」「問題なし」と言った事実だけで却下しない。Claude がソースコード実読 / 公式ドキュメント / 仕様で裏取りする
-- 仕様判断（ユーザー体験に影響する選択）は AI 多数決で決めない。Claude が独立評価する
-- Codex / Gemini の提案・実装結果は採用前に Claude 自身で diff / 影響範囲を実読し、独自評価を述べる。同意のみの応答は禁止
-- 衝突解消の根拠は統合ログ（`.ai-logs/*-integration.json`）の `decisions[].reason` に記録する
-
-## 契約プラン
-
-| サービス | プラン | 主な役割 |
-|---|---|---|
-| Claude | Max / Pro | 実装・最終レビュー・統合判断・Computer Use |
-| ChatGPT | Pro / Plus | Codex で worker / verifier / research |
-| Google AI | Pro / Free | Gemini CLI で scout / critic / planning |
-
-## Claude 制限到達時のフォールバック
-
-1. 実装タスク → Codex に scoped handoff（Codex が主力のため影響小）
-2. レビュー → Gemini + Codex で継続（Claude は最終判断のみ）
-3. 調査 → Codex（コード・ドキュメント）/ Gemini（俯瞰チェック）
-4. 対話 → ChatGPT / WebSearch を併用
-
-Claude の制限到達リスクを下げるため、日常的に以下を Codex に委譲する:
-- テスト作成・リファクタリング
-- コード調査・ドキュメント調査
-- レポーティング
-- スコープが明確な実装

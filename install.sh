@@ -182,6 +182,72 @@ copy_managed_sh() {
   echo "  copy:   $dst"
 }
 
+is_managed_file() {
+  local file="$1"
+  [ -f "$file" ] || return 1
+  [ -f "${file}.managed" ] && return 0
+  head -2 "$file" 2>/dev/null | grep -qF "$MANAGED_TAG"
+}
+
+remove_deprecated_managed_file() {
+  local dst="$1"
+  [ -e "$dst" ] || [ -L "$dst" ] || return 0
+
+  if is_managed_file "$dst"; then
+    rm -f "$dst" "${dst}.managed" "${dst}.managed.sha256"
+    echo "  remove: $dst (deprecated managed file)"
+  else
+    echo "  keep:   $dst (deprecated but local override)"
+  fi
+}
+
+remove_deprecated_managed_dir() {
+  local dst="$1"
+  [ -d "$dst" ] || return 0
+
+  if [ -z "${HOME:-}" ] || [ "$dst" = "$HOME" ] || [ "$dst" = "/" ] || [ "${dst#"$HOME"/}" = "$dst" ]; then
+    echo "  keep:   $dst (deprecated cleanup refused outside HOME)"
+    return 0
+  fi
+
+  local unmanaged=""
+  local managed_count=0
+  while IFS= read -r -d '' file; do
+    if [ -L "$file" ]; then
+      unmanaged="$file"
+      break
+    fi
+    if [ -d "$file" ]; then
+      continue
+    fi
+    case "$file" in
+      *.managed|*.managed.sha256) continue ;;
+    esac
+    if [ ! -f "$file" ]; then
+      unmanaged="$file"
+      break
+    fi
+    if ! is_managed_file "$file"; then
+      unmanaged="$file"
+      break
+    fi
+    managed_count=$((managed_count + 1))
+  done < <(find "$dst" -mindepth 1 -print0)
+
+  if [ -n "$unmanaged" ]; then
+    echo "  keep:   $dst (deprecated but contains local override: $unmanaged)"
+    return 0
+  fi
+
+  if [ "$managed_count" -eq 0 ]; then
+    echo "  keep:   $dst (deprecated but no managed files found)"
+    return 0
+  fi
+
+  rm -rf "$dst"
+  echo "  remove: $dst (deprecated managed directory)"
+}
+
 render_template() {
   local src="$1"
   sed "s|{{DOTFILES_DIR}}|${DOTFILES_DIR}|g; s|{{HOME}}|${HOME}|g" "$src"
@@ -312,6 +378,13 @@ for f in "$DOTFILES_DIR/scripts/"*.sh; do
   copy_managed_sh "$f" "$HOME/.local/bin/$fname"
 done
 
+mkdir -p "$HOME/.local/lib/dotfiles"
+for f in "$DOTFILES_DIR/scripts/lib/"*.sh; do
+  [ -f "$f" ] || continue
+  fname="$(basename "$f")"
+  copy_managed_sh "$f" "$HOME/.local/lib/dotfiles/$fname"
+done
+
 # ============================================================
 # Claude Code
 # ============================================================
@@ -431,6 +504,16 @@ for skill_dir in "$DOTFILES_DIR/codex/skills/"/*/; do
   skill_name="$(basename "$skill_dir")"
   copy_managed_dir "$skill_dir" "$HOME/.codex/skills/$skill_name"
 done
+
+# ============================================================
+# Deprecated managed files
+# ============================================================
+
+echo ""
+echo "[Cleanup deprecated managed files]"
+
+remove_deprecated_managed_file "$HOME/.claude/commands/handoff-to-codex.md"
+remove_deprecated_managed_dir "$HOME/.codex/skills/codex-handoff"
 
 # ============================================================
 # cmux
