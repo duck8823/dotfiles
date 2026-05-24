@@ -205,19 +205,42 @@ remove_deprecated_managed_dir() {
   local dst="$1"
   [ -d "$dst" ] || return 0
 
+  if [ -z "${HOME:-}" ] || [ "$dst" = "$HOME" ] || [ "$dst" = "/" ] || [ "${dst#"$HOME"/}" = "$dst" ]; then
+    echo "  keep:   $dst (deprecated cleanup refused outside HOME)"
+    return 0
+  fi
+
   local unmanaged=""
+  local managed_count=0
   while IFS= read -r -d '' file; do
+    if [ -L "$file" ]; then
+      unmanaged="$file"
+      break
+    fi
+    if [ -d "$file" ]; then
+      continue
+    fi
     case "$file" in
       *.managed|*.managed.sha256) continue ;;
     esac
+    if [ ! -f "$file" ]; then
+      unmanaged="$file"
+      break
+    fi
     if ! is_managed_file "$file"; then
       unmanaged="$file"
       break
     fi
-  done < <(find "$dst" -type f -print0)
+    managed_count=$((managed_count + 1))
+  done < <(find "$dst" -mindepth 1 -print0)
 
   if [ -n "$unmanaged" ]; then
     echo "  keep:   $dst (deprecated but contains local override: $unmanaged)"
+    return 0
+  fi
+
+  if [ "$managed_count" -eq 0 ]; then
+    echo "  keep:   $dst (deprecated but no managed files found)"
     return 0
   fi
 
@@ -353,6 +376,13 @@ for f in "$DOTFILES_DIR/scripts/"*.sh; do
   [ -f "$f" ] || continue
   fname="$(basename "$f")"
   copy_managed_sh "$f" "$HOME/.local/bin/$fname"
+done
+
+mkdir -p "$HOME/.local/lib/dotfiles"
+for f in "$DOTFILES_DIR/scripts/lib/"*.sh; do
+  [ -f "$f" ] || continue
+  fname="$(basename "$f")"
+  copy_managed_sh "$f" "$HOME/.local/lib/dotfiles/$fname"
 done
 
 # ============================================================

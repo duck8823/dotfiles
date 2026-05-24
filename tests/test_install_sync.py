@@ -64,6 +64,7 @@ def main() -> None:
         assert (tmp_home / ".gemini/settings.json.managed.sha256").exists()
         assert (tmp_home / ".codex/config.toml").exists()
         assert (tmp_home / ".codex/config.toml.managed.sha256").exists()
+        assert (tmp_home / ".local/lib/dotfiles/agent-policy.sh").exists()
         installed_py = tmp_home / ".codex/skills/test-shebang/scripts/tool.py"
         assert installed_py.read_text().splitlines()[:2] == [
             "#!/usr/bin/env python3",
@@ -99,6 +100,15 @@ def main() -> None:
         assert_contains(log, ".codex/skills/codex-handoff (deprecated managed directory)")
         assert not deprecated_command.exists()
         assert not deprecated_skill.exists()
+
+        # 廃止済みディレクトリでも local override / symlink が混ざる場合は削除しない。
+        deprecated_skill.mkdir(parents=True)
+        local_note = deprecated_skill / "local-note.md"
+        local_note.write_text("local override\n")
+        log = run_install(tmp_repo, tmp_home)
+        assert_contains(log, ".codex/skills/codex-handoff (deprecated but contains local override")
+        assert local_note.exists()
+        shutil.rmtree(deprecated_skill)
 
         # 2 回目以降も shebang の 2 行目マーカーを管理対象として認識し、同期できる
         (fixture_scripts / "tool.mjs").write_text(

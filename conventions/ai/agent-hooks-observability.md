@@ -64,6 +64,8 @@ warning の内訳:
 | classification | 主な原因 | 対応 |
 |---|---|---|
 | `local_policy_disabled` | `~/.config/ai-agent-policy.env` / env で engine 無効化 | 起動せず skip として記録し、残りの engine / local verification / CI で補完する |
+| `no_effective_engines` | local policy filtering 後に有効 engine が 0 | dry-run 以外は非0終了。local verification / CI へ切り替える |
+| `tool_not_found` | CLI 未インストール / PATH 不備 | 該当 engine を skip し、残りの engine で補完する |
 | `trust_failed` | Gemini の untrusted workspace | workspace packet を生成後、実行は `/private/tmp` + `--skip-trust`。直接 repo を読ませる運用には戻さない |
 | `auth_prompt` | headless 認証待ち | ブラウザを開かず失敗記録。local reviewer / Codex verifier へ fallback |
 | `quota_or_capacity` | quota / capacity / 429 | 1回だけ retry。再失敗なら欠落理由を統合結果に記録 |

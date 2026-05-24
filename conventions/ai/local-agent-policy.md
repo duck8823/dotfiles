@@ -12,7 +12,8 @@
 
 ## 標準 override
 
-`~/.config/ai-agent-policy.env` か環境変数で上書きする。shell として source せず、対応 script は許可された key だけを読み取る。
+`~/.config/ai-agent-policy.env` か環境変数で上書きする。shell として source せず、対応 script は許可された key だけを読み取る。**同じ key がある場合は環境変数が policy file より優先**する。
+実装の正本は `scripts/lib/agent-policy.sh`（install 後は `~/.local/lib/dotfiles/agent-policy.sh`）に置く。
 
 ```bash
 # multi-ai-research.sh で使う engine を限定
@@ -21,23 +22,30 @@ MULTI_AI_ENGINES=claude,codex
 # 特定 engine を無効化。--engines で指定されても skip 記録にする
 MULTI_AI_DISABLED_ENGINES=gemini
 
-# Gemini の共有テンプレート既定。write 許可はリポジトリ側の別 policy と worktree gate が必要
+# Gemini の共有テンプレート既定。multi-ai-research は安全のため plan/read-only に強制する
 MULTI_AI_GEMINI_APPROVAL_MODE=plan
 MULTI_AI_GEMINI_SKIP_TRUST=true
+
+# Gemini write を試す場合は dedicated branch/worktree で明示する
+MULTI_AI_GEMINI_ALLOW_WRITE=false
 
 # Codex research/verifier の sandbox 既定
 MULTI_AI_CODEX_SANDBOX=read-only
 
 # Claude headless research の permission mode 既定
 MULTI_AI_CLAUDE_PERMISSION_MODE=plan
+
+# research script で plan/read-only 以外を許す非常用。通常は false
+MULTI_AI_ALLOW_UNSAFE_RESEARCH_MODES=false
 ```
 
 ## 優先順位
 
 1. 明示的なユーザー指示
 2. リポジトリの `AGENTS.md` / `CLAUDE.md` / `GEMINI.md`
-3. `~/.config/ai-agent-policy.env` / 環境変数
-4. dotfiles の共有デフォルト
+3. 実行時の環境変数
+4. `~/.config/ai-agent-policy.env`
+5. dotfiles の共有デフォルト
 
 ただし、secret 除外、main 直 push 禁止、破壊的 remote 操作禁止、CI gate はローカルポリシーでも弱めない。
 
@@ -53,21 +61,4 @@ MULTI_AI_CLAUDE_PERMISSION_MODE=plan
 
 ## Agent 出力 schema
 
-agent 間の共有 artifact は handoff ではなく resume packet として扱う。
-
-```json
-{
-  "objective": "",
-  "current_state": "",
-  "scope": [],
-  "allowed_write_scope": [],
-  "forbidden_actions": [],
-  "required_validation": [],
-  "context_refs": [
-    {"kind": "traceary_session|event|pr|issue|file", "value": ""}
-  ],
-  "results": {"passed": [], "failed": []},
-  "residual_risks": [],
-  "next_actions": []
-}
-```
+agent 間の共有 artifact は handoff ではなく resume packet として扱う。schema の正本は `conventions/ai/multi-ai-agent-operations.md` の **共通 resume schema** を参照する。

@@ -228,9 +228,10 @@ MULTI_AI_DISABLED_ENGINES=gemini
 
 # 例: Gemini の headless review は plan mode に固定
 MULTI_AI_GEMINI_APPROVAL_MODE=plan
+MULTI_AI_GEMINI_ALLOW_WRITE=false
 ```
 
-`multi-ai-research.sh` はこのポリシーを読み取り、無効化された engine を skip として記録します。CLI の `--engines` を指定した場合は、その実行だけ上書きできます。
+`multi-ai-research.sh` はこのポリシーを読み取り、無効化された engine を skip として記録します。CLI の `--engines` は `MULTI_AI_ENGINES` をその実行だけ上書きしますが、`MULTI_AI_DISABLED_ENGINES` は安全側の deny-list として引き続き優先されます。
 
 ### Codex の設定
 

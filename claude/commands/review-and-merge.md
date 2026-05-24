@@ -19,6 +19,15 @@ Gemini / Codex / `@codex review` に PR diff・関連ソース・テスト出力
 - Codex verifier は reviewer config を指定して実行すること
 - policy deny / local policy disabled の場合は設定を弱めず、該当 reviewer を `skipped: policy_denied` / `local_policy_disabled` として記録し、残りの reviewer + local verification + CI で補完すること
 
+local agent policy は共通 loader を使う。
+
+```bash
+if [ -f "$HOME/.local/lib/dotfiles/agent-policy.sh" ]; then
+  . "$HOME/.local/lib/dotfiles/agent-policy.sh"
+  agent_policy_load
+fi
+```
+
 ## ステップ1: PR情報の取得
 
 ```bash
@@ -204,7 +213,7 @@ PROMPT_EOF
 Gemini は本実行前に短い prompt を `python3` の timeout 付きで実行し、認証待ち・ハング・空出力を先に検出する。
 
 ```bash
-if printf ',%s,' "${MULTI_AI_DISABLED_ENGINES:-}" | grep -Eiq ',[[:space:]]*gemini[[:space:]]*,'; then
+if command -v agent_policy_is_disabled >/dev/null 2>&1 && agent_policy_is_disabled gemini; then
   GEMINI_AVAILABLE=false
   GEMINI_SKIP_REASON="local_policy_disabled"
 elif [ -n "${POLICY_DENY_REASON:-}" ]; then

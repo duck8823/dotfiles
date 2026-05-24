@@ -57,6 +57,8 @@ rtk proxy ~/.local/bin/multi-ai-research.sh \
 
 - `ok`: 採用候補。一次情報・不確実性を確認する。
 - `local_policy_disabled`: ローカルポリシーで engine が無効。失敗ではなく skip として記録し、残りの engine / local verification で補完する。
+- `no_effective_engines`: local policy filtering 後に実行可能 engine が 0。dry-run 以外は非0で終了し、local verification / CI に切り替える。
+- `tool_not_found`: CLI が未インストールまたは PATH にない。該当 engine を skip し、残りで補完する。
 - `trust_failed`: Gemini workspace trust 問題。workspace packet 実行では `/private/tmp` + `--skip-trust` で再実行し、直接 repo を読ませる運用には戻さない。
 - `auth_prompt`: headless 失敗。ブラウザを開かず fallback。
 - `quota_or_capacity`: 1回だけ retry。再失敗なら欠落理由として記録。

@@ -34,7 +34,7 @@ Gemini / Codex CLI / `@codex review` / Claude CLI delegation は、`~/.codex/con
 - Medium risk: Low + 概念モデル、責務表、境界/IF案、手続き化リスクを残す
 - High risk: Medium + rollback/移行方針、分割PR案、実装前 design checkpoint を残す
 
-High risk でも確認待ちだけで停止し続けない。確認不能なら破壊的変更を避け、小さな Draft PR / design note / migration-safe step に分割する。
+High risk で判断不能な場合は破壊的変更を避け、Draft PR / design note / migration-safe step / 検証ログとして観測可能な artifact に分割して escalation する。
 
 レビューでは `structure-reviewer` 観点を含め、以下を確認する。
 
@@ -122,7 +122,7 @@ Codex は dotfiles では **primary orchestrator / worker / verifier** として
 
 ### 原則
 
-- UX・仕様・リリース判断は根拠を残し、必要なら Claude / Gemini / ユーザーへ escalation する。ただし確認不能を理由に止まり続けない
+- UX・仕様・リリース判断は根拠を残し、判断不能な場合は safe-by-default な Draft PR / design note / 検証ログに分割して Claude / Gemini / ユーザーへ escalation する
 - write タスクは isolated branch / worktree 前提
 - 返却は「感想」ではなく、**変更ファイル / 実行コマンド / 結果 / 残リスク** を中心にする
 - 長く走るタスク、CLI ネイティブなタスク、繰り返し検証に強い worker として振る舞う

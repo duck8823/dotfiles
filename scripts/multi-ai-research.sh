@@ -38,48 +38,29 @@ Local policy:
   Supported keys: MULTI_AI_ENGINES, MULTI_AI_DISABLED_ENGINES,
   MULTI_AI_GEMINI_APPROVAL_MODE, MULTI_AI_GEMINI_SKIP_TRUST,
   MULTI_AI_CODEX_SANDBOX, MULTI_AI_CLAUDE_PERMISSION_MODE,
-  MULTI_AI_TIMEOUT_SECONDS.
+  MULTI_AI_TIMEOUT_SECONDS, MULTI_AI_ALLOW_UNSAFE_RESEARCH_MODES.
 USAGE
 }
 
-trim_value() {
-  local value="$1"
-  value="${value#"${value%%[![:space:]]*}"}"
-  value="${value%"${value##*[![:space:]]}"}"
-  printf '%s' "$value"
+source_agent_policy_lib() {
+  local script_dir candidate
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  for candidate in \
+    "$script_dir/lib/agent-policy.sh" \
+    "$script_dir/../lib/dotfiles/agent-policy.sh" \
+    "${HOME:-}/.local/lib/dotfiles/agent-policy.sh"; do
+    if [ -n "$candidate" ] && [ -f "$candidate" ]; then
+      # shellcheck source=/dev/null
+      . "$candidate"
+      return 0
+    fi
+  done
+  echo "agent policy library not found" >&2
+  return 1
 }
 
-load_local_agent_policy() {
-  local file="${AI_AGENT_POLICY_FILE:-}"
-  if [ -z "$file" ] && [ -n "${HOME:-}" ]; then
-    file="$HOME/.config/ai-agent-policy.env"
-  fi
-  [ -n "$file" ] || return 0
-  [ -f "$file" ] || return 0
-
-  local line key value
-  while IFS= read -r line || [ -n "$line" ]; do
-    line="$(trim_value "$line")"
-    [ -n "$line" ] || continue
-    case "$line" in
-      \#*) continue ;;
-    esac
-    key="$(trim_value "${line%%=*}")"
-    value="$(trim_value "${line#*=}")"
-    [ "$key" != "$line" ] || continue
-    value="${value%\"}"
-    value="${value#\"}"
-    value="${value%\'}"
-    value="${value#\'}"
-    case "$key" in
-      MULTI_AI_ENGINES|MULTI_AI_DISABLED_ENGINES|MULTI_AI_GEMINI_APPROVAL_MODE|MULTI_AI_GEMINI_SKIP_TRUST|MULTI_AI_CODEX_SANDBOX|MULTI_AI_CLAUDE_PERMISSION_MODE|MULTI_AI_TIMEOUT_SECONDS)
-        export "$key=$value"
-        ;;
-    esac
-  done < "$file"
-}
-
-load_local_agent_policy
+source_agent_policy_lib
+agent_policy_load
 
 topic=""
 prompt_file=""
@@ -165,6 +146,28 @@ while [ "$#" -gt 0 ]; do
       ;;
   esac
 done
+
+if ! [[ "$timeout_seconds" =~ ^[1-9][0-9]*$ ]]; then
+  echo "WARN: invalid MULTI_AI_TIMEOUT_SECONDS=${timeout_seconds}; falling back to 600" >&2
+  timeout_seconds=600
+fi
+
+unsafe_research_modes="${MULTI_AI_ALLOW_UNSAFE_RESEARCH_MODES:-false}"
+if [ "$unsafe_research_modes" != "true" ]; then
+  if [ "$gemini_approval_mode" != "plan" ]; then
+    echo "WARN: multi-ai-research forces Gemini approval mode to plan; set MULTI_AI_ALLOW_UNSAFE_RESEARCH_MODES=true only in a scoped worktree flow" >&2
+    gemini_approval_mode="plan"
+  fi
+  if [ "$codex_sandbox" != "read-only" ]; then
+    echo "WARN: multi-ai-research forces Codex sandbox to read-only; set MULTI_AI_ALLOW_UNSAFE_RESEARCH_MODES=true only in a scoped worktree flow" >&2
+    codex_sandbox="read-only"
+  fi
+  if [ "$claude_permission_mode" != "plan" ]; then
+    echo "WARN: multi-ai-research forces Claude permission mode to plan; set MULTI_AI_ALLOW_UNSAFE_RESEARCH_MODES=true only in a scoped worktree flow" >&2
+    claude_permission_mode="plan"
+  fi
+fi
+
 
 if [ -z "$topic" ] && [ -z "$prompt_file" ]; then
   echo "--topic or --prompt-file is required" >&2
@@ -590,6 +593,10 @@ classify_result() {
     echo "policy_or_permission_denied"
     return
   fi
+  if grep -Eqi '(^|[^[:alnum:]_])(claude|gemini|codex)_not_found([^[:alnum:]_]|$)' "$file"; then
+    echo "tool_not_found"
+    return
+  fi
   if grep -Eq '^EXIT_CODE=[1-9][0-9]*' "$file"; then
     echo "command_failed"
     return
@@ -597,55 +604,11 @@ classify_result() {
   echo "ok"
 }
 
-is_engine_disabled() {
-  local needle="$1"
-  local item
-  IFS=',' read -r -a disabled_array <<< "$disabled_engines"
-  for item in "${disabled_array[@]}"; do
-    item="$(printf '%s' "$item" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
-    [ -n "$item" ] || continue
-    [ "$item" = "$needle" ] && return 0
-  done
-  return 1
-}
-
-filter_disabled_engines() {
-  local list="$1"
-  local item
-  local kept=()
-  IFS=',' read -r -a requested_array <<< "$list"
-  for item in "${requested_array[@]}"; do
-    item="$(printf '%s' "$item" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
-    [ -n "$item" ] || continue
-    if is_engine_disabled "$item"; then
-      continue
-    else
-      kept+=("$item")
-    fi
-  done
-  (IFS=','; printf '%s' "${kept[*]}")
-}
-
-disabled_engines_for_list() {
-  local list="$1"
-  local item
-  local skipped=()
-  IFS=',' read -r -a requested_array <<< "$list"
-  for item in "${requested_array[@]}"; do
-    item="$(printf '%s' "$item" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
-    [ -n "$item" ] || continue
-    if is_engine_disabled "$item"; then
-      skipped+=("$item")
-    fi
-  done
-  (IFS=','; printf '%s' "${skipped[*]}")
-}
-
 run_claude() {
   local out="$out_dir/claude.md"
   local err="$out_dir/claude.err"
   if ! command -v claude >/dev/null 2>&1; then
-    echo "claude_not_found" > "$out"
+    printf 'EXIT_CODE=127\nclaude_not_found\n' > "$out"
     return 127
   fi
   (
@@ -672,7 +635,7 @@ run_gemini() {
   local out="$out_dir/gemini.md"
   local err="$out_dir/gemini.err"
   if ! command -v gemini >/dev/null 2>&1; then
-    echo "gemini_not_found" > "$out"
+    printf 'EXIT_CODE=127\ngemini_not_found\n' > "$out"
     return 127
   fi
   local gemini_cwd="$out_dir/gemini-cwd"
@@ -706,7 +669,7 @@ run_codex() {
   local out="$out_dir/codex.md"
   local err="$out_dir/codex.err"
   if ! command -v codex >/dev/null 2>&1; then
-    echo "codex_not_found" > "$out"
+    printf 'EXIT_CODE=127\ncodex_not_found\n' > "$out"
     return 127
   fi
   local codex_cwd="$out_dir/codex-cwd"
@@ -730,8 +693,8 @@ run_codex() {
 }
 
 engines_requested="$engines"
-engines_skipped_by_policy="$(disabled_engines_for_list "$engines_requested")"
-engines="$(filter_disabled_engines "$engines_requested")"
+engines_skipped_by_policy="$(agent_policy_csv_disabled_for "$engines_requested")"
+engines="$(agent_policy_csv_filter_disabled "$engines_requested")"
 
 {
   echo "# Multi-AI research status"
@@ -770,6 +733,25 @@ if [ -n "$engines_skipped_by_policy" ]; then
       echo "- output: (skipped by local agent policy)"
     } >> "$status_path"
   done
+fi
+
+if [ -z "$engines" ]; then
+  {
+    printf '\n## multi-ai-research\n'
+    echo "- exit_code: 75"
+    echo "- classification: no_effective_engines"
+    echo "- output: no engine remained after local agent policy filtering"
+  } >> "$status_path"
+  {
+    echo "# Multi-AI research bundle"
+    echo
+    cat "$status_path"
+  } > "$summary_path"
+  echo "$summary_path"
+  if [ "$dry_run" = true ]; then
+    exit 0
+  fi
+  exit 75
 fi
 
 IFS=',' read -r -a engine_array <<< "$engines"
