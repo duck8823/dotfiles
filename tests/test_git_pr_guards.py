@@ -52,16 +52,25 @@ exit 1
     gh.chmod(gh.stat().st_mode | stat.S_IXUSR)
 
 
-def main() -> None:
+def test_git_pr_guards() -> None:
     # PR creation must be draft and must expose exactly one ticket ref in title/body.
     ok = run_hook('gh pr create --draft --title "[OPS-123] tighten guards" --body "details"')
     assert ok.returncode == 0, ok.stderr
+
+    rtk_ok = run_hook('rtk gh pr create --draft --title "tighten guards" --body "Closes #123"')
+    assert rtk_ok.returncode == 0, rtk_ok.stderr
 
     missing = run_hook('gh pr create --draft --title "tighten guards" --body "no ticket"')
     assert_blocked(missing, "1 PR = 1 ticket")
 
     multiple = run_hook('gh pr create --draft --title "tighten guards" --body "Closes #123 and Closes #124"')
     assert_blocked(multiple, "複数のチケット参照")
+
+    chained = run_hook('gh pr create --draft --title "first" --body "no ticket"; gh pr create --draft --title "[OPS-123] second" --body "details"')
+    assert_blocked(chained, "1 PR = 1 ticket")
+
+    bare_version_like = run_hook('gh pr create --draft --title "Support ISO-8601" --body "no ticket"')
+    assert_blocked(bare_version_like, "1 PR = 1 ticket")
 
     fill_only = run_hook("gh pr create --draft --fill")
     assert_blocked(fill_only, "--fill だけでは")
@@ -86,8 +95,20 @@ def main() -> None:
         review_msg = run_hook('git commit -m "fix: address review feedback"')
         assert_blocked(review_msg, "レビュー起点")
 
+        rtk_review_msg = run_hook('rtk git commit -m "fix: review comments"')
+        assert_blocked(rtk_review_msg, "レビュー起点")
+
+        combined_flags = run_hook('git commit -am "fix: review comments"')
+        assert_blocked(combined_flags, "レビュー起点")
+
+        interactive_msg = run_hook("git commit")
+        assert_blocked(interactive_msg, "commit message を検証できません")
+
         semantic_msg = run_hook('git commit -m "fix: validate PR ticket references"')
         assert semantic_msg.returncode == 0, semantic_msg.stderr
+
+        ai_feature_msg = run_hook('git commit -m "fix: gemini review logic"')
+        assert ai_feature_msg.returncode == 0, ai_feature_msg.stderr
 
         # Commit split guard is advisory by default, but strict mode can block oversized/multi-concern commits.
         repo = tmp_root / "repo"
@@ -119,4 +140,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    test_git_pr_guards()
