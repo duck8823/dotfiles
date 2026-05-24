@@ -27,6 +27,7 @@ Allow Gemini, Codex CLI, and Claude CLI delegation only when all conditions hold
 - The working directory is a trusted repository or its git worktree.
 - Work must be scoped to one ticket / one PR. Do not combine multiple tickets into one task, branch, review request, or PR.
 - If an existing PR accidentally contains multiple tickets, do not close it; narrow the existing PR to one ticket and create separate PRs for the remaining tickets.
+- PR title/body must reference exactly one ticket. Use `Closes #123` for GitHub Issues or a single Jira-style key such as `[PROJ-123]`.
 - The task is one of:
   - read-only PR review / verifier work
   - read-only repository / workspace research requested by the user
@@ -44,6 +45,7 @@ Forbidden actions:
 
 - Do not send `.env` files, credentials, tokens, private keys, secret files, shell history, arbitrary home-directory files, unrelated repository dumps, or unrelated repo context.
 - Do not allow main/master direct push.
+- Do not use commit messages that describe review mechanics such as "review feedback", "review comments", or "レビュー指摘対応". Commit messages must describe what changed and why.
 - For delegated external-AI/Codex/Claude/Gemini implementation or review tasks, do not allow PR merge, production deploy/apply, infrastructure apply, or destructive remote operations.
 - Local orchestrator may run `gh pr merge` only when the user explicitly instructs merging specific PRs, the PR is approved, required checks pass, and branch protection is respected.
 - Do not allow broad arbitrary upload, pastebin, file-sharing, unrelated external AI requests, or non-task external AI usage.
