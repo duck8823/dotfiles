@@ -30,6 +30,9 @@ tools: Read, Glob, Grep
   "findings": [
     {"severity": "CRITICAL|HIGH", "file": "path:line", "issue": "...", "fix": "..."}
   ],
+  "validated_commands": ["実行したコマンド。未実行なら空配列"],
+  "results": {"passed": ["確認済み項目"], "failed": ["失敗/未確認項目"]},
+  "residual_risks": ["残リスク。なければ空配列"],
   "summary": "問題なし" or "N件検出"
 }
 ```

@@ -57,6 +57,9 @@ developer_instructions = """
   "split_recommendations": [
     {"issue": 123, "suggestion": "DB マイグレーションと API 変更を分離"}
   ],
+  "validated_commands": ["実行したコマンド。未実行なら空配列"],
+  "results": {"passed": ["確認済み項目"], "failed": ["失敗/未確認項目"]},
+  "residual_risks": ["残リスク。なければ空配列"],
   "warnings": ["警告があれば記載"]
 }
 """

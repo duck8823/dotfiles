@@ -17,13 +17,18 @@ Codex 主体の作業でも、Claude 側 dotfiles と同じ考え方で **Gemini
 
 ## 原則
 
+共通 role / schema / failure taxonomy は `conventions/ai/multi-ai-agent-operations.md` と
+`conventions/ai/agent-hooks-observability.md` を source of truth とし、この skill は
+Codex 側の PR review orchestration だけを定義する。
+
 - **GitHubメンション禁止**: `@claude @gemini multi-ai-review` は使わない。
 - **GitHub reviewer追加禁止**: Gemini / Claude / Codex などの AI アカウントを reviewer / collaborator に追加しない。
 - **投稿はPRコメント**: 統合結果は `gh pr comment` で投稿する。`gh pr review` はユーザーまたはプロジェクト規約で明示される場合以外は使わない。
 - **headless優先**: Gemini / Claude Code CLI は headless で実行し、ブラウザ認証プロンプトが出たら止める。
-- **外部AIへのデータ送信境界**: PR diff / issue / review comment を Gemini / Claude Code CLI / ai-review へ渡す前に `~/.codex/config.toml` の `[auto_review].policy` を満たすことを確認する。ユーザーが `multi-ai-review` / Claude / Gemini / ai-review 利用を明示し、かつ policy gate を満たす場合は、このリポジトリの PR diff・関連 Issue・レビューコメントを configured external AI CLI に渡す承認済みとして扱う。secrets・認証情報・repo外 private file・Downloads 等を追加で渡す場合だけ確認する。明示がない場合、または policy gate を満たさない場合は確認・skip する。
+- **外部AIへのデータ送信境界**: PR diff / issue / review comment を Gemini / Claude Code CLI / Codex CLI / ai-review へ渡す前に `~/.codex/config.toml` の `[auto_review].policy` を満たすことを確認する。ユーザーが `multi-ai-review` / Claude / Gemini / Codex / ai-review 利用を明示し、かつ policy gate を満たす場合は、このリポジトリの PR diff・関連 Issue・レビューコメントを configured external AI CLI に渡す承認済みとして扱う。secrets・認証情報・repo外 private file・Downloads 等を追加で渡す場合だけ確認する。明示がない場合、または policy gate を満たさない場合は確認・skip する。
 - **最低2系統**: 2系統以上のレビューが成功すれば統合を続行できる。失敗した系統と理由はコメントに記録する。
 - **sandbox拒否時の扱い**: 外部 AI CLI が sandbox / auth / quota で拒否された場合、代替禁止の明示がない限りユーザー確認で停止せず、拒否理由を PR コメントへ記録して default subagent / Codex verifier / local gate で補完する。
+- **調査失敗の分類**: Claude / Gemini / Codex の workspace packet 調査や repo 外一次情報調査では `multi-ai-research` skill / `scripts/multi-ai-research.sh` を使い、`trust_failed` / `auth_prompt` / `quota_or_capacity` / `policy_or_permission_denied` / `prompt_file_reference_expansion` / `process_oom` / `command_failed` / `empty_output` を記録する。
 - **generated code**: 生成物は原則レビュー対象外。generator / schema / template / build 設定を優先する。
 - **CIゲート**: `gh pr checks` の `no checks reported` だけを CI 未設定扱いにする。`fail` / `cancel` / `pending` / 認証・通信エラーはマージ不可として扱う。
 - **Structure-Behavior**: Medium / High risk の変更では、手続き化・責務配置・境界/IF・振る舞いテストの観点を必ず統合レビューに含める。
@@ -200,10 +205,17 @@ prompt = "read-only preflight。1行だけ返してください。"
 env = os.environ.copy()
 env["GEMINI_SYSTEM_MD"] = os.path.expanduser("~/.gemini/agents/reviewer.md")
 env["TERM"] = "xterm-256color"
+env["NO_BROWSER"] = "true"
+env["GEMINI_CLI_TRUST_WORKSPACE"] = "true"
+env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:" + env.get("PATH", "")
 out_path = os.environ["GEMINI_PREFLIGHT_OUT"]
+settings_path = os.path.join(os.path.dirname(out_path), "gemini-headless-system-settings.json")
+with open(settings_path, "w") as f:
+    f.write('{"hooksConfig":{"enabled":false},"tools":{"useRipgrep":false}}\n')
+env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"] = settings_path
 try:
     proc = subprocess.run(
-        ["gemini", "--approval-mode", "plan", "-p", " ", "-e", "none"],
+        ["gemini", "--skip-trust", "--approval-mode", "plan", "-m", os.environ.get("GEMINI_REVIEW_MODEL", "gemini-3-flash-preview"), "-e", "none", "-o", "text", "-p", " "],
         input=prompt,
         text=True,
         capture_output=True,
@@ -235,10 +247,17 @@ prompt = open(os.environ["GEMINI_PROMPT_FILE"]).read()
 env = os.environ.copy()
 env["GEMINI_SYSTEM_MD"] = os.path.expanduser("~/.gemini/agents/reviewer.md")
 env["TERM"] = "xterm-256color"
+env["NO_BROWSER"] = "true"
+env["GEMINI_CLI_TRUST_WORKSPACE"] = "true"
+env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:" + env.get("PATH", "")
 out_path = os.environ["GEMINI_REVIEW_OUT"]
+settings_path = os.path.join(os.path.dirname(out_path), "gemini-headless-system-settings.json")
+with open(settings_path, "w") as f:
+    f.write('{"hooksConfig":{"enabled":false},"tools":{"useRipgrep":false}}\n')
+env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"] = settings_path
 try:
     proc = subprocess.run(
-        ["gemini", "--approval-mode", "plan", "-p", " ", "-e", "none"],
+        ["gemini", "--skip-trust", "--approval-mode", "plan", "-m", os.environ.get("GEMINI_REVIEW_MODEL", "gemini-3-flash-preview"), "-e", "none", "-o", "text", "-p", " "],
         input=prompt,
         text=True,
         capture_output=True,
@@ -347,6 +366,40 @@ else
     - < "$VERIFIER_PROMPT_FILE" \
     2>"$WORK_DIR/verifier-review.err" || true
 fi
+```
+
+Claude Code CLI を使う場合の headless 実行テンプレート:
+
+```bash
+CLAUDE_AVAILABLE=true
+export VERIFIER_PROMPT_FILE VERIFIER_REVIEW_OUT
+python3 - <<'PY'
+import os, subprocess, sys
+prompt = open(os.environ["VERIFIER_PROMPT_FILE"]).read()
+out_path = os.environ["VERIFIER_REVIEW_OUT"]
+env = os.environ.copy()
+env["TERM"] = "xterm-256color"
+try:
+    proc = subprocess.run(
+        ["claude", "-p", prompt, "--permission-mode", "plan", "--output-format", "text"],
+        text=True,
+        capture_output=True,
+        timeout=600,
+        env=env,
+    )
+    text = (proc.stdout or "") + ("\n--- stderr ---\n" + proc.stderr if proc.stderr else "") + f"\nEXIT_CODE={proc.returncode}\n"
+except subprocess.TimeoutExpired as exc:
+    text = ((exc.stdout or "") if isinstance(exc.stdout, str) else "") + ((exc.stderr or "") if isinstance(exc.stderr, str) else "") + "\nTIMEOUT_AFTER=600\nKILLED=true\n"
+    open(out_path, "w").write(text)
+    sys.exit(124)
+open(out_path, "w").write(text)
+if not (proc.stdout or "").strip() or proc.returncode != 0:
+    sys.exit(proc.returncode or 1)
+PY
+case $? in
+  0) ;;
+  *) CLAUDE_AVAILABLE=false ;;
+esac
 ```
 
 Claude Code CLI を使う場合は、headless 実行が可能なことを `claude --help` 等で確認してから使う。対話ログインやブラウザ認証が出た場合は起動せず、fallback する。

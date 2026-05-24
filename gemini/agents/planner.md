@@ -33,6 +33,9 @@ timeout_mins: 6
   "owner_hints": [{"number": 123, "owner": "claude|codex", "reason": "理由"}],
   "structure_behavior_hints": [{"number": 123, "risk": "LOW|MEDIUM|HIGH", "reason": "Design Note が必要な理由"}],
   "balance": {"feature": 3, "tech_debt": 2, "assessment": "適切"},
+  "validated_commands": ["実行したコマンド。未実行なら空配列"],
+  "results": {"passed": ["確認済み項目"], "failed": ["失敗/未確認項目"]},
+  "residual_risks": ["残リスク。なければ空配列"],
   "warnings": ["警告があれば記載"]
 }
 ```

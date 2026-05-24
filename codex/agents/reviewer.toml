@@ -32,6 +32,7 @@ developer_instructions = """
     {"severity": "CRITICAL|HIGH", "file": "path:line", "issue": "指摘内容", "fix": "修正案"}
   ],
   "validated_commands": ["実行したコマンド"],
+  "results": {"passed": ["確認済み項目"], "failed": ["失敗/未確認項目"]},
   "residual_risks": ["残リスク"],
   "summary": "問題なし" or "N件検出"
 }
