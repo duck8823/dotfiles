@@ -60,6 +60,12 @@ def test_git_pr_guards() -> None:
     rtk_ok = run_hook('rtk gh pr create --draft --title "tighten guards" --body "Closes #123"')
     assert rtk_ok.returncode == 0, rtk_ok.stderr
 
+    global_repo_ok = run_hook('gh --repo duck8823/dotfiles pr create --draft --title "tighten guards" --body "Closes #123"')
+    assert global_repo_ok.returncode == 0, global_repo_ok.stderr
+
+    env_prefix_ok = run_hook('env FOO=1 gh pr create --draft --title "tighten guards" --body "Closes #123"')
+    assert env_prefix_ok.returncode == 0, env_prefix_ok.stderr
+
     missing = run_hook('gh pr create --draft --title "tighten guards" --body "no ticket"')
     assert_blocked(missing, "1 PR = 1 ticket")
 
@@ -78,6 +84,9 @@ def test_git_pr_guards() -> None:
     no_draft = run_hook('gh pr create --title "[OPS-123] tighten guards" --body "details"')
     assert_blocked(no_draft, "--draft")
 
+    quoted_draft = run_hook('gh pr create --title "[OPS-123] tighten guards" --body "mentions --draft but no flag"')
+    assert_blocked(quoted_draft, "--draft")
+
     # Ready also checks the current PR metadata so edited PRs cannot bypass 1 ticket / PR.
     tmp_root = Path(tempfile.mkdtemp(prefix="dotfiles-git-pr-guard-test-"))
     try:
@@ -90,6 +99,9 @@ def test_git_pr_guards() -> None:
         make_fake_gh(fake_bin, title="tighten guards", body="Closes #123\nCloses #124")
         ready_multiple = run_hook("gh pr ready", env={"PATH": f"{fake_bin}:{os.environ['PATH']}"})
         assert_blocked(ready_multiple, "複数のチケット参照")
+
+        chained_ready = run_hook("gh pr ready 1; gh pr ready 2", env={"PATH": f"{fake_bin}:{os.environ['PATH']}"})
+        assert_blocked(chained_ready, "複数の gh pr ready")
 
         # Review-feedback commit messages are blocked; semantic commit messages pass.
         review_msg = run_hook('git commit -m "fix: address review feedback"')
@@ -109,6 +121,9 @@ def test_git_pr_guards() -> None:
 
         ai_feature_msg = run_hook('git commit -m "fix: gemini review logic"')
         assert ai_feature_msg.returncode == 0, ai_feature_msg.stderr
+
+        fixup_msg = run_hook("git commit --fixup HEAD")
+        assert fixup_msg.returncode == 0, fixup_msg.stderr
 
         # Commit split guard is advisory by default, but strict mode can block oversized/multi-concern commits.
         repo = tmp_root / "repo"

@@ -104,82 +104,9 @@ else:
 PY
 }
 
-extract_pr_create_text() {
-    COMMAND="$command" python3 - <<'PY'
-import os, pathlib, shlex, sys
-
-cmd = os.environ.get("COMMAND", "")
-try:
-    tokens = shlex.split(cmd)
-except ValueError:
-    tokens = cmd.split()
-
-shell_operators = {";", "&", "|", "&&", "||", ";;"}
-idx = -1
-for i in range(len(tokens) - 2):
-    if tokens[i] == "gh" and tokens[i + 1] == "pr" and tokens[i + 2] == "create":
-        idx = i + 3
-if idx < 0:
-    sys.exit(0)
-
-title = ""
-body = ""
-body_file = ""
-used_fill = False
-skip_next = False
-for j in range(idx, len(tokens)):
-    tok = tokens[j]
-    if tok in shell_operators:
-        break
-    if skip_next:
-        skip_next = False
-        continue
-    if tok in ("-t", "--title"):
-        if j + 1 < len(tokens):
-            title = tokens[j + 1]
-            skip_next = True
-        continue
-    if tok.startswith("--title="):
-        title = tok.split("=", 1)[1]
-        continue
-    if tok in ("-b", "--body"):
-        if j + 1 < len(tokens):
-            body = tokens[j + 1]
-            skip_next = True
-        continue
-    if tok.startswith("--body="):
-        body = tok.split("=", 1)[1]
-        continue
-    if tok in ("-F", "--body-file"):
-        if j + 1 < len(tokens):
-            body_file = tokens[j + 1]
-            skip_next = True
-        continue
-    if tok.startswith("--body-file="):
-        body_file = tok.split("=", 1)[1]
-        continue
-    if tok.startswith("--fill"):
-        used_fill = True
-
-if body_file:
-    try:
-        body += "\n" + pathlib.Path(body_file).read_text()
-    except OSError:
-        print("__DOTFILES_BODY_FILE_UNREADABLE__ " + body_file)
-        sys.exit(0)
-
-if used_fill and not title and not body:
-    print("__DOTFILES_FILL_UNVERIFIABLE__")
-    sys.exit(0)
-
-print(title)
-print(body)
-PY
-}
-
 check_pr_create_policy() {
     COMMAND="$command" python3 - <<'PY'
-import os, pathlib, re, shlex, sys
+import os, pathlib, re, shlex, subprocess, sys
 
 cmd = os.environ.get("COMMAND", "")
 shell_operators = {";", "&", "|", "&&", "||", ";;"}
@@ -241,6 +168,22 @@ def normalize_segment(segment: list[str]) -> list[str]:
             seg = seg[i:]
             changed = True
             continue
+    if seg[:1] == ["gh"] and "pr" in seg[1:]:
+        i = 1
+        while i < len(seg) and seg[i] != "pr":
+            tok = seg[i]
+            if tok in {"-R", "--repo"} and i + 1 < len(seg):
+                i += 2
+                continue
+            if tok.startswith("--repo="):
+                i += 1
+                continue
+            if tok.startswith("-"):
+                i += 1
+                continue
+            break
+        if i < len(seg) and seg[i] == "pr":
+            seg = ["gh", *seg[i:]]
     return seg
 
 def ticket_refs(text: str) -> set[str]:
@@ -260,11 +203,15 @@ def parse_create(segment: list[str]) -> tuple[str, str]:
     title = ""
     body = ""
     body_file = ""
+    has_draft = False
     used_fill = False
     skip_next = False
     for j, tok in enumerate(segment[3:], start=3):
         if skip_next:
             skip_next = False
+            continue
+        if tok in ("-d", "--draft"):
+            has_draft = True
             continue
         if tok in ("-t", "--title"):
             if j + 1 < len(segment):
@@ -292,6 +239,9 @@ def parse_create(segment: list[str]) -> tuple[str, str]:
             continue
         if tok.startswith("--fill"):
             used_fill = True
+
+    if not has_draft:
+        return "blocked", "'gh pr create' には必ず '--draft' を付けてください。"
 
     if body_file:
         expanded = pathlib.Path(os.path.expandvars(os.path.expanduser(body_file)))
@@ -329,6 +279,104 @@ if checked:
     print("ok\t")
 else:
     print("none\t")
+PY
+}
+
+check_pr_lifecycle_chain_policy() {
+    COMMAND="$command" python3 - <<'PY'
+import os, re, shlex, sys
+
+cmd = os.environ.get("COMMAND", "")
+shell_operators = {";", "&", "|", "&&", "||", ";;"}
+
+def shell_tokens(value: str) -> list[str]:
+    try:
+        lexer = shlex.shlex(value, posix=True, punctuation_chars=";&|")
+        lexer.whitespace_split = True
+        return list(lexer)
+    except (TypeError, ValueError):
+        print("blocked\tcommand を安全に解析できません。")
+        sys.exit(0)
+
+def split_segments(tokens: list[str]) -> list[list[str]]:
+    segments: list[list[str]] = []
+    current: list[str] = []
+    for token in tokens:
+        if token in shell_operators:
+            if current:
+                segments.append(current)
+                current = []
+            continue
+        current.append(token)
+    if current:
+        segments.append(current)
+    return segments
+
+def normalize_segment(segment: list[str]) -> list[str]:
+    seg = list(segment)
+    changed = True
+    while changed and seg:
+        changed = False
+        if seg[:1] == ["rtk"]:
+            seg = seg[1:]
+            if seg[:1] == ["proxy"]:
+                seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["command"]:
+            seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["env"]:
+            i = 1
+            while i < len(seg):
+                tok = seg[i]
+                if re.match(r"^[A-Za-z_][A-Za-z0-9_]*=.*", tok):
+                    i += 1
+                    continue
+                if tok in {"-i", "--ignore-environment"}:
+                    i += 1
+                    continue
+                if tok in {"-u", "--unset"} and i + 1 < len(seg):
+                    i += 2
+                    continue
+                break
+            seg = seg[i:]
+            changed = True
+            continue
+    if seg[:1] == ["gh"] and "pr" in seg[1:]:
+        i = 1
+        while i < len(seg) and seg[i] != "pr":
+            tok = seg[i]
+            if tok in {"-R", "--repo"} and i + 1 < len(seg):
+                i += 2
+                continue
+            if tok.startswith("--repo="):
+                i += 1
+                continue
+            if tok.startswith("-"):
+                i += 1
+                continue
+            break
+        if i < len(seg) and seg[i] == "pr":
+            seg = ["gh", *seg[i:]]
+    return seg
+
+counts = {"ready": 0, "merge": 0}
+for raw_segment in split_segments(shell_tokens(cmd)):
+    segment = normalize_segment(raw_segment)
+    if segment[:3] == ["gh", "pr", "ready"]:
+        if "--undo" not in segment[3:]:
+            counts["ready"] += 1
+    if segment[:3] == ["gh", "pr", "merge"]:
+        counts["merge"] += 1
+
+if counts["ready"] > 1:
+    print("blocked\t複数の gh pr ready を1コマンドに連結しないでください。")
+elif counts["merge"] > 1:
+    print("blocked\t複数の gh pr merge を1コマンドに連結しないでください。")
+else:
+    print("ok\t")
 PY
 }
 
@@ -410,22 +458,48 @@ def read_message_file(path: str) -> str:
     expanded = pathlib.Path(os.path.expandvars(os.path.expanduser(path)))
     return expanded.read_text()
 
+def read_commit_message(rev: str) -> str:
+    return subprocess.check_output(
+        ["git", "log", "-1", "--format=%B", rev],
+        text=True,
+        stderr=subprocess.DEVNULL,
+    )
+
 def extract_messages(segment: list[str]) -> tuple[list[str], bool]:
     messages: list[str] = []
     unverifiable = False
+    amend = False
+    no_edit = False
     skip_next = False
     args = segment[2:]
     for j, tok in enumerate(args):
         if skip_next:
             skip_next = False
             continue
+        if tok == "--amend":
+            amend = True
+            continue
+        if tok == "--no-edit":
+            no_edit = True
+            continue
+        if tok.startswith("--fixup") or tok.startswith("--squash"):
+            messages.append(tok)
+            continue
         if tok in ("-C", "--reuse-message", "-c", "--reedit-message"):
-            unverifiable = True
             if j + 1 < len(args):
+                try:
+                    messages.append(read_commit_message(args[j + 1]))
+                except (OSError, subprocess.CalledProcessError):
+                    unverifiable = True
                 skip_next = True
+            else:
+                unverifiable = True
             continue
         if tok.startswith("--reuse-message=") or tok.startswith("--reedit-message="):
-            unverifiable = True
+            try:
+                messages.append(read_commit_message(tok.split("=", 1)[1]))
+            except (OSError, subprocess.CalledProcessError):
+                unverifiable = True
             continue
         if tok in ("-m", "--message"):
             if j + 1 < len(args):
@@ -438,6 +512,9 @@ def extract_messages(segment: list[str]) -> tuple[list[str], bool]:
         if tok.startswith("-") and not tok.startswith("--") and "m" in tok[1:]:
             flags = tok[1:]
             m_index = flags.find("m")
+            if m_index != len(flags) - 1:
+                unverifiable = True
+                continue
             inline = flags[m_index + 1:]
             if inline:
                 messages.append(inline)
@@ -459,6 +536,11 @@ def extract_messages(segment: list[str]) -> tuple[list[str], bool]:
             except OSError:
                 unverifiable = True
             continue
+    if not messages and amend and no_edit:
+        try:
+            messages.append(read_commit_message("HEAD"))
+        except (OSError, subprocess.CalledProcessError):
+            unverifiable = True
     if not messages:
         unverifiable = True
     return messages, unverifiable
@@ -605,32 +687,40 @@ if echo "$command" | grep -qE '^\s*(rtk\s+(proxy\s+)?)?gh\s+pr\s+review\b'; then
     echo "   ブロックされた場合は 'gh pr comment' に切り替えてください。" >&2
 fi
 
-# gh pr create で --draft / -d がない場合はブロック
-if echo "$command" | grep -qE '(^|[;&|])\s*(rtk\s+(proxy\s+)?)?gh\s+pr\s+create\b' && ! echo "$command" | grep -qE '(\s|^)(-d|--draft)(\s|$)'; then
-    echo "🚫 [hook] 'gh pr create' には必ず '--draft' を付けてください。" >&2
-    echo "   PR はドラフトで作成し、レビュー完了後に 'gh pr ready' で公開してください。" >&2
-    exit 2
-fi
+# gh pr create は segment ごとに --draft と 1 PR = 1 ticket を検査する
+pr_create_policy=$(check_pr_create_policy)
+pr_create_status=$(printf '%s' "$pr_create_policy" | cut -f1)
+pr_create_message=$(printf '%s' "$pr_create_policy" | cut -f2-)
+case "$pr_create_status" in
+    ok|none)
+        ;;
+    blocked)
+        echo "🚫 [hook] $pr_create_message" >&2
+        echo "   --draft と、--title / --body / --body-file の 'Closes #123' または '[PROJ-123]' を1つだけ明示してください。" >&2
+        exit 2
+        ;;
+    *)
+        echo "🚫 [hook] gh pr create のチケット検証に失敗しました。" >&2
+        exit 2
+        ;;
+esac
 
-# gh pr create は 1 PR = 1 ticket を機械的に確認できる title/body を必須にする
-if echo "$command" | grep -qE '(^|[;&|])\s*(rtk\s+(proxy\s+)?)?gh\s+pr\s+create\b'; then
-    pr_create_policy=$(check_pr_create_policy)
-    pr_create_status=$(printf '%s' "$pr_create_policy" | cut -f1)
-    pr_create_message=$(printf '%s' "$pr_create_policy" | cut -f2-)
-    case "$pr_create_status" in
-        ok|none)
-            ;;
-        blocked)
-            echo "🚫 [hook] $pr_create_message" >&2
-            echo "   --title / --body / --body-file に 'Closes #123' または '[PROJ-123]' を1つだけ明示してください。" >&2
-            exit 2
-            ;;
-        *)
-            echo "🚫 [hook] gh pr create のチケット検証に失敗しました。" >&2
-            exit 2
-            ;;
-    esac
-fi
+pr_lifecycle_policy=$(check_pr_lifecycle_chain_policy)
+pr_lifecycle_status=$(printf '%s' "$pr_lifecycle_policy" | cut -f1)
+pr_lifecycle_message=$(printf '%s' "$pr_lifecycle_policy" | cut -f2-)
+case "$pr_lifecycle_status" in
+    ok)
+        ;;
+    blocked)
+        echo "🚫 [hook] $pr_lifecycle_message" >&2
+        echo "   PR ready / merge は1コマンド1対象で分離して実行してください。" >&2
+        exit 2
+        ;;
+    *)
+        echo "🚫 [hook] PR lifecycle command の解析に失敗しました。" >&2
+        exit 2
+        ;;
+esac
 
 # gh pr ready の前に、既存 PR の title/body が 1 ticket だけを参照しているか確認する
 if echo "$command" | grep -qE '(^|[;&|])\s*(rtk\s+(proxy\s+)?)?gh\s+pr\s+ready\b' && ! echo "$command" | grep -qE '(^|[;&|])\s*(rtk\s+(proxy\s+)?)?gh\s+pr\s+ready\b.*(\s|^)--undo(\s|$)'; then
