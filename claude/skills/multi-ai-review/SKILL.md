@@ -29,7 +29,7 @@ Gemini / Codex / Claude CLI へ PR diff・local branch diff・関連ソースを
 - 作業ディレクトリは trusted repository またはその git worktree に限定する
 - 1 ticket / 1 PR にスコープを限定し、複数チケットを1つの review request に束ねない
 - `.env`、credentials、tokens、private keys、secret files、shell history、無関係な repo / home directory dump を送らない
-- Gemini は `NO_BROWSER=true gemini --skip-trust --approval-mode plan -m ${GEMINI_REVIEW_MODEL:-gemini-3-flash-preview} -p ' ' -e none -o text` の read-only scout のみで使う
+- Gemini は `NO_BROWSER=true gemini --skip-trust --approval-mode plan ${GEMINI_REVIEW_MODEL:+-m $GEMINI_REVIEW_MODEL} -p ' ' -e none -o text` の read-only scout のみで使う
 - Codex verifier は `codex exec --full-auto -c 'agents.default.config_file="$HOME/.codex/agents/reviewer.toml"'` を優先する
 - policy / Guardian / sandbox の拒否が出た場合は設定を弱めず、`skipped: policy_denied` または具体的な拒否理由を記録して Claude-only fallback に進む
 
@@ -129,8 +129,12 @@ with open(settings_path, "w") as f:
     f.write('{"hooksConfig":{"enabled":false},"tools":{"useRipgrep":false}}\n')
 env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"] = settings_path
 try:
+    cmd = ["gemini", "--skip-trust", "--approval-mode", "plan"]
+    if os.environ.get("GEMINI_REVIEW_MODEL"):
+        cmd += ["-m", os.environ["GEMINI_REVIEW_MODEL"]]
+    cmd += ["-p", " ", "-e", "none", "-o", "text"]
     proc = subprocess.run(
-        ["gemini", "--skip-trust", "--approval-mode", "plan", "-m", os.environ.get("GEMINI_REVIEW_MODEL", "gemini-3-flash-preview"), "-p", " ", "-e", "none", "-o", "text"],
+        cmd,
         input=prompt,
         text=True,
         capture_output=True,
@@ -164,8 +168,12 @@ with open(settings_path, "w") as f:
     f.write('{"hooksConfig":{"enabled":false},"tools":{"useRipgrep":false}}\n')
 env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"] = settings_path
 try:
+    cmd = ["gemini", "--skip-trust", "--approval-mode", "plan"]
+    if os.environ.get("GEMINI_REVIEW_MODEL"):
+        cmd += ["-m", os.environ["GEMINI_REVIEW_MODEL"]]
+    cmd += ["-p", " ", "-e", "none", "-o", "text"]
     proc = subprocess.run(
-        ["gemini", "--skip-trust", "--approval-mode", "plan", "-m", os.environ.get("GEMINI_REVIEW_MODEL", "gemini-3-flash-preview"), "-p", " ", "-e", "none", "-o", "text"],
+        cmd,
         input=prompt,
         text=True,
         capture_output=True,

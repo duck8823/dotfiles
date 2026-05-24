@@ -214,8 +214,12 @@ with open(settings_path, "w") as f:
     f.write('{"hooksConfig":{"enabled":false},"tools":{"useRipgrep":false}}\n')
 env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"] = settings_path
 try:
+    cmd = ["gemini", "--skip-trust", "--approval-mode", "plan"]
+    if os.environ.get("GEMINI_REVIEW_MODEL"):
+        cmd += ["-m", os.environ["GEMINI_REVIEW_MODEL"]]
+    cmd += ["-e", "none", "-o", "text", "-p", " "]
     proc = subprocess.run(
-        ["gemini", "--skip-trust", "--approval-mode", "plan", "-m", os.environ.get("GEMINI_REVIEW_MODEL", "gemini-3-flash-preview"), "-e", "none", "-o", "text", "-p", " "],
+        cmd,
         input=prompt,
         text=True,
         capture_output=True,
@@ -256,8 +260,12 @@ with open(settings_path, "w") as f:
     f.write('{"hooksConfig":{"enabled":false},"tools":{"useRipgrep":false}}\n')
 env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"] = settings_path
 try:
+    cmd = ["gemini", "--skip-trust", "--approval-mode", "plan"]
+    if os.environ.get("GEMINI_REVIEW_MODEL"):
+        cmd += ["-m", os.environ["GEMINI_REVIEW_MODEL"]]
+    cmd += ["-e", "none", "-o", "text", "-p", " "]
     proc = subprocess.run(
-        ["gemini", "--skip-trust", "--approval-mode", "plan", "-m", os.environ.get("GEMINI_REVIEW_MODEL", "gemini-3-flash-preview"), "-e", "none", "-o", "text", "-p", " "],
+        cmd,
         input=prompt,
         text=True,
         capture_output=True,
