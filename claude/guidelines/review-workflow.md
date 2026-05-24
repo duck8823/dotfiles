@@ -1,5 +1,9 @@
 # レビューワークフロー
 
+## Quality gates
+
+レビュー前 / Ready 前 / merge 前の品質 gate は `conventions/ai/quality-gates.md` を正本とする。レビュー運用はこの文書、品質 artifact と blocking policy は quality gates を優先して確認する。
+
 ## コードレビュー指針
 
 - PR レビュー時は、diff に実際に存在する内容のみ報告すること
