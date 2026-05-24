@@ -81,7 +81,7 @@ def test_git_pr_guards() -> None:
     assert_blocked(multiple, "複数のチケット参照")
 
     chained = run_hook('gh pr create --draft --title "first" --body "no ticket"; gh pr create --draft --title "[OPS-123] second" --body "details"')
-    assert_blocked(chained, "1 PR = 1 ticket")
+    assert_blocked(chained, "1コマンド単独")
 
     bare_version_like = run_hook('gh pr create --draft --title "Support ISO-8601" --body "no ticket"')
     assert_blocked(bare_version_like, "1 PR = 1 ticket")
@@ -102,7 +102,7 @@ def test_git_pr_guards() -> None:
     assert assignment_pr.returncode == 0, assignment_pr.stderr
 
     newline_pr = run_hook('echo ok\ngh pr create --draft --title "tighten guards" --body "no ticket"')
-    assert_blocked(newline_pr, "1 PR = 1 ticket")
+    assert_blocked(newline_pr, "1コマンド単独")
 
     substituted_body = run_hook('gh pr create --draft --title "tighten guards" --body "$(cat body.md)"')
     assert_blocked(substituted_body, "command substitution")
@@ -116,8 +116,14 @@ def test_git_pr_guards() -> None:
     exec_tag = run_hook("exec git tag v1.2.3")
     assert_blocked(exec_tag, "git tag")
 
+    shell_wrapper_tag = run_hook("bash -lc 'git tag v1.2.3'")
+    assert_blocked(shell_wrapper_tag, "bash -c")
+
+    absolute_git_tag = run_hook("/usr/bin/git tag v1.2.3")
+    assert_blocked(absolute_git_tag, "git tag")
+
     newline_tag = run_hook("echo ok\ngit tag v1.2.3")
-    assert_blocked(newline_tag, "git tag")
+    assert_blocked(newline_tag, "1コマンド単独")
 
     git_global_tag = run_hook("git -C /tmp tag v1.2.3")
     assert_blocked(git_global_tag, "git tag")
@@ -128,8 +134,17 @@ def test_git_pr_guards() -> None:
     push_tag_ref = run_hook("git push origin refs/tags/v1.2.3")
     assert_blocked(push_tag_ref, "git push tag ref")
 
+    push_delete_tag_ref = run_hook("git push origin :refs/tags/v1.2.3")
+    assert_blocked(push_delete_tag_ref, "git push tag ref")
+
+    push_mirror = run_hook("git push --mirror")
+    assert_blocked(push_mirror, "git push --tags/--follow-tags")
+
     release_create = run_hook("command gh --repo duck8823/dotfiles release create v1.2.3")
     assert_blocked(release_create, "gh release create")
+
+    reviewer_option = run_hook('gh pr create --draft --title "tighten guards" --body "Closes #123" --reviewer bot')
+    assert_blocked(reviewer_option, "reviewer")
 
     # Ready also checks the current PR metadata so edited PRs cannot bypass 1 ticket / PR.
     tmp_root = Path(tempfile.mkdtemp(prefix="dotfiles-git-pr-guard-test-"))
@@ -151,10 +166,10 @@ def test_git_pr_guards() -> None:
         assert_blocked(ready_multiple, "複数のチケット参照")
 
         chained_ready = run_hook("gh pr ready 1; gh pr ready 2", env={"PATH": f"{fake_bin}:{os.environ['PATH']}"})
-        assert_blocked(chained_ready, "複数の gh pr ready")
+        assert_blocked(chained_ready, "1コマンド単独")
 
         undo_then_ready = run_hook("gh pr ready --undo; gh pr ready", env={"PATH": f"{fake_bin}:{os.environ['PATH']}"})
-        assert_blocked(undo_then_ready, "複数の gh pr ready")
+        assert_blocked(undo_then_ready, "1コマンド単独")
 
         # Review-feedback commit messages are blocked; semantic commit messages pass.
         review_msg = run_hook('git commit -m "fix: address review feedback"')
@@ -176,7 +191,7 @@ def test_git_pr_guards() -> None:
         assert inline_message.returncode == 0, inline_message.stderr
 
         newline_review_msg = run_hook('echo ok\ngit commit -m "fix: review comments"')
-        assert_blocked(newline_review_msg, "レビュー起点")
+        assert_blocked(newline_review_msg, "1コマンド単独")
 
         substituted_review_msg = run_hook('git commit -m "$(echo review comments)"')
         assert_blocked(substituted_review_msg, "command substitution")

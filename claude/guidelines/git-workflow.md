@@ -36,7 +36,7 @@ Claude Code の PreToolUse / PostToolUse hook が `--draft` 不付与・Multi-AI
 ### 1. 作成
 - `gh pr create --draft` で必ずドラフト作成。`--draft` 不付与は hook でブロックされる
 - PR body に `Closes #<番号>` を含める。Jira 等の場合は title/body に `[PROJ-123]` を1つだけ含める
-- `--fill` のみでは hook が ticket を検証できないため、`--title` / `--body` / `--body-file` で ticket を明示する
+- `--fill` は commit message 由来の未検証本文が混入するため使わず、`--title` / `--body` / `--body-file` で ticket を明示する
 
 ### 2. レビュー
 - Multi-AI レビューコメント（Gemini / Codex / Claude の少なくとも 2 系統）を `gh pr comment` で投稿してから ready に移す

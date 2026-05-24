@@ -90,6 +90,10 @@ def normalize_segment(segment: list[str]) -> list[str]:
             changed = True
         if changed:
             continue
+        if seg and (seg[0].endswith("/git") or seg[0].endswith("/gh")):
+            seg[0] = seg[0].rsplit("/", 1)[-1]
+            changed = True
+            continue
         if seg[:1] == ["rtk"]:
             seg = seg[1:]
             if seg[:1] == ["proxy"]:
@@ -282,6 +286,10 @@ def normalize_segment(segment: list[str]) -> list[str]:
             seg = seg[1:]
             changed = True
         if changed:
+            continue
+        if seg and (seg[0].endswith("/git") or seg[0].endswith("/gh")):
+            seg[0] = seg[0].rsplit("/", 1)[-1]
+            changed = True
             continue
         if seg[:1] == ["rtk"]:
             seg = seg[1:]
@@ -489,6 +497,10 @@ def normalize_segment(segment: list[str]) -> list[str]:
             changed = True
         if changed:
             continue
+        if seg and (seg[0].endswith("/git") or seg[0].endswith("/gh")):
+            seg[0] = seg[0].rsplit("/", 1)[-1]
+            changed = True
+            continue
         if seg[:1] == ["rtk"]:
             seg = seg[1:]
             if seg[:1] == ["proxy"]:
@@ -621,6 +633,10 @@ def normalize_segment(segment: list[str]) -> list[str]:
             seg = seg[1:]
             changed = True
         if changed:
+            continue
+        if seg and (seg[0].endswith("/git") or seg[0].endswith("/gh")):
+            seg[0] = seg[0].rsplit("/", 1)[-1]
+            changed = True
             continue
         if seg[:1] == ["rtk"]:
             seg = seg[1:]
@@ -914,6 +930,10 @@ def normalize_wrappers(segment: list[str]) -> list[str]:
             changed = True
         if changed:
             continue
+        if seg and (seg[0].endswith("/git") or seg[0].endswith("/gh")):
+            seg[0] = seg[0].rsplit("/", 1)[-1]
+            changed = True
+            continue
         if seg[:1] == ["rtk"]:
             seg = seg[1:]
             if seg[:1] == ["proxy"]:
@@ -1006,10 +1026,17 @@ for raw_segment in split_segments(shell_tokens(cmd)):
         sys.exit(0)
     if segment[:2] == ["git", "push"]:
         for tok in segment[2:]:
-            if tok in {"--tags", "--follow-tags"}:
+            if tok in {"--tags", "--follow-tags", "--mirror"}:
                 print("blocked\tgit push --tags/--follow-tags\tリリースタグはユーザーの明示的な承認を得てから push してください。")
                 sys.exit(0)
-            if tok.startswith("refs/tags/") or re.match(r"^v?[0-9]+(?:\.[0-9]+){1,3}(?:[-+][A-Za-z0-9_.-]+)?$", tok):
+            refspec = tok[1:] if tok.startswith("+") else tok
+            if (
+                refspec.startswith("refs/tags/")
+                or refspec.startswith(":refs/tags/")
+                or ":refs/tags/" in refspec
+                or refspec == "*:*"
+                or re.match(r"^v?[0-9]+(?:\.[0-9]+){1,3}(?:[-+][A-Za-z0-9_.-]+)?$", refspec)
+            ):
                 print("blocked\tgit push tag ref\tリリースタグはユーザーの明示的な承認を得てから push してください。")
                 sys.exit(0)
     if segment[:3] == ["gh", "release", "create"]:
@@ -1050,9 +1077,28 @@ validate_pr_ticket_or_exit() {
     esac
 }
 
+guard_command_has_git_gh=false
+if printf '%s' "$command" | grep -qE '(^|[^[:alnum:]_/-])(/[^[:space:];&|]+/)?(git|gh)([^[:alnum:]_-]|$)'; then
+    guard_command_has_git_gh=true
+fi
+
+# guarded git/gh 操作は、検証後に同一 shell 内で状態を書き換えられないよう単独実行に限定する
+if [ "$guard_command_has_git_gh" = "true" ]; then
+    if [[ "$command" == *$'\n'* || "$command" == *';'* || "$command" == *'&&'* || "$command" == *'||'* || "$command" == *'|'* ]]; then
+        echo "🚫 [hook] git/gh command は1コマンド単独で実行してください。" >&2
+        echo "   検証後に同一 command chain 内で状態を書き換える TOCTOU を避けるためです。" >&2
+        exit 2
+    fi
+    if printf '%s' "$command" | grep -qE '(^|[[:space:]])(bash|sh|zsh)[[:space:]]+-l?c([[:space:]]|$)|(^|[[:space:]])(bash|sh|zsh)[[:space:]]+[^;&|]+[[:space:]]+-l?c([[:space:]]|$)|(^|[[:space:]])eval([[:space:]]|$)'; then
+        echo "🚫 [hook] git/gh command を bash -c / sh -c / zsh -c / eval 経由で実行しないでください。" >&2
+        echo "   hook が検証できる直接コマンドとして実行してください。" >&2
+        exit 2
+    fi
+fi
+
 # shell expansion は hook が実行前に検証できる静的値を壊すため、guarded command では明示ファイルに寄せる
 if [[ "$command" == *'$('* || "$command" == *'`'* || "$command" == *'<('* ]] \
-   && printf '%s' "$command" | grep -qE '(^|[^[:alnum:]_-])(git|gh)([^[:alnum:]_-]|$)'; then
+   && [ "$guard_command_has_git_gh" = "true" ]; then
     echo "🚫 [hook] git/gh command では command substitution / process substitution を使わないでください。" >&2
     echo "   PR body は --body-file の通常ファイル、commit message は -F の通常ファイルで明示してください。" >&2
     exit 2
@@ -1062,6 +1108,12 @@ fi
 if echo "$command" | grep -qE 'gh[[:space:]].*api[[:space:]].*(collaborators|requested_reviewers|reviewers\[\]|team_reviewers\[\])'; then
     echo "🚫 [hook] AIアカウントをGitHubコラボレーター/レビュアーとして追加しないでください。" >&2
     echo "   代わりに 'gh pr comment' でレビュー結果を投稿してください。" >&2
+    exit 2
+fi
+
+if echo "$command" | grep -qE 'gh[[:space:]].*pr[[:space:]]+(create|edit)[[:space:]].*(--reviewer|--add-reviewer|--remove-reviewer)'; then
+    echo "🚫 [hook] gh pr create/edit で reviewer を直接追加しないでください。" >&2
+    echo "   AIレビューは 'gh pr comment' でレビュー結果を投稿してください。" >&2
     exit 2
 fi
 
