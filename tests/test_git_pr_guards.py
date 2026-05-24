@@ -101,6 +101,12 @@ def test_git_pr_guards() -> None:
     assignment_pr = run_hook('FOO=1 gh pr create --draft --title "tighten guards" --body "Closes #123"')
     assert assignment_pr.returncode == 0, assignment_pr.stderr
 
+    literal_git_chain = run_hook('echo "fix git tag docs" && echo done')
+    assert literal_git_chain.returncode == 0, literal_git_chain.stderr
+
+    literal_substitution_text = run_hook("echo 'we document $(git rev-parse) usage'")
+    assert literal_substitution_text.returncode == 0, literal_substitution_text.stderr
+
     newline_pr = run_hook('echo ok\ngh pr create --draft --title "tighten guards" --body "no ticket"')
     assert_blocked(newline_pr, "1コマンド単独")
 

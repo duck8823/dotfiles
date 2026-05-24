@@ -420,7 +420,7 @@ def parse_create(segment: list[str]) -> tuple[str, str]:
         if str(body_file) == "-" or str(body_file).startswith("<("):
             return "blocked", "gh pr create の body file は検証不能です。--body または通常ファイルの --body-file を使ってください。"
         try:
-            if not expanded.is_file() or expanded.stat().st_size > 1024 * 1024:
+            if expanded.is_symlink() or not expanded.is_file() or expanded.stat().st_size > 1024 * 1024:
                 return "blocked", "gh pr create の body file は通常ファイルかつ1MiB以下にしてください。"
             body += "\n" + expanded.read_text()
         except OSError:
@@ -704,7 +704,7 @@ def normalize_segment(segment: list[str]) -> list[str]:
 
 def read_message_file(path: str) -> str:
     expanded = pathlib.Path(os.path.expandvars(os.path.expanduser(path)))
-    if not expanded.is_file() or expanded.stat().st_size > 1024 * 1024:
+    if expanded.is_symlink() or not expanded.is_file() or expanded.stat().st_size > 1024 * 1024:
         raise OSError("commit message file must be a regular file <= 1MiB")
     return expanded.read_text()
 
@@ -1035,13 +1035,152 @@ for raw_segment in split_segments(shell_tokens(cmd)):
                 or refspec.startswith(":refs/tags/")
                 or ":refs/tags/" in refspec
                 or refspec == "*:*"
-                or re.match(r"^v?[0-9]+(?:\.[0-9]+){1,3}(?:[-+][A-Za-z0-9_.-]+)?$", refspec)
             ):
                 print("blocked\tgit push tag ref\tリリースタグはユーザーの明示的な承認を得てから push してください。")
                 sys.exit(0)
     if segment[:3] == ["gh", "release", "create"]:
         print("blocked\tgh release create\tリリースはユーザーの明示的な承認を得てから作成してください。")
         sys.exit(0)
+
+print("ok\t\t")
+PY
+}
+
+check_guarded_shell_safety_policy() {
+    COMMAND="$command" python3 - <<'PY'
+import os, re, shlex, sys
+
+cmd = os.environ.get("COMMAND", "")
+shell_operators = {";", "&", "|", "&&", "||", ";;", "\n"}
+
+def shell_tokens(value: str) -> list[str]:
+    try:
+        lexer = shlex.shlex(value, posix=True, punctuation_chars=";&|\n")
+        lexer.whitespace = " \t\r"
+        lexer.whitespace_split = True
+        return list(lexer)
+    except (TypeError, ValueError):
+        print("blocked\tparse_error\tcommand を安全に解析できません。")
+        sys.exit(0)
+
+def split_segments(tokens: list[str]) -> list[list[str]]:
+    segments: list[list[str]] = []
+    current: list[str] = []
+    for token in tokens:
+        if token in shell_operators:
+            if current:
+                segments.append(current)
+                current = []
+            continue
+        current.append(token)
+    if current:
+        segments.append(current)
+    return segments
+
+def strip_wrappers(segment: list[str]) -> list[str]:
+    seg = list(segment)
+    changed = True
+    while changed and seg:
+        changed = False
+        while seg and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=.*", seg[0]):
+            seg = seg[1:]
+            changed = True
+        if changed:
+            continue
+        if seg and (seg[0].endswith("/git") or seg[0].endswith("/gh")):
+            seg[0] = seg[0].rsplit("/", 1)[-1]
+            changed = True
+            continue
+        if seg[:1] == ["rtk"]:
+            seg = seg[1:]
+            if seg[:1] == ["proxy"]:
+                seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] in (["command"], ["exec"], ["nohup"], ["time"]):
+            seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["nice"]:
+            seg = seg[1:]
+            if seg[:1] == ["-n"] and len(seg) >= 2:
+                seg = seg[2:]
+            elif seg[:1] and re.match(r"^-[0-9]+$", seg[0]):
+                seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["env"]:
+            i = 1
+            while i < len(seg):
+                tok = seg[i]
+                if re.match(r"^[A-Za-z_][A-Za-z0-9_]*=.*", tok):
+                    i += 1
+                    continue
+                if tok in {"-i", "--ignore-environment"}:
+                    i += 1
+                    continue
+                if tok in {"-u", "--unset"} and i + 1 < len(seg):
+                    i += 2
+                    continue
+                break
+            seg = seg[i:]
+            changed = True
+            continue
+    return seg
+
+def normalize_gh_global(segment: list[str]) -> list[str]:
+    seg = strip_wrappers(segment)
+    if seg[:1] != ["gh"]:
+        return seg
+    for subcommand in ("pr", "api", "release"):
+        if subcommand not in seg[1:]:
+            continue
+        i = 1
+        while i < len(seg) and seg[i] != subcommand:
+            tok = seg[i]
+            if tok in {"-R", "--repo", "--hostname"} and i + 1 < len(seg):
+                i += 2
+                continue
+            if tok.startswith("--repo=") or tok.startswith("--hostname="):
+                i += 1
+                continue
+            if tok.startswith("-"):
+                i += 1
+                continue
+            break
+        if i < len(seg) and seg[i] == subcommand:
+            return ["gh", *seg[i:]]
+    return seg
+
+def is_guarded(segment: list[str]) -> bool:
+    seg = normalize_gh_global(segment)
+    return bool(seg and seg[0] in {"git", "gh"})
+
+def contains_guarded_payload(text: str) -> bool:
+    return bool(re.search(r"(^|[^A-Za-z0-9_/-])(/[^\\s;&|]+/)?(git|gh)([^A-Za-z0-9_-]|$)", text))
+
+tokens = shell_tokens(cmd)
+segments = split_segments(tokens)
+has_operator = any(token in shell_operators for token in tokens)
+guarded_segments = [segment for segment in segments if is_guarded(segment)]
+
+for segment in segments:
+    stripped = strip_wrappers(segment)
+    if stripped[:1] and stripped[0] in {"bash", "sh", "zsh"}:
+        if any(tok in {"-c", "-lc"} for tok in stripped[1:]) and any(contains_guarded_payload(tok) for tok in stripped[1:]):
+            print("blocked\tshell_wrapper\tgit/gh command を bash -c / sh -c / zsh -c 経由で実行しないでください。")
+            sys.exit(0)
+    if stripped[:1] == ["eval"] and any(contains_guarded_payload(tok) for tok in stripped[1:]):
+        print("blocked\tshell_wrapper\tgit/gh command を eval 経由で実行しないでください。")
+        sys.exit(0)
+
+if guarded_segments and has_operator:
+    print("blocked\tchain\tgit/gh command は1コマンド単独で実行してください。")
+    sys.exit(0)
+
+if guarded_segments and any(("$(" in tok or "`" in tok or "<(" in tok) for segment in guarded_segments for tok in segment):
+    print("blocked\texpansion\tgit/gh command では command substitution / process substitution を使わないでください。")
+    sys.exit(0)
 
 print("ok\t\t")
 PY
@@ -1077,32 +1216,34 @@ validate_pr_ticket_or_exit() {
     esac
 }
 
-guard_command_has_git_gh=false
-if printf '%s' "$command" | grep -qE '(^|[^[:alnum:]_/-])(/[^[:space:];&|]+/)?(git|gh)([^[:alnum:]_-]|$)'; then
-    guard_command_has_git_gh=true
-fi
-
 # guarded git/gh 操作は、検証後に同一 shell 内で状態を書き換えられないよう単独実行に限定する
-if [ "$guard_command_has_git_gh" = "true" ]; then
-    if [[ "$command" == *$'\n'* || "$command" == *';'* || "$command" == *'&&'* || "$command" == *'||'* || "$command" == *'|'* ]]; then
-        echo "🚫 [hook] git/gh command は1コマンド単独で実行してください。" >&2
-        echo "   検証後に同一 command chain 内で状態を書き換える TOCTOU を避けるためです。" >&2
+guarded_shell_result=$(check_guarded_shell_safety_policy)
+guarded_shell_status=$(printf '%s' "$guarded_shell_result" | cut -f1)
+guarded_shell_reason=$(printf '%s' "$guarded_shell_result" | cut -f2)
+guarded_shell_message=$(printf '%s' "$guarded_shell_result" | cut -f3-)
+case "$guarded_shell_status" in
+    ok)
+        ;;
+    blocked)
+        echo "🚫 [hook] $guarded_shell_message" >&2
+        case "$guarded_shell_reason" in
+            chain)
+                echo "   検証後に同一 command chain 内で状態を書き換える TOCTOU を避けるためです。" >&2
+                ;;
+            shell_wrapper)
+                echo "   hook が検証できる直接コマンドとして実行してください。" >&2
+                ;;
+            expansion)
+                echo "   PR body は --body-file の通常ファイル、commit message は -F の通常ファイルで明示してください。" >&2
+                ;;
+        esac
         exit 2
-    fi
-    if printf '%s' "$command" | grep -qE '(^|[[:space:]])(bash|sh|zsh)[[:space:]]+-l?c([[:space:]]|$)|(^|[[:space:]])(bash|sh|zsh)[[:space:]]+[^;&|]+[[:space:]]+-l?c([[:space:]]|$)|(^|[[:space:]])eval([[:space:]]|$)'; then
-        echo "🚫 [hook] git/gh command を bash -c / sh -c / zsh -c / eval 経由で実行しないでください。" >&2
-        echo "   hook が検証できる直接コマンドとして実行してください。" >&2
+        ;;
+    *)
+        echo "🚫 [hook] git/gh shell safety policy の解析に失敗しました。" >&2
         exit 2
-    fi
-fi
-
-# shell expansion は hook が実行前に検証できる静的値を壊すため、guarded command では明示ファイルに寄せる
-if [[ "$command" == *'$('* || "$command" == *'`'* || "$command" == *'<('* ]] \
-   && [ "$guard_command_has_git_gh" = "true" ]; then
-    echo "🚫 [hook] git/gh command では command substitution / process substitution を使わないでください。" >&2
-    echo "   PR body は --body-file の通常ファイル、commit message は -F の通常ファイルで明示してください。" >&2
-    exit 2
-fi
+        ;;
+esac
 
 # AIアカウントをGitHubコラボレーター/レビュアーとして追加しようとしている場合はブロック
 if echo "$command" | grep -qE 'gh[[:space:]].*api[[:space:]].*(collaborators|requested_reviewers|reviewers\[\]|team_reviewers\[\])'; then
