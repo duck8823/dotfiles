@@ -58,6 +58,10 @@
 
 レビューを始める前に、reviewer が同じ前提を見られる状態にする。
 
+### Review context packet
+
+レビュー前に共有する最小 context schema は `conventions/ai/review-context-schema.md` を参照する。reviewer は `required_context_checked` を返し、不足があれば `INSUFFICIENT_CONTEXT` として扱う。
+
 ### Required artifacts
 
 - PR motivation と ticket link
@@ -160,6 +164,7 @@ merge 前に、変更が ticket scope を超えず、レビューと検証が収
 ## Current hook compatibility
 
 現行 hook はこの文書より細かい marker / signature を要求する場合がある。hook 実装が更新されるまでは、`claude/guidelines/harness-hooks.md` にある既存 marker 形式を満たす。
+
 
 ## Related documents
 
