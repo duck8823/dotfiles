@@ -346,7 +346,7 @@ gh issue list --state open --limit 10
 ## 注意事項
 
 - **コミットメッセージは必ず日本語**で記述する
-- **Codex は primary orchestrator / worker / verifier** として使う
+- **Orchestrator は固定 AI 名ではなく role** として扱う。現状は Codex を orchestrator candidate / worker / verifier として使うことが多い
 - **Gemini は local policy に従う scout / critic / optional worker** として扱う。無効なら skip を記録する
 - **Claude は必要時の foreground specialist / integrator** として使う
 - 実装担当と同じ engine の自己レビューだけで完結しない

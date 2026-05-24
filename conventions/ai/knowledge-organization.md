@@ -28,7 +28,7 @@
 ## 自律・協調運用での原則
 
 - Foreground orchestrator は最終判断を持ち、worker / scout の結果を統合する。
-- 現在の標準では Codex を primary orchestrator とし、Traceary / git / PR / Issue から context を復元して継続する。
+- Orchestrator は固定 AI 名ではなく role として扱う。現状は Codex が担うことが多いが、Claude / Gemini / Codex の能力・可用性・local policy に応じて切り替えられるよう、Traceary / git / PR / Issue から context を復元して継続する。
 - Background worker は scoped task と検証証跡を返す。
 - Scout は repo-wide consistency と diff 外影響を探す。read-only 固定ではなく、write 可否はローカルポリシーと worktree gate で決める。
 - policy gate、secret 除外、generated code 除外、CI 判定ルールは skill ではなく常時ルール側にも置く。

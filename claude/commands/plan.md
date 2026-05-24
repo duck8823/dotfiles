@@ -82,4 +82,4 @@ gh issue list --milestone "<milestone>" --state open --json number,title,body,la
 
 - このセッションではコードを一切書かない・編集しない
 - Gemini は local policy に従う scout / critic として扱う。無効なら skip を記録する
-- Codex は primary orchestrator / worker 観点の計画支援に使うが、このセッションで実装はしない
+- Codex は現状の orchestrator candidate / worker 観点の計画支援に使うが、このセッションで実装はしない

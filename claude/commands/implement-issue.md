@@ -22,7 +22,7 @@ allowed-tools: ["Bash", "Read", "Edit", "Write", "Glob", "Grep", "Task"]
 2. **Gemini**: 既存パターン、命名一貫性、diff 外で修正が必要なファイル、docs / config / l10n 更新要否を洗う
 3. **Codex**: テスト戦略、エッジケース、セキュリティ観点、実装分割を洗う
 
-Gemini は local policy に従う scout / critic / optional worker、Codex は primary orchestrator / scoped worker / verifier として使う。
+Gemini は local policy に従う scout / critic / optional worker、Codex は現状の orchestrator candidate / scoped worker / verifier として使う。Orchestrator は固定 AI 名ではなく、task / local policy / 可用性 / 能力で選ぶ role として扱う。
 
 Medium / High risk（新しい振る舞い・IF・複数ファイル変更、public API、DB、auth/authz、billing、migration、cross-module architecture）の場合は、ここで `structure-behavior-design` skill を適用し、要求・概念モデル・責務表・境界/IF・振る舞いテスト・TDD plan を `.ai/spec/<issue>.md` または PR description に残す。
 
@@ -34,7 +34,7 @@ Medium / High risk（新しい振る舞い・IF・複数ファイル変更、pub
 - 複数レイヤーを跨ぐ大きな変更
 - 途中で設計を変える可能性が高い
 
-### Codex 主体で進める条件
+### Codex を current orchestrator / worker として進める条件
 - スコープが明確
 - テスト追加・CI/CD・シェル・設定変更が中心
 - セキュリティ修正やバリデーション追加
@@ -91,11 +91,11 @@ ANALYZE_CMD=$(grep 'analyze_command' CLAUDE.md 2>/dev/null | sed 's/.*`\([^`]*\)
 
 ## ステップ7: コミット分割 & ドラフトPR作成
 
-実装を論理的なコミットに分割する（1つの関心事につき1コミット）:
+実装を論理的なコミットに分割する（1つの関心事につき1コミット）。チケット番号は PR body で紐付け、コミットメッセージには入れない:
 
 ```bash
 git add <変更したファイルを個別に指定>
-git commit -m "<type>: <説明> (closes #$ARGUMENTS)"
+git commit -m "<type>: <何を・なぜ変えたか>"
 git push -u origin HEAD
 gh pr create --draft   --title "<タイトル>"   --body "$(cat <<'EOF'
 ## 概要

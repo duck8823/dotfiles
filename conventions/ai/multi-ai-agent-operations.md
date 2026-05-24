@@ -5,8 +5,8 @@
 
 ## 基本方針
 
-- 現在の標準運用では **Codex を primary orchestrator** とする。
-- Claude / Gemini / Codex は固定階層ではなく、role / responsibility / local policy に応じて協調する。
+- Orchestrator は固定された AI 名ではなく、現在の main session / task / local policy / 可用性 / 能力で選ぶ **role** とする。
+- 現在の実運用では Codex が primary orchestrator になることが多いが、それは現状の適性であって恒久的な希望状態ではない。Claude / Gemini / Codex は同じ role / responsibility / resume schema で協調・代替できるようにする。
 - Gemini を dotfiles で恒久的に read-only 固定しない。共有テンプレートは安全側の plan/scout を既定にするが、write 可否・無効化・approval mode はローカルポリシーを優先する。
 - 手書き handoff を標準にせず、Traceary / git / PR / Issue / workspace packet から context を復元する。
 
@@ -14,7 +14,7 @@
 
 | ロール | 代表担当 | 権限 | 成果物 |
 |---|---|---|---|
-| Primary orchestrator | Codex メインセッション | 全体進行、採否判断、PR ゲート、レビュー反映 | 方針、採否理由、統合コメント、次アクション |
+| Primary orchestrator | 現在の main session（現状は Codex が多いが固定しない） | 全体進行、採否判断、PR ゲート、レビュー反映 | 方針、採否理由、統合コメント、次アクション |
 | Foreground specialist / integrator | Claude / Codex | UX・仕様・大きめの統合判断 | 設計判断、ユーザー影響整理、統合レビュー |
 | Scoped implementation worker | Codex / local policy で許可された agent | dedicated branch / worktree の write | 変更ファイル、実行コマンド、結果、残リスク |
 | Scout / critic | Gemini / Claude / Codex | 既定は read-heavy。write は local policy 次第 | 既存パターン逸脱、命名 drift、diff 外影響 |
@@ -53,6 +53,14 @@ agent 間の共有 artifact は「handoff」ではなく、再開可能な conte
 - write worker では ticket / branch / worktree / 変更可能ファイルを明示する。
 - reviewer では author と利益相反を明示する。author と同じ engine は独立最終レビュー扱いにしない。
 - `validated_commands` が空の verifier 出力は「未検証」として扱う。
+
+## Git / PR guard policy
+
+- **1 PR = 1 ticket** を hard gate とする。GitHub Issue なら `Closes #123`、Jira 等なら `[PROJ-123]` のような ticket ID を PR title/body に1つだけ含める。
+- 1 ticket の中では multiple commits を許可する。ただし各 commit は「何を・なぜ変えたか」を表す1関心事に分割する。
+- レビュー指摘で発生した変更も「レビュー対応」「address review feedback」などの commit message にしない。既存 commit に fixup / amend するか、変更内容を表す semantic message にする。
+- 1 PR に複数 ticket が混ざった場合は、既存 PR を閉じるのではなく対象 ticket に scope を戻し、残りの差分は別 branch / 別 PR へ分割する。
+- hook は決定論的に判定できるもの（ticket count、draft、review 起点 commit message、過大 staged 変更の警告）だけを扱う。関心事分割の最終判断は diff 実読と reviewer に委ねる。
 
 ## 共通化の方針
 

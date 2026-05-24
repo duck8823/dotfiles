@@ -42,7 +42,7 @@ diff の内容を確認した後、以下の観点で diff 外のソースコー
 - Gemini が認証プロンプト・quota・空出力で失敗した場合は、ブラウザ認証で止めずに Codex scout / default subagent へフォールバックする
 - Codex は review 時に必要なコマンド（`test_command`, `analyze_command`）を実行して検証する
 - Codex の固定ロール subagent がモデル非互換で失敗した場合は、同じ依頼を `agent_type` 未指定の default subagent で再実行する
-- Codex 主体運用では Codex が統合コメントを作り、ユーザー影響が大きい論点だけ Claude specialist へ渡す
+- Codex が current orchestrator の場合は Codex が統合コメントを作り、ユーザー影響が大きい論点だけ Claude specialist へ渡す。Orchestrator は固定ではない
 
 
 ## External AI delegation policy gate

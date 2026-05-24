@@ -80,8 +80,9 @@
 
 詳細: `~/.claude/guidelines/multi-ai-team.md`
 
-- Codex = primary orchestrator / worker / verifier（実装・テスト・調査・CI/CD・レビュー反映）
-- Claude = foreground specialist / integrator（UX・仕様・大きめの統合判断）
+- Current orchestrator = 固定 AI 名ではなく、task / local policy / 可用性 / 能力で選ぶ role（現状は Codex が担うことが多い）
+- Codex = orchestrator candidate / worker / verifier（実装・テスト・調査・CI/CD・レビュー反映）
+- Claude = foreground specialist / orchestrator candidate / integrator（UX・仕様・大きめの統合判断）
 - Gemini = policy-controlled scout / critic / optional worker（一貫性レビュー・計画の俯瞰チェック。read-only 固定ではなく local policy 優先）
 - 失敗時は1回リトライ → スキップして理由を記録し、別 agent / local verification で補完
 

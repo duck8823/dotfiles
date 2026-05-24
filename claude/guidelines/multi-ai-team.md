@@ -2,19 +2,19 @@
 
 ## コンセプト
 
-同じ役割を Claude / Codex / Gemini の3AIで多重化するが、**モデル比較ではなく運転モードとローカルポリシーで分担**する。
+同じ役割を Claude / Codex / Gemini の3AIで多重化するが、**モデル比較ではなく運転モードとローカルポリシーで分担**する。Orchestrator は固定 AI 名ではなく role であり、現状は Codex が担うことが多いだけと扱う。
 
-- **Codex**: primary orchestrator / worker / verifier
-- **Claude**: foreground specialist / integrator
+- **Codex**: current orchestrator candidate / worker / verifier
+- **Claude**: foreground specialist / orchestrator candidate / integrator
 - **Gemini**: policy-controlled scout / critic / optional worker
 
 共有 dotfiles は安全側のデフォルトを配るだけで、Gemini を恒久的に read-only 固定しない。各マシン・各リポジトリでは `conventions/ai/local-agent-policy.md` に従い、Gemini の無効化・approval mode・write 可否を上書きできる。
 
 ## 相互協調ポリシー
 
-multi-AI 協業は一方向の handoff ではなく、Traceary / git / PR / Issue から context を復元し、現在の orchestrator が次の agent を選ぶ。
+multi-AI 協業は一方向の handoff ではなく、Traceary / git / PR / Issue から context を復元し、現在の orchestrator が次の agent を選ぶ。現在の orchestrator は Codex に固定しない。
 
-- **Codex orchestrator**: 全体進行、実装、検証、レビュー反映、PR コメント集約を担当する
+- **Current orchestrator**: 全体進行、実装、検証、レビュー反映、PR コメント集約を担当する
 - **Claude specialist**: UX・仕様・大きめの統合判断、Claude Code 固有の作業、最終説明を担当する
 - **Gemini scout / worker**: repo-wide consistency、計画漏れ、diff 外影響、local policy が許す scoped task を担当する
 - **Traceary**: 手書き引き継ぎの代替。session handoff / recent context / durable memory / command audit から resume packet を作る
@@ -25,7 +25,7 @@ multi-AI 協業は一方向の handoff ではなく、Traceary / git / PR / Issu
 
 | タスクの形 | 標準担当 | 補助 |
 |---|---|---|
-| 自律的な Issue/PR 進行 | Codex | Claude / Gemini |
+| 自律的な Issue/PR 進行 | Current orchestrator（現状は Codex が多い） | Claude / Gemini / Codex |
 | scoped 実装・テスト追加・CI/CD・スクリプト | Codex | Gemini / Claude review |
 | セキュリティ・エッジケース・再現確認 | Codex verifier | Claude reviewer |
 | コード調査・ドキュメント調査 | Codex | Gemini / Claude |
@@ -36,7 +36,7 @@ multi-AI 協業は一方向の handoff ではなく、Traceary / git / PR / Issu
 
 ### 原則
 
-1. **現在の orchestrator を固定する** — 多くの作業では Codex が主導し、Claude / Gemini は専門 role として参加する。
+1. **現在の orchestrator role を明示する** — 多くの作業では現状 Codex が主導するが、能力・可用性・local policy に応じて Claude / Gemini / Codex のいずれにも切り替えられる。
 2. **agent の可否は local policy で決める** — Gemini 禁止環境では無理に起動せず `local_policy_disabled` として記録する。
 3. **write は branch / worktree gate を通す** — Gemini でも Claude でも Codex でも、write は main/master 直下で実行しない。
 4. **停止より記録と代替** — auth / quota / policy deny / disabled は理由を残し、別 agent / local verification / CI へ進む。
@@ -74,7 +74,7 @@ multi-AI 協業は一方向の handoff ではなく、Traceary / git / PR / Issu
 
 | ロール | Codex | Claude | Gemini |
 |--------|-------|--------|--------|
-| **Orchestrator** | 標準 | 必要時 | local policy 次第 |
+| **Orchestrator** | 現状の標準候補 | 必要時・能力次第 | local policy 次第 |
 | **Planner** | 依存分析・Wave構成・フィジビリティ | 統合・仕様論点 | 優先度・マイルストーン整合・漏れ検出 |
 | **Spec** | テスト戦略・セキュリティ・検証計画・ファイルスコープ | UX/仕様の補足 | 既存パターン・影響範囲 |
 | **Architect** | 責務分離・設計分割・変更単位 | 依存追跡・レイヤー違反 | 構造 drift |

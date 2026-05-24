@@ -2,8 +2,9 @@
 
 ## 原則
 
-- **Codex** は primary orchestrator / worker / verifier として使う
-- **Claude** は foreground specialist / integrator として使う
+- **Current orchestrator** は固定 AI 名ではなく、task / local policy / 可用性 / 能力で選ぶ role として扱う
+- **Codex** は現状の orchestrator candidate / worker / verifier として使う
+- **Claude** は foreground specialist / orchestrator candidate / integrator として使う
 - **Gemini** は policy-controlled scout / critic / optional worker として使う
 - すべて **ヘッドレス実行** を基本とする
 - 書き込みタスクは isolated branch / worktree 前提
@@ -73,7 +74,7 @@ export PUB_CACHE="$HOME/.pub-cache"
 
 ### Claude
 - subagents / Task は sidecar 調査や UX/仕様判断の補助に使う
-- Codex 主体運用でも、ユーザー影響が大きい判断では Claude specialist として使う
+- Codex が current orchestrator の場合でも、ユーザー影響が大きい判断では Claude specialist として使う。Claude の orchestration 能力が高い局面では Claude が orchestrator role を担ってよい
 
 ## エージェント指定付き実行
 
@@ -111,7 +112,7 @@ GEMINI_SYSTEM_MD=$HOME/.gemini/agents/<agent-name>.md \
 
 - Gemini は local policy に従い、scout / critic / optional worker として使う
 - 実装・検証が必要な場合は `context_resume_request`、UX / 統合判断が必要な場合は `handoff_to_claude` 相当の decision request を返す
-- 実行は current orchestrator（標準では Codex）が行う
+- 実行は current orchestrator が行う。現状は Codex が多いが固定しない
 
 ## worktree 運用
 

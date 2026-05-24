@@ -1,6 +1,6 @@
 ---
 name: autonomous-pr-flow
-description: 自律実行要求時に、1Issueではなく全体進行（複数Issue/PR）で回すための Codex 主体スキル。
+description: 自律実行要求時に、1Issueではなく全体進行（複数Issue/PR）で回すための Codex current-orchestrator スキル。
 ---
 
 # Autonomous PR Flow (Whole Delivery)
@@ -18,10 +18,10 @@ description: 自律実行要求時に、1Issueではなく全体進行（複数I
 
 ## レビュー編成（Codexスキルの適用範囲）
 
-このスキルは **Codex 主体の自律運用** のみを対象とする。  
-（Claude 主体の運用定義は `claude/` 側に置く）
+このスキルは **Codex が current orchestrator の自律運用** を対象とする。
+Orchestrator は固定 AI 名ではなく role であり、Claude / Gemini が担う運用定義は各ツール側に置く。
 
-- Codex が primary orchestrator として進行する
+- Codex が current orchestrator として進行する
 - PR作成後の多重レビューは `multi-ai-review` skill を使う
 - Gemini は local policy が許す場合に reviewer / scout として使う。無効化・認証プロンプト・quota・空出力の場合は、理由を記録し Claude reviewer / Codex scout / independent local verification で代替する
 - GitHub 上の `@claude @gemini multi-ai-review` メンションは使わず、ローカル実行結果を `gh pr comment` で集約する

@@ -6,7 +6,7 @@ description: policy-controlled scout・独立 verifier・Codex integrator を組
 # Multi-AI Review for Codex
 
 ## 目的
-Codex 主体の作業でも、Claude 側 dotfiles と同じ考え方で **policy-controlled scout / 独立 verifier / Codex integrator** の多重レビューを実行する。
+Codex が current orchestrator の作業でも、Claude 側 dotfiles と同じ考え方で **policy-controlled scout / 独立 verifier / Codex integrator** の多重レビューを実行する。
 
 この skill は `@claude @gemini multi-ai-review` のような GitHub メンション方式を使わない。外部 AI を GitHub reviewer / collaborator として追加せず、ローカル CLI / subagent の結果を Codex が統合し、`gh pr comment` で PR に記録する。
 
