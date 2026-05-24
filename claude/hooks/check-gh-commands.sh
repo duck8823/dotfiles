@@ -366,8 +366,7 @@ counts = {"ready": 0, "merge": 0}
 for raw_segment in split_segments(shell_tokens(cmd)):
     segment = normalize_segment(raw_segment)
     if segment[:3] == ["gh", "pr", "ready"]:
-        if "--undo" not in segment[3:]:
-            counts["ready"] += 1
+        counts["ready"] += 1
     if segment[:3] == ["gh", "pr", "merge"]:
         counts["merge"] += 1
 

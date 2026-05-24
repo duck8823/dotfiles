@@ -103,6 +103,9 @@ def test_git_pr_guards() -> None:
         chained_ready = run_hook("gh pr ready 1; gh pr ready 2", env={"PATH": f"{fake_bin}:{os.environ['PATH']}"})
         assert_blocked(chained_ready, "複数の gh pr ready")
 
+        undo_then_ready = run_hook("gh pr ready --undo; gh pr ready", env={"PATH": f"{fake_bin}:{os.environ['PATH']}"})
+        assert_blocked(undo_then_ready, "複数の gh pr ready")
+
         # Review-feedback commit messages are blocked; semantic commit messages pass.
         review_msg = run_hook('git commit -m "fix: address review feedback"')
         assert_blocked(review_msg, "レビュー起点")
