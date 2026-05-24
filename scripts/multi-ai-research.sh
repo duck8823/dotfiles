@@ -15,7 +15,7 @@ Options:
   --topic TEXT              Research topic. Required unless --prompt-file is set.
   --prompt-file PATH        Prompt body to send.
   --packet PATH             Reviewed/sanitized context packet to append.
-  --engines LIST            Comma-separated engines: claude,gemini,codex (default: claude,gemini,codex)
+  --engines LIST            Comma-separated engines: claude,gemini,codex (default: MULTI_AI_ENGINES or claude,gemini,codex)
   --out-dir PATH            Output directory (default: /private/tmp/multi-ai-research-<timestamp>)
   --mode MODE               auto|workspace|packet|general (default: auto)
   --workspace-root PATH     Workspace root for --mode workspace/auto (default: current directory)
@@ -32,22 +32,73 @@ Safety modes:
   workspace  Build one sanitized workspace packet and share the same reviewed packet identity with every engine.
   packet     Append only the explicit --packet file. Caller is responsible for policy review/redaction.
   general    Do not include local repository context. Use only for non-repository general research.
+
+Local policy:
+  This script reads ~/.config/ai-agent-policy.env or AI_AGENT_POLICY_FILE when present.
+  Supported keys: MULTI_AI_ENGINES, MULTI_AI_DISABLED_ENGINES,
+  MULTI_AI_GEMINI_APPROVAL_MODE, MULTI_AI_GEMINI_SKIP_TRUST,
+  MULTI_AI_CODEX_SANDBOX, MULTI_AI_CLAUDE_PERMISSION_MODE,
+  MULTI_AI_TIMEOUT_SECONDS.
 USAGE
 }
+
+trim_value() {
+  local value="$1"
+  value="${value#"${value%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+  printf '%s' "$value"
+}
+
+load_local_agent_policy() {
+  local file="${AI_AGENT_POLICY_FILE:-}"
+  if [ -z "$file" ] && [ -n "${HOME:-}" ]; then
+    file="$HOME/.config/ai-agent-policy.env"
+  fi
+  [ -n "$file" ] || return 0
+  [ -f "$file" ] || return 0
+
+  local line key value
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="$(trim_value "$line")"
+    [ -n "$line" ] || continue
+    case "$line" in
+      \#*) continue ;;
+    esac
+    key="$(trim_value "${line%%=*}")"
+    value="$(trim_value "${line#*=}")"
+    [ "$key" != "$line" ] || continue
+    value="${value%\"}"
+    value="${value#\"}"
+    value="${value%\'}"
+    value="${value#\'}"
+    case "$key" in
+      MULTI_AI_ENGINES|MULTI_AI_DISABLED_ENGINES|MULTI_AI_GEMINI_APPROVAL_MODE|MULTI_AI_GEMINI_SKIP_TRUST|MULTI_AI_CODEX_SANDBOX|MULTI_AI_CLAUDE_PERMISSION_MODE|MULTI_AI_TIMEOUT_SECONDS)
+        export "$key=$value"
+        ;;
+    esac
+  done < "$file"
+}
+
+load_local_agent_policy
 
 topic=""
 prompt_file=""
 packet_file=""
-engines="claude,gemini,codex"
+engines="${MULTI_AI_ENGINES:-claude,gemini,codex}"
 mode="auto"
 dry_run=false
-timeout_seconds=600
+timeout_seconds="${MULTI_AI_TIMEOUT_SECONDS:-600}"
 out_dir=""
 workspace_root="$(pwd)"
 base_ref=""
 source_extensions="md,markdown,sh,bash,zsh,toml,json,yml,yaml,go,py,ts,tsx,js,jsx,dart,rs,java,kt,swift,rb,php,css,scss,html,sql,graphql,proto,txt,rules,ghostty"
 max_file_bytes=50000
 max_total_bytes=1500000
+disabled_engines="${MULTI_AI_DISABLED_ENGINES:-}"
+gemini_approval_mode="${MULTI_AI_GEMINI_APPROVAL_MODE:-plan}"
+gemini_skip_trust="${MULTI_AI_GEMINI_SKIP_TRUST:-true}"
+codex_sandbox="${MULTI_AI_CODEX_SANDBOX:-read-only}"
+claude_permission_mode="${MULTI_AI_CLAUDE_PERMISSION_MODE:-plan}"
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -546,6 +597,50 @@ classify_result() {
   echo "ok"
 }
 
+is_engine_disabled() {
+  local needle="$1"
+  local item
+  IFS=',' read -r -a disabled_array <<< "$disabled_engines"
+  for item in "${disabled_array[@]}"; do
+    item="$(printf '%s' "$item" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+    [ -n "$item" ] || continue
+    [ "$item" = "$needle" ] && return 0
+  done
+  return 1
+}
+
+filter_disabled_engines() {
+  local list="$1"
+  local item
+  local kept=()
+  IFS=',' read -r -a requested_array <<< "$list"
+  for item in "${requested_array[@]}"; do
+    item="$(printf '%s' "$item" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+    [ -n "$item" ] || continue
+    if is_engine_disabled "$item"; then
+      continue
+    else
+      kept+=("$item")
+    fi
+  done
+  (IFS=','; printf '%s' "${kept[*]}")
+}
+
+disabled_engines_for_list() {
+  local list="$1"
+  local item
+  local skipped=()
+  IFS=',' read -r -a requested_array <<< "$list"
+  for item in "${requested_array[@]}"; do
+    item="$(printf '%s' "$item" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+    [ -n "$item" ] || continue
+    if is_engine_disabled "$item"; then
+      skipped+=("$item")
+    fi
+  done
+  (IFS=','; printf '%s' "${skipped[*]}")
+}
+
 run_claude() {
   local out="$out_dir/claude.md"
   local err="$out_dir/claude.err"
@@ -557,7 +652,7 @@ run_claude() {
     cd /private/tmp
     run_timeout claude \
       --print \
-      --permission-mode plan \
+      --permission-mode "$claude_permission_mode" \
       --tools "WebSearch,WebFetch" \
       --disallowedTools "Read,Glob,Grep,Bash,Edit,MultiEdit,Write,NotebookRead,NotebookEdit" \
       --no-session-persistence \
@@ -582,13 +677,17 @@ run_gemini() {
   fi
   local gemini_cwd="$out_dir/gemini-cwd"
   mkdir -p "$gemini_cwd"
+  local trust_args=()
+  case "$(printf '%s' "$gemini_skip_trust" | tr '[:upper:]' '[:lower:]')" in
+    true|1|yes|on) trust_args+=(--skip-trust) ;;
+  esac
   (
     cd "$gemini_cwd"
     export TERM=xterm-256color
     export NO_BROWSER=true
     run_timeout gemini \
-      --skip-trust \
-      --approval-mode plan \
+      "${trust_args[@]}" \
+      --approval-mode "$gemini_approval_mode" \
       -e none \
       --output-format text \
       -p " " < "$gemini_prompt_path"
@@ -617,7 +716,7 @@ run_codex() {
     run_timeout codex exec \
       --ephemeral \
       --skip-git-repo-check \
-      --sandbox read-only \
+      --sandbox "$codex_sandbox" \
       - < "$prompt_path"
   ) >"$out" 2>"$err" || {
     local code=$?
@@ -630,13 +729,24 @@ run_codex() {
   cat "$err" >> "$out"
 }
 
+engines_requested="$engines"
+engines_skipped_by_policy="$(disabled_engines_for_list "$engines_requested")"
+engines="$(filter_disabled_engines "$engines_requested")"
+
 {
   echo "# Multi-AI research status"
   echo
   echo "- out_dir: $out_dir"
   echo "- mode_requested: $mode"
   echo "- mode_effective: $mode_effective"
-  echo "- engines: $engines"
+  echo "- engines_requested: $engines_requested"
+  echo "- engines_effective: ${engines:-'(none)'}"
+  echo "- engines_skipped_by_policy: ${engines_skipped_by_policy:-'(none)'}"
+  echo "- policy_file: ${AI_AGENT_POLICY_FILE:-${HOME:-}/.config/ai-agent-policy.env}"
+  echo "- gemini_approval_mode: $gemini_approval_mode"
+  echo "- gemini_skip_trust: $gemini_skip_trust"
+  echo "- codex_sandbox: $codex_sandbox"
+  echo "- claude_permission_mode: $claude_permission_mode"
   echo "- prompt: $prompt_path"
   echo "- prompt_sha256: $(sha256_file "$prompt_path")"
   echo "- gemini_prompt: $gemini_prompt_path"
@@ -647,6 +757,20 @@ run_codex() {
   fi
   echo "- dry_run: $dry_run"
 } > "$status_path"
+
+if [ -n "$engines_skipped_by_policy" ]; then
+  IFS=',' read -r -a skipped_array <<< "$engines_skipped_by_policy"
+  for engine in "${skipped_array[@]}"; do
+    engine="$(printf '%s' "$engine" | tr -d '[:space:]')"
+    [ -n "$engine" ] || continue
+    {
+      printf '\n## %s\n' "$engine"
+      echo "- exit_code: 0"
+      echo "- classification: local_policy_disabled"
+      echo "- output: (skipped by local agent policy)"
+    } >> "$status_path"
+  done
+fi
 
 IFS=',' read -r -a engine_array <<< "$engines"
 for engine in "${engine_array[@]}"; do
