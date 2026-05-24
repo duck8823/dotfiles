@@ -78,6 +78,27 @@ def main() -> None:
         assert os.access(installed_mjs, os.X_OK)
         subprocess.run(["node", "--check", str(installed_mjs)], check=True)
         assert not (tmp_home / ".codex/skills/test-shebang/scripts/__pycache__").exists()
+        assert not (tmp_home / ".claude/commands/handoff-to-codex.md").exists()
+        assert not (tmp_home / ".codex/skills/codex-handoff").exists()
+
+        # 廃止済み managed ファイル/ディレクトリは次回 install で掃除する。
+        deprecated_command = tmp_home / ".claude/commands/handoff-to-codex.md"
+        deprecated_command.write_text(
+            "<!-- managed by duck8823/dotfiles -->\nlegacy command\n"
+        )
+        deprecated_skill = tmp_home / ".codex/skills/codex-handoff"
+        deprecated_skill.mkdir(parents=True)
+        (deprecated_skill / "SKILL.md").write_text(
+            "---\nname: codex-handoff\n---\n"
+        )
+        (deprecated_skill / "SKILL.md.managed").write_text(
+            "managed by duck8823/dotfiles\n"
+        )
+        log = run_install(tmp_repo, tmp_home)
+        assert_contains(log, ".claude/commands/handoff-to-codex.md (deprecated managed file)")
+        assert_contains(log, ".codex/skills/codex-handoff (deprecated managed directory)")
+        assert not deprecated_command.exists()
+        assert not deprecated_skill.exists()
 
         # 2 回目以降も shebang の 2 行目マーカーを管理対象として認識し、同期できる
         (fixture_scripts / "tool.mjs").write_text(
