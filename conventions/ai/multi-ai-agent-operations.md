@@ -56,7 +56,7 @@ agent 間の共有 artifact は「handoff」ではなく、再開可能な conte
 
 ## Quality gate policy
 
-品質 gate の正本は `conventions/ai/quality-gates.md` とする。各 agent は role / capability ベースで gate を満たす artifact を確認し、local policy で engine が無効な場合は欠落理由を記録して代替 reviewer / local verification / CI で補完する。
+品質 gate の正本は `conventions/ai/quality-gates.md` とする。レビュー前に共有する最小 context packet は `conventions/ai/review-context-schema.md` に従う。各 agent は role / capability ベースで gate を満たす artifact を確認し、local policy で engine が無効な場合は欠落理由を記録して代替 reviewer / local verification / CI で補完する。
 
 ## Git / PR guard policy
 

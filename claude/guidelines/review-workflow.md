@@ -1,5 +1,9 @@
 # レビューワークフロー
 
+## Review context packet
+
+レビュー時の必須 context と `required_context_checked` の形式は `conventions/ai/review-context-schema.md` を参照する。
+
 ## Quality gates
 
 レビュー前 / Ready 前 / merge 前の品質 gate は `conventions/ai/quality-gates.md` を正本とする。レビュー運用はこの文書、品質 artifact と blocking policy は quality gates を優先して確認する。
