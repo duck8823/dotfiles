@@ -11,18 +11,43 @@ except:
     print('')
 " 2>/dev/null || echo "")
 
+gh_with_timeout() {
+    if command -v timeout >/dev/null 2>&1; then
+        timeout 10 gh "$@"
+        return
+    fi
+    if command -v gtimeout >/dev/null 2>&1; then
+        gtimeout 10 gh "$@"
+        return
+    fi
+    python3 - "$@" <<'PY'
+import subprocess, sys
+
+try:
+    proc = subprocess.run(
+        ["gh", *sys.argv[1:]],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        timeout=10,
+    )
+except subprocess.TimeoutExpired:
+    print("gh command timed out", file=sys.stderr)
+    raise SystemExit(124)
+
+sys.stdout.write(proc.stdout)
+sys.stderr.write(proc.stderr)
+raise SystemExit(proc.returncode)
+PY
+}
+
 extract_gh_pr_target_repo() {
     local subcommand="$1"
     COMMAND="$command" PR_SUBCOMMAND="$subcommand" python3 - <<'PY'
-import os, shlex, sys
+import os, re, shlex, sys
 
 cmd = os.environ.get("COMMAND", "")
 subcommand = os.environ.get("PR_SUBCOMMAND", "")
-try:
-    tokens = shlex.split(cmd)
-except ValueError:
-    tokens = cmd.split()
-
 shell_operators = {";", "&", "|", "&&", "||", ";;"}
 flags_with_value = {
     "-R", "--repo", "-t", "--title", "-b", "--body", "-F", "--body-file",
@@ -31,23 +56,105 @@ flags_with_value = {
     "--author", "--subject",
 }
 
-idx = -1
-for i in range(len(tokens) - 2):
-    if tokens[i] == "gh" and tokens[i + 1] == "pr" and tokens[i + 2] == subcommand:
-        idx = i + 3
-if idx < 0:
-    print("\t")
+def shell_tokens(value: str) -> list[str]:
+    try:
+        lexer = shlex.shlex(value, posix=True, punctuation_chars=";&|")
+        lexer.whitespace_split = True
+        return list(lexer)
+    except (TypeError, ValueError):
+        print("parse_error\t\t\t")
+        sys.exit(0)
+
+def split_segments(tokens: list[str]) -> list[list[str]]:
+    segments: list[list[str]] = []
+    current: list[str] = []
+    for token in tokens:
+        if token in shell_operators:
+            if current:
+                segments.append(current)
+                current = []
+            continue
+        current.append(token)
+    if current:
+        segments.append(current)
+    return segments
+
+def normalize_segment(segment: list[str]) -> list[str]:
+    seg = list(segment)
+    changed = True
+    while changed and seg:
+        changed = False
+        if seg[:1] == ["rtk"]:
+            seg = seg[1:]
+            if seg[:1] == ["proxy"]:
+                seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["command"]:
+            seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["env"]:
+            i = 1
+            while i < len(seg):
+                tok = seg[i]
+                if re.match(r"^[A-Za-z_][A-Za-z0-9_]*=.*", tok):
+                    i += 1
+                    continue
+                if tok in {"-i", "--ignore-environment"}:
+                    i += 1
+                    continue
+                if tok in {"-u", "--unset"} and i + 1 < len(seg):
+                    i += 2
+                    continue
+                break
+            seg = seg[i:]
+            changed = True
+            continue
+    if seg[:1] == ["gh"] and "pr" in seg[1:]:
+        global_repo = ""
+        i = 1
+        while i < len(seg) and seg[i] != "pr":
+            tok = seg[i]
+            if tok in {"-R", "--repo"} and i + 1 < len(seg):
+                global_repo = seg[i + 1]
+                i += 2
+                continue
+            if tok.startswith("--repo="):
+                global_repo = tok.split("=", 1)[1]
+                i += 1
+                continue
+            if tok.startswith("-"):
+                i += 1
+                continue
+            break
+        if i < len(seg) and seg[i] == "pr":
+            seg = ["gh", *seg[i:]]
+            if global_repo and "-R" not in seg[3:] and "--repo" not in seg[3:]:
+                seg.extend(["--repo", global_repo])
+    return seg
+
+target_segment = []
+for raw_segment in split_segments(shell_tokens(cmd)):
+    segment = normalize_segment(raw_segment)
+    if segment[:3] == ["gh", "pr", subcommand]:
+        target_segment = segment
+        break
+
+if not target_segment:
+    print("none\t\t\t")
     sys.exit(0)
 
 repo = ""
 target = ""
 skip_next = False
-for j in range(idx, len(tokens)):
-    tok = tokens[j]
-    if tok in shell_operators:
-        break
+is_undo = "false"
+for j, tok in enumerate(target_segment[3:], start=3):
     if skip_next:
         skip_next = False
+        continue
+    if subcommand == "ready" and tok == "--undo":
+        is_undo = "true"
         continue
     if tok.startswith("-") and "=" in tok:
         flag_name, value = tok.split("=", 1)
@@ -55,8 +162,8 @@ for j in range(idx, len(tokens)):
             repo = value
         continue
     if tok in ("-R", "--repo"):
-        if j + 1 < len(tokens):
-            repo = tokens[j + 1]
+        if j + 1 < len(target_segment):
+            repo = target_segment[j + 1]
             skip_next = True
         continue
     if tok in flags_with_value:
@@ -67,7 +174,7 @@ for j in range(idx, len(tokens)):
     if not target:
         target = tok
 
-print(target + "\t" + repo)
+print("found\t" + is_undo + "\t" + target + "\t" + repo)
 PY
 }
 
@@ -580,10 +687,6 @@ PY
 }
 
 check_commit_split_policy() {
-    if ! echo "$command" | grep -qE '(^|[;&|])\s*(rtk\s+(proxy\s+)?)?git\s+commit\b'; then
-        return 0
-    fi
-
     local staged_files
     staged_files=$(git diff --cached --name-only 2>/dev/null || true)
     [ -n "$staged_files" ] || return 0
@@ -641,6 +744,108 @@ PY
             exit 2
         fi
     fi
+}
+
+check_release_guard_policy() {
+    COMMAND="$command" python3 - <<'PY'
+import os, re, shlex, sys
+
+cmd = os.environ.get("COMMAND", "")
+shell_operators = {";", "&", "|", "&&", "||", ";;"}
+gh_global_flags_with_value = {"-R", "--repo", "--hostname"}
+
+def shell_tokens(value: str) -> list[str]:
+    try:
+        lexer = shlex.shlex(value, posix=True, punctuation_chars=";&|")
+        lexer.whitespace_split = True
+        return list(lexer)
+    except (TypeError, ValueError):
+        print("blocked\tcommand を安全に解析できません。")
+        sys.exit(0)
+
+def split_segments(tokens: list[str]) -> list[list[str]]:
+    segments: list[list[str]] = []
+    current: list[str] = []
+    for token in tokens:
+        if token in shell_operators:
+            if current:
+                segments.append(current)
+                current = []
+            continue
+        current.append(token)
+    if current:
+        segments.append(current)
+    return segments
+
+def normalize_wrappers(segment: list[str]) -> list[str]:
+    seg = list(segment)
+    changed = True
+    while changed and seg:
+        changed = False
+        if seg[:1] == ["rtk"]:
+            seg = seg[1:]
+            if seg[:1] == ["proxy"]:
+                seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["command"]:
+            seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["env"]:
+            i = 1
+            while i < len(seg):
+                tok = seg[i]
+                if re.match(r"^[A-Za-z_][A-Za-z0-9_]*=.*", tok):
+                    i += 1
+                    continue
+                if tok in {"-i", "--ignore-environment"}:
+                    i += 1
+                    continue
+                if tok in {"-u", "--unset"} and i + 1 < len(seg):
+                    i += 2
+                    continue
+                break
+            seg = seg[i:]
+            changed = True
+            continue
+    return seg
+
+def normalize_gh(segment: list[str]) -> list[str]:
+    seg = normalize_wrappers(segment)
+    if seg[:1] != ["gh"] or "release" not in seg[1:]:
+        return seg
+    i = 1
+    while i < len(seg) and seg[i] != "release":
+        tok = seg[i]
+        if tok in gh_global_flags_with_value and i + 1 < len(seg):
+            i += 2
+            continue
+        if any(tok.startswith(flag + "=") for flag in gh_global_flags_with_value):
+            i += 1
+            continue
+        if tok.startswith("-"):
+            i += 1
+            continue
+        break
+    if i < len(seg) and seg[i] == "release":
+        return ["gh", *seg[i:]]
+    return seg
+
+for raw_segment in split_segments(shell_tokens(cmd)):
+    segment = normalize_gh(raw_segment)
+    if segment[:2] == ["git", "tag"]:
+        print("blocked\tgit tag\tリリースタグはユーザーの明示的な承認を得てから作成してください。")
+        sys.exit(0)
+    if segment[:2] == ["git", "push"] and any(tok in {"--tags", "--follow-tags"} for tok in segment[2:]):
+        print("blocked\tgit push --tags/--follow-tags\tリリースタグはユーザーの明示的な承認を得てから push してください。")
+        sys.exit(0)
+    if segment[:3] == ["gh", "release", "create"]:
+        print("blocked\tgh release create\tリリースはユーザーの明示的な承認を得てから作成してください。")
+        sys.exit(0)
+
+print("ok\t\t")
+PY
 }
 
 validate_pr_ticket_or_exit() {
@@ -722,144 +927,113 @@ case "$pr_lifecycle_status" in
 esac
 
 # gh pr ready の前に、既存 PR の title/body が 1 ticket だけを参照しているか確認する
-if echo "$command" | grep -qE '(^|[;&|])\s*(rtk\s+(proxy\s+)?)?gh\s+pr\s+ready\b' && ! echo "$command" | grep -qE '(^|[;&|])\s*(rtk\s+(proxy\s+)?)?gh\s+pr\s+ready\b.*(\s|^)--undo(\s|$)'; then
-    ready_info=$(extract_gh_pr_target_repo "ready")
-    ready_target=$(printf '%s' "$ready_info" | cut -f1)
-    ready_repo_flag=$(printf '%s' "$ready_info" | cut -f2)
+ready_info=$(extract_gh_pr_target_repo "ready")
+ready_status=$(printf '%s' "$ready_info" | cut -f1)
+ready_is_undo=$(printf '%s' "$ready_info" | cut -f2)
+ready_target=$(printf '%s' "$ready_info" | cut -f3)
+ready_repo_flag=$(printf '%s' "$ready_info" | cut -f4)
+case "$ready_status" in
+    found)
+        if [ "$ready_is_undo" != "true" ]; then
+            ready_view_args=()
+            [ -n "$ready_target" ] && ready_view_args+=("$ready_target")
+            [ -n "$ready_repo_flag" ] && ready_view_args+=("-R" "$ready_repo_flag")
 
-    ready_view_args=()
-    [ -n "$ready_target" ] && ready_view_args+=("$ready_target")
-    [ -n "$ready_repo_flag" ] && ready_view_args+=("-R" "$ready_repo_flag")
-
-    pr_text=$(gh pr view "${ready_view_args[@]}" --json title,body \
-      -q '"\(.title)\n\(.body // "")"' 2>/dev/null || true)
-    if [ -z "$pr_text" ]; then
-        echo "🚫 [hook] ready 対象の PR title/body を確認できません。" >&2
-        echo "   ネットワーク接続と gh auth を確認してください。" >&2
+            pr_text=$(gh_with_timeout pr view "${ready_view_args[@]}" --json title,body \
+              -q '"\(.title)\n\(.body // "")"' 2>/dev/null || true)
+            if [ -z "$pr_text" ]; then
+                echo "🚫 [hook] ready 対象の PR title/body を確認できません。" >&2
+                echo "   ネットワーク接続と gh auth を確認してください。" >&2
+                exit 2
+            fi
+            validate_pr_ticket_or_exit "gh pr ready" "$pr_text"
+        fi
+        ;;
+    none)
+        ;;
+    *)
+        echo "🚫 [hook] gh pr ready のコマンド解析に失敗しました。" >&2
         exit 2
-    fi
-    validate_pr_ticket_or_exit "gh pr ready" "$pr_text"
-fi
+        ;;
+esac
 
 # gh pr merge 実行前にレビューコメント（🤖 AI コードレビュー結果）が存在するか確認
-if echo "$command" | grep -qE '(^|[;&|])\s*(rtk\s+(proxy\s+)?)?gh\s+pr\s+merge\b'; then
-    # merge コマンドの引数を解析（対象指定と -R フラグを抽出）
-    # shlex.split をコマンド全体に適用し、クォート内のメタ文字を正しく処理する
-    merge_info=$(echo "$command" | python3 -c "
-import sys, shlex
-cmd = sys.stdin.read().strip()
-try:
-    tokens = shlex.split(cmd)
-except ValueError:
-    tokens = cmd.split()
-# gh pr merge の最後の出現位置を使用（前段コマンドの引数に含まれるケースを回避）
-merge_idx = -1
-for i in range(len(tokens) - 2):
-    if tokens[i] == 'gh' and tokens[i+1] == 'pr' and tokens[i+2] == 'merge':
-        merge_idx = i + 3
-if merge_idx < 0:
-    print('\t'); sys.exit(0)
-flags_with_value = {'-R', '--repo', '-t', '--subject', '-b', '--body', '-F', '--body-file', '--match-head-commit', '--author'}
-shell_operators = {';', '&', '|', '&&', '||', ';;'}
-repo = ''
-target = ''
-skip_next = False
-for j in range(merge_idx, len(tokens)):
-    tok = tokens[j]
-    if tok in shell_operators:
-        break
-    if skip_next:
-        skip_next = False
-        continue
-    if '=' in tok and tok.startswith('-'):
-        flag_name = tok.split('=', 1)[0]
-        if flag_name in ('-R', '--repo'):
-            repo = tok.split('=', 1)[1]
-        continue
-    if tok in ('-R', '--repo'):
-        if j + 1 < len(tokens):
-            repo = tokens[j + 1]
-            skip_next = True
-        continue
-    if tok in flags_with_value:
-        skip_next = True
-        continue
-    if tok.startswith('-'):
-        continue
-    if not target:
-        target = tok
-print(target + '\t' + repo)
-" 2>/dev/null) || {
-        echo "🚫 [hook] コマンド解析に失敗しました。python3 が必要です。" >&2
+merge_info=$(extract_gh_pr_target_repo "merge")
+merge_status=$(printf '%s' "$merge_info" | cut -f1)
+merge_target=$(printf '%s' "$merge_info" | cut -f3)
+repo_flag=$(printf '%s' "$merge_info" | cut -f4)
+case "$merge_status" in
+    found)
+        # gh pr view で PR 番号と URL を解決（数値/URL/branch/省略すべてに対応）
+        view_args=()
+        [ -n "$merge_target" ] && view_args+=("$merge_target")
+        [ -n "$repo_flag" ] && view_args+=("-R" "$repo_flag")
+
+        pr_info=$(gh_with_timeout pr view "${view_args[@]}" --json number,url \
+          -q '"\(.number)\t\(.url)"' 2>/dev/null || true)
+
+        if [ -z "$pr_info" ]; then
+            echo "🚫 [hook] マージ対象のPRが見つかりません。" >&2
+            exit 2
+        fi
+
+        pr_number=$(echo "$pr_info" | cut -f1)
+        pr_url=$(echo "$pr_info" | cut -f2)
+        repo=$(echo "$pr_url" | sed -nE 's|https://github\.com/([^/]+/[^/]+)/pull/[0-9]+|\1|p')
+
+        if [ -z "$pr_number" ] || [ -z "$repo" ]; then
+            echo "🚫 [hook] PR情報の解決に失敗しました。ネットワーク接続と gh auth を確認してください。" >&2
+            exit 2
+        fi
+
+        pr_text=$(gh_with_timeout pr view "${view_args[@]}" --json title,body \
+          -q '"\(.title)\n\(.body // "")"' 2>/dev/null || true)
+        if [ -z "$pr_text" ]; then
+            echo "🚫 [hook] PR #$pr_number の title/body を確認できません。" >&2
+            exit 2
+        fi
+        validate_pr_ticket_or_exit "gh pr merge" "$pr_text"
+
+        review_body=$(gh_with_timeout api "repos/$repo/issues/$pr_number/comments" --jq '.[].body' 2>/dev/null || true)
+        has_review=$(echo "$review_body" | grep -c '🤖 AI コードレビュー結果' || true)
+        if [ "$has_review" = "0" ]; then
+            echo "🚫 [hook] PR #$pr_number にレビューコメント（🤖 AI コードレビュー結果）がありません。" >&2
+            echo "   レビューを実施してからマージしてください。" >&2
+            exit 2
+        fi
+        has_multi_ai=$(echo "$review_body" | grep -cE 'Gemini|Codex' || true)
+        if [ "$has_multi_ai" = "0" ]; then
+            echo "🚫 [hook] PR #$pr_number に Multi-AI レビュー（Gemini または Codex）がありません。" >&2
+            echo "   Claude 単独レビューではマージできません。Gemini scout または Codex verifier のレビューを実施してください。" >&2
+            exit 2
+        fi
+        ;;
+    none)
+        ;;
+    *)
+        echo "🚫 [hook] gh pr merge のコマンド解析に失敗しました。" >&2
         exit 2
-    }
-
-    merge_target=$(printf '%s' "$merge_info" | cut -f1)
-    repo_flag=$(printf '%s' "$merge_info" | cut -f2)
-
-    # gh pr view で PR 番号と URL を解決（数値/URL/branch/省略すべてに対応）
-    view_args=()
-    [ -n "$merge_target" ] && view_args+=("$merge_target")
-    [ -n "$repo_flag" ] && view_args+=("-R" "$repo_flag")
-
-    pr_info=$(gh pr view "${view_args[@]}" --json number,url \
-      -q '"\(.number)\t\(.url)"' 2>/dev/null || true)
-
-    if [ -z "$pr_info" ]; then
-        echo "🚫 [hook] マージ対象のPRが見つかりません。" >&2
-        exit 2
-    fi
-
-    pr_number=$(echo "$pr_info" | cut -f1)
-    pr_url=$(echo "$pr_info" | cut -f2)
-    repo=$(echo "$pr_url" | sed -nE 's|https://github\.com/([^/]+/[^/]+)/pull/[0-9]+|\1|p')
-
-    if [ -z "$pr_number" ] || [ -z "$repo" ]; then
-        echo "🚫 [hook] PR情報の解決に失敗しました。ネットワーク接続と gh auth を確認してください。" >&2
-        exit 2
-    fi
-
-    pr_text=$(gh pr view "${view_args[@]}" --json title,body \
-      -q '"\(.title)\n\(.body // "")"' 2>/dev/null || true)
-    if [ -z "$pr_text" ]; then
-        echo "🚫 [hook] PR #$pr_number の title/body を確認できません。" >&2
-        exit 2
-    fi
-    validate_pr_ticket_or_exit "gh pr merge" "$pr_text"
-
-    review_body=$(gh api "repos/$repo/issues/$pr_number/comments" --jq '.[].body' 2>/dev/null || true)
-    has_review=$(echo "$review_body" | grep -c '🤖 AI コードレビュー結果' || true)
-    if [ "$has_review" = "0" ]; then
-        echo "🚫 [hook] PR #$pr_number にレビューコメント（🤖 AI コードレビュー結果）がありません。" >&2
-        echo "   レビューを実施してからマージしてください。" >&2
-        exit 2
-    fi
-    has_multi_ai=$(echo "$review_body" | grep -cE 'Gemini|Codex' || true)
-    if [ "$has_multi_ai" = "0" ]; then
-        echo "🚫 [hook] PR #$pr_number に Multi-AI レビュー（Gemini または Codex）がありません。" >&2
-        echo "   Claude 単独レビューではマージできません。Gemini scout または Codex verifier のレビューを実施してください。" >&2
-        exit 2
-    fi
-fi
+        ;;
+esac
 
 # git tag / git push --tags / gh release create はユーザー確認なしで実行させない
-if echo "$command" | grep -qE '(^|[;&|])\s*(rtk\s+(proxy\s+)?)?git\s+tag\b'; then
-    echo "🚫 [hook] 'git tag' を直接実行しないでください。" >&2
-    echo "   リリースタグはユーザーの明示的な承認を得てから作成してください。" >&2
-    exit 2
-fi
-
-if echo "$command" | grep -qE '(^|[;&|])\s*(rtk\s+(proxy\s+)?)?git\s+push\b.*(--tags|--follow-tags)'; then
-    echo "🚫 [hook] 'git push --tags/--follow-tags' を直接実行しないでください。" >&2
-    echo "   リリースタグはユーザーの明示的な承認を得てから push してください。" >&2
-    exit 2
-fi
-
-if echo "$command" | grep -qE '(^|[;&|])\s*(rtk\s+(proxy\s+)?)?gh\s+release\s+create\b'; then
-    echo "🚫 [hook] 'gh release create' を直接実行しないでください。" >&2
-    echo "   リリースはユーザーの明示的な承認を得てから作成してください。" >&2
-    exit 2
-fi
+release_guard_result=$(check_release_guard_policy)
+release_guard_status=$(printf '%s' "$release_guard_result" | cut -f1)
+release_guard_command=$(printf '%s' "$release_guard_result" | cut -f2)
+release_guard_message=$(printf '%s' "$release_guard_result" | cut -f3-)
+case "$release_guard_status" in
+    ok)
+        ;;
+    blocked)
+        echo "🚫 [hook] '$release_guard_command' を直接実行しないでください。" >&2
+        [ -n "$release_guard_message" ] && echo "   $release_guard_message" >&2
+        exit 2
+        ;;
+    *)
+        echo "🚫 [hook] release guard の解析に失敗しました。" >&2
+        exit 2
+        ;;
+esac
 
 # コミットメッセージにレビュー起点の文言が含まれていないかチェック
 commit_policy_result=$(check_commit_message_policy)

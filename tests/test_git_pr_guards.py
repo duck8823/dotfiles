@@ -42,7 +42,15 @@ def make_fake_gh(bin_dir: Path, *, title: str, body: str) -> None:
         f"""#!/usr/bin/env bash
 set -euo pipefail
 if [ "$1" = "pr" ] && [ "$2" = "view" ]; then
+  if [[ "$*" == *"number,url"* ]]; then
+    printf '52\\thttps://github.com/duck8823/dotfiles/pull/52\\n'
+    exit 0
+  fi
   printf '%s\\n%s\\n' {title!r} {body!r}
+  exit 0
+fi
+if [ "$1" = "api" ]; then
+  printf '%s\\n' "🤖 AI コードレビュー結果" "Gemini: ok" "Codex: ok"
   exit 0
 fi
 echo "unexpected gh args: $*" >&2
@@ -87,6 +95,15 @@ def test_git_pr_guards() -> None:
     quoted_draft = run_hook('gh pr create --title "[OPS-123] tighten guards" --body "mentions --draft but no flag"')
     assert_blocked(quoted_draft, "--draft")
 
+    env_tag = run_hook("env FOO=1 git tag v1.2.3")
+    assert_blocked(env_tag, "git tag")
+
+    push_tags = run_hook("rtk proxy git push --follow-tags")
+    assert_blocked(push_tags, "git push --tags/--follow-tags")
+
+    release_create = run_hook("command gh --repo duck8823/dotfiles release create v1.2.3")
+    assert_blocked(release_create, "gh release create")
+
     # Ready also checks the current PR metadata so edited PRs cannot bypass 1 ticket / PR.
     tmp_root = Path(tempfile.mkdtemp(prefix="dotfiles-git-pr-guard-test-"))
     try:
@@ -95,6 +112,12 @@ def test_git_pr_guards() -> None:
         make_fake_gh(fake_bin, title="tighten guards", body="Closes #123")
         ready = run_hook("gh pr ready", env={"PATH": f"{fake_bin}:{os.environ['PATH']}"})
         assert ready.returncode == 0, ready.stderr
+
+        global_repo_ready = run_hook("gh --repo duck8823/dotfiles pr ready", env={"PATH": f"{fake_bin}:{os.environ['PATH']}"})
+        assert global_repo_ready.returncode == 0, global_repo_ready.stderr
+
+        merge = run_hook("env FOO=1 gh --repo duck8823/dotfiles pr merge 52", env={"PATH": f"{fake_bin}:{os.environ['PATH']}"})
+        assert merge.returncode == 0, merge.stderr
 
         make_fake_gh(fake_bin, title="tighten guards", body="Closes #123\nCloses #124")
         ready_multiple = run_hook("gh pr ready", env={"PATH": f"{fake_bin}:{os.environ['PATH']}"})
@@ -157,6 +180,13 @@ def test_git_pr_guards() -> None:
             env={"DOTFILES_COMMIT_SPLIT_STRICT": "true"},
         )
         assert_blocked(split, "複数の関心事")
+
+        env_split = run_hook(
+            'env FOO=1 git commit -m "chore: update guard wiring"',
+            cwd=repo,
+            env={"DOTFILES_COMMIT_SPLIT_STRICT": "true"},
+        )
+        assert_blocked(env_split, "複数の関心事")
 
         print("git/pr guard hook test OK")
     finally:
