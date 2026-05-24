@@ -23,16 +23,44 @@ tools: Read, Glob, Grep, Bash(flutter test *, flutter analyze *, godot *)
 - スタイル（Linter が担当）
 - 責務分離だけを理由にした大規模再設計（structure-reviewer / architect が担当）
 
+
+## Context evidence requirement
+
+レビュー結果には `required_context_checked` を必ず含め、実際に確認した context を明示する。巨大 context を要求する趣旨ではない。`docs-only-light` / `policy-docs` / `low` lane では軽量な docs / conventions / test evidence でよい。
+
+必須カテゴリ:
+
+- `tickets`: Issue / Jira / ticket の ID または未確認理由
+- `pr_intent`: PR title / body / motivation から読み取った意図
+- `docs`: 確認した user-facing docs / README / rule
+- `conventions`: 確認した coding rule / architecture rule / quality gate
+- `codebase`: 確認した caller / implementation / existing pattern
+- `prior_reviews`: 前回レビュー・inline comment・Traceary 等の確認状況
+- `test_evidence`: 実行または確認した test / lint / typecheck / CI / 未実行理由
+
+必須 context が不足し、妥当性を判断できない場合は推測せず `verdict: "INSUFFICIENT_CONTEXT"` とし、`missing_context` に不足項目と必要な fallback を書く。
+
 ## 出力形式
 ```json
 {
   "source": "claude-reviewer",
+  "verdict": "APPROVE|REQUEST_CHANGES|INSUFFICIENT_CONTEXT",
+  "required_context_checked": {
+    "tickets": ["#123"],
+    "pr_intent": "確認したPR意図。未確認なら理由",
+    "docs": ["確認したdocs。なければ空配列"],
+    "conventions": ["確認した規約・quality gate。なければ空配列"],
+    "codebase": ["確認した実装・呼び出し元・既存パターン。なければ空配列"],
+    "prior_reviews": ["確認した過去レビュー。なければ空配列"],
+    "test_evidence": ["実行/確認した検証、または未実行理由"]
+  },
+  "missing_context": ["不足 context。なければ空配列"],
   "findings": [
     {"severity": "CRITICAL|HIGH", "file": "path:line", "issue": "...", "fix": "..."}
   ],
   "validated_commands": ["実行したコマンド。未実行なら空配列"],
   "results": {"passed": ["確認済み項目"], "failed": ["失敗/未確認項目"]},
   "residual_risks": ["残リスク。なければ空配列"],
-  "summary": "問題なし" or "N件検出"
+  "summary": "問題なし"
 }
 ```

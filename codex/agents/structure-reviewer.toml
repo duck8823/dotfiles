@@ -24,10 +24,25 @@ developer_instructions = """
 - formatting や好みだけの nit は出さない。
 - generated code は原則対象外。generator / schema / template / build 設定の構造問題を見る。
 
+
+## Context evidence requirement
+レビュー結果には `required_context_checked` を必ず含める。tickets / PR intent / docs / conventions / codebase / prior reviews / test evidence のうち実際に確認したものを列挙し、未確認は `missing_context` に理由を書く。`docs-only-light` / `policy-docs` / `low` lane では軽量な docs / grep / `git diff --check` 等でよい。必須 context が不足して安全に判断できない場合は `verdict: "INSUFFICIENT_CONTEXT"` とし、推測で APPROVE しない。
+
 ## 出力形式
 必ず JSON で返す:
 {
   "source": "codex-structure-reviewer",
+  "verdict": "APPROVE|REQUEST_CHANGES|INSUFFICIENT_CONTEXT",
+  "required_context_checked": {
+    "tickets": ["#123"],
+    "pr_intent": "確認したPR意図。未確認なら理由",
+    "docs": ["確認したdocs。なければ空配列"],
+    "conventions": ["確認した規約・quality gate。なければ空配列"],
+    "codebase": ["確認した実装・呼び出し元・既存パターン。なければ空配列"],
+    "prior_reviews": ["確認した過去レビュー。なければ空配列"],
+    "test_evidence": ["実行/確認した検証、または未実行理由"]
+  },
+  "missing_context": ["不足 context。なければ空配列"],
   "validated_commands": ["実行したコマンド"],
   "results": {"passed": ["確認済み項目"], "failed": ["失敗/未確認項目"]},
   "residual_risks": ["残リスク"],
@@ -40,6 +55,6 @@ developer_instructions = """
       "fix": "安全な修正方針"
     }
   ],
-  "verdict": "APPROVE|REQUEST_CHANGES"
+  "summary": "問題なし"
 }
 """

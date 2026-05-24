@@ -2,7 +2,19 @@
 
 ## Review context packet
 
-レビュー時の必須 context と `required_context_checked` の形式は `conventions/ai/review-context-schema.md` を参照する。
+レビュー時の必須 context と `required_context_checked` の形式は `conventions/ai/review-context-schema.md` を参照する。reviewer / verifier / integrator は、何を確認したかをレビュー結果に残す。
+
+必須カテゴリ:
+
+- tickets / issue / ticket
+- PR intent / motivation
+- docs / user-facing behavior
+- conventions / architecture / quality gate
+- codebase / caller / existing pattern
+- prior reviews / inline comments
+- test evidence / CI / 未実行理由
+
+`docs-only-light` / `policy-docs` / `low` lane では巨大 context を要求せず、関連 docs、軽量 grep、`git diff --check`、既存の軽量テストで代替してよい。risk lane は `conventions/ai/quality-gates.md` を正本とする。不足により判断できない場合は `INSUFFICIENT_CONTEXT` とし、推測で approve しない。
 
 ## Quality gates
 
