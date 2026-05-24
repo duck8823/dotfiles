@@ -9,7 +9,7 @@
 - Gate は Claude / Codex / Gemini などの AI 名ではなく、role / capability に対して定義する。
 - Hard block は決定論的に確認できる条件に限定する。LLM reviewer の主観的指摘だけで merge を永久停止しない。
 - 小変更を止めない。docs-only / typo / formatting / 既存パターンの単純横展開には軽量 lane を用意する。
-- High risk 変更は、実装前に設計判断・rollback・検証方針を残す。
+- High risk 変更は、実装前に ADR または同等の設計判断・rollback・検証方針を残す。ADR の適用条件と template は `conventions/ai/adr-guidance.md` を参照する。
 - 重大度は最終的に MUST / SHOULD / NIT に正規化する。CRITICAL / HIGH / MAJOR は原則 MUST、MINOR / WARNING は SHOULD または NIT として integrator role が triage する。
 - 外部 AI が local policy / quota / auth / permission で失敗した場合は、失敗分類を記録し、代替 reviewer / local verification / CI で補完する。
 
@@ -21,7 +21,7 @@
 | Policy docs | gate / workflow / security / release / agent policy を変える docs | Low または Medium として扱い、review evidence、関連 hook / workflow との整合性確認、検証結果を残す |
 | Low | 既存パターンに沿う小変更、単一責務の修正 | 要求要約、変更内容のセルフレビュー、関連テストまたは未実行理由 |
 | Medium | 新しい振る舞い、複数ファイル変更、IF 変更 | Low + Structure-Behavior Design Note、振る舞いテスト計画 |
-| High | public API、DB schema、auth/authz、billing、migration、破壊的変更、新しい module boundary / cross-module architecture | Medium + ADR または設計判断記録、rollback / migration-safe plan、分割 PR 方針 |
+| High | public API、DB schema、auth/authz、billing、migration、破壊的変更、新しい module boundary / cross-module architecture | Medium + ADR（`conventions/ai/adr-guidance.md`）または同等の設計判断記録、rollback / migration-safe plan、分割 PR 方針 |
 
 内部の小規模 refactor や既存 boundary 内の整理は High risk ではなく、Medium + Design Note として扱ってよい。
 
@@ -35,7 +35,7 @@
 - 受け入れ条件と非対象が読み取れる
 - Risk lane が明示されている
 - Medium 以上では Structure-Behavior Design Note がある
-- High では ADR または同等の設計判断記録がある
+- High では ADR（`conventions/ai/adr-guidance.md`）または同等の設計判断記録がある
 
 ### Validation
 
@@ -172,4 +172,5 @@ merge 前に、変更が ticket scope を超えず、レビューと検証が収
 - `conventions/ai/agent-hooks-observability.md`（failure taxonomy / recovery playbook）
 - `claude/guidelines/review-workflow.md`
 - `claude/guidelines/git-workflow.md`
+- `conventions/ai/adr-guidance.md`
 - `codex/skills/structure-behavior-design/SKILL.md`
