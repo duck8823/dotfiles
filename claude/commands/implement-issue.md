@@ -97,7 +97,8 @@ ANALYZE_CMD=$(grep 'analyze_command' CLAUDE.md 2>/dev/null | sed 's/.*`\([^`]*\)
 git add <変更したファイルを個別に指定>
 git commit -m "<type>: <何を・なぜ変えたか>"
 git push -u origin HEAD
-gh pr create --draft   --title "<タイトル>"   --body "$(cat <<'EOF'
+PR_BODY=$(mktemp)
+cat >"$PR_BODY" <<'EOF'
 ## 概要
 Closes #$ARGUMENTS
 
@@ -109,7 +110,8 @@ Closes #$ARGUMENTS
 - [ ] 静的解析エラーなし
 - [ ] 動作確認済み
 EOF
-)"
+gh pr create --draft --title "<タイトル>" --body-file "$PR_BODY"
+rm -f "$PR_BODY"
 ```
 
 ## ステップ8: レビューへ進む

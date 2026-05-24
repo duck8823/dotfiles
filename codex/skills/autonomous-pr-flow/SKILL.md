@@ -70,7 +70,10 @@ Gemini / Codex CLI / `@codex review` は、`~/.codex/config.toml` の `[auto_rev
 ## 推奨コマンド例
 ```bash
 # Draft PR
-gh pr create --draft --base main --head <branch>
+PR_BODY=$(mktemp)
+printf 'Closes #%s\n' '<ticket-number>' >"$PR_BODY"
+gh pr create --draft --base main --head <branch> --title "<ticket title>" --body-file "$PR_BODY"
+rm -f "$PR_BODY"
 
 # Codex再レビュー
 gh pr comment <pr-number> --body "@codex review"

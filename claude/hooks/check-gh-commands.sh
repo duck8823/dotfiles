@@ -90,6 +90,12 @@ def normalize_segment(segment: list[str]) -> list[str]:
             changed = True
         if changed:
             continue
+        if seg and "/" in seg[0]:
+            basename = seg[0].rsplit("/", 1)[-1]
+            if basename in {"git", "gh", "bash", "sh", "zsh", "sudo", "doas", "xargs"}:
+                seg[0] = basename
+                changed = True
+                continue
         if seg and (seg[0].endswith("/git") or seg[0].endswith("/gh")):
             seg[0] = seg[0].rsplit("/", 1)[-1]
             changed = True
@@ -218,15 +224,17 @@ text = os.environ.get("TICKET_TEXT", "")
 context = os.environ.get("TICKET_CONTEXT", "")
 refs = set()
 
-issue_ref = r"(?:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#([0-9]+)\b"
+issue_token = r"(?:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[0-9]+\b"
 closing_keywords = r"(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)"
 reference_keywords = r"(?:issue|issues|ticket|tickets)"
 
-for number in re.findall(rf"\b{closing_keywords}\s*:?\s*{issue_ref}", text, flags=re.IGNORECASE):
-    refs.add(f"GH#{number}")
+for sequence in re.findall(rf"\b{closing_keywords}\s*:?\s*({issue_token}(?:\s*(?:,|and|&)\s*{issue_token})*)", text, flags=re.IGNORECASE):
+    for number in re.findall(r"#([0-9]+)\b", sequence):
+        refs.add(f"GH#{number}")
 
-for number in re.findall(rf"\b{reference_keywords}\s*:?\s*{issue_ref}", text, flags=re.IGNORECASE):
-    refs.add(f"GH#{number}")
+for sequence in re.findall(rf"\b{reference_keywords}\s*:?\s*({issue_token}(?:\s*(?:,|and|&)\s*{issue_token})*)", text, flags=re.IGNORECASE):
+    for number in re.findall(r"#([0-9]+)\b", sequence):
+        refs.add(f"GH#{number}")
 
 for number in re.findall(r"https://github\.com/[^/\s]+/[^/\s]+/issues/([0-9]+)\b", text):
     refs.add(f"GH#{number}")
@@ -358,13 +366,15 @@ def normalize_segment(segment: list[str]) -> list[str]:
 
 def ticket_refs(text: str) -> set[str]:
     refs: set[str] = set()
-    issue_ref = r"(?:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#([0-9]+)\b"
+    issue_token = r"(?:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[0-9]+\b"
     closing_keywords = r"(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)"
     reference_keywords = r"(?:issue|issues|ticket|tickets)"
-    for number in re.findall(rf"\b{closing_keywords}\s*:?\s*{issue_ref}", text, flags=re.IGNORECASE):
-        refs.add(f"GH#{number}")
-    for number in re.findall(rf"\b{reference_keywords}\s*:?\s*{issue_ref}", text, flags=re.IGNORECASE):
-        refs.add(f"GH#{number}")
+    for sequence in re.findall(rf"\b{closing_keywords}\s*:?\s*({issue_token}(?:\s*(?:,|and|&)\s*{issue_token})*)", text, flags=re.IGNORECASE):
+        for number in re.findall(r"#([0-9]+)\b", sequence):
+            refs.add(f"GH#{number}")
+    for sequence in re.findall(rf"\b{reference_keywords}\s*:?\s*({issue_token}(?:\s*(?:,|and|&)\s*{issue_token})*)", text, flags=re.IGNORECASE):
+        for number in re.findall(r"#([0-9]+)\b", sequence):
+            refs.add(f"GH#{number}")
     for number in re.findall(r"https://github\.com/[^/\s]+/[^/\s]+/issues/([0-9]+)\b", text):
         refs.add(f"GH#{number}")
     for key in re.findall(r"\[([A-Z][A-Z0-9]+-[0-9]+)\]", text):
@@ -377,6 +387,7 @@ def parse_create(segment: list[str]) -> tuple[str, str]:
     body_file = ""
     has_draft = False
     used_fill = False
+    used_unverified_body_source = ""
     skip_next = False
     for j, tok in enumerate(segment[3:], start=3):
         if skip_next:
@@ -411,9 +422,23 @@ def parse_create(segment: list[str]) -> tuple[str, str]:
             continue
         if tok.startswith("--fill"):
             used_fill = True
+            continue
+        if tok in ("--recover", "--template"):
+            used_unverified_body_source = tok
+            skip_next = True
+            continue
+        if tok.startswith("--recover=") or tok.startswith("--template="):
+            used_unverified_body_source = tok.split("=", 1)[0]
+            continue
+        if tok == "--web":
+            used_unverified_body_source = tok
+            continue
 
     if not has_draft:
         return "blocked", "'gh pr create' には必ず '--draft' を付けてください。"
+
+    if used_unverified_body_source:
+        return "blocked", f"gh pr create {used_unverified_body_source} は最終本文を hook が検証できないため使わないでください。--title と --body / --body-file を明示してください。"
 
     if body_file:
         expanded = pathlib.Path(os.path.expandvars(os.path.expanduser(body_file)))
@@ -1025,6 +1050,9 @@ for raw_segment in split_segments(shell_tokens(cmd)):
         print("blocked\tgit tag\tリリースタグはユーザーの明示的な承認を得てから作成してください。")
         sys.exit(0)
     if segment[:2] == ["git", "push"]:
+        if "tag" in segment[2:]:
+            print("blocked\tgit push tag ref\tリリースタグはユーザーの明示的な承認を得てから push してください。")
+            sys.exit(0)
         for tok in segment[2:]:
             if tok in {"--tags", "--follow-tags", "--mirror"}:
                 print("blocked\tgit push --tags/--follow-tags\tリリースタグはユーザーの明示的な承認を得てから push してください。")
@@ -1087,6 +1115,12 @@ def strip_wrappers(segment: list[str]) -> list[str]:
             changed = True
         if changed:
             continue
+        if seg and "/" in seg[0]:
+            basename = seg[0].rsplit("/", 1)[-1]
+            if basename in {"git", "gh", "bash", "sh", "zsh", "sudo", "doas", "xargs"}:
+                seg[0] = basename
+                changed = True
+                continue
         if seg and (seg[0].endswith("/git") or seg[0].endswith("/gh")):
             seg[0] = seg[0].rsplit("/", 1)[-1]
             changed = True
@@ -1166,6 +1200,9 @@ guarded_segments = [segment for segment in segments if is_guarded(segment)]
 
 for segment in segments:
     stripped = strip_wrappers(segment)
+    if stripped[:1] and stripped[0] in {"sudo", "doas", "xargs"} and any(contains_guarded_payload(tok) for tok in stripped[1:]):
+        print("blocked\tshell_wrapper\tgit/gh command を sudo / doas / xargs 経由で実行しないでください。")
+        sys.exit(0)
     if stripped[:1] and stripped[0] in {"bash", "sh", "zsh"}:
         if any(tok in {"-c", "-lc"} for tok in stripped[1:]) and any(contains_guarded_payload(tok) for tok in stripped[1:]):
             print("blocked\tshell_wrapper\tgit/gh command を bash -c / sh -c / zsh -c 経由で実行しないでください。")

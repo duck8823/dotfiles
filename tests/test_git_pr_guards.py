@@ -92,6 +92,12 @@ def test_git_pr_guards() -> None:
     fill_with_title = run_hook('gh pr create --draft --fill --title "tighten guards" --body "Closes #123"')
     assert_blocked(fill_with_title, "--fill は")
 
+    recovered_body = run_hook('gh pr create --draft --title "tighten guards" --body "Closes #123" --recover abc')
+    assert_blocked(recovered_body, "--recover")
+
+    templated_body = run_hook('gh pr create --draft --title "tighten guards" --body "Closes #123" --template pull_request_template.md')
+    assert_blocked(templated_body, "--template")
+
     no_draft = run_hook('gh pr create --title "[OPS-123] tighten guards" --body "details"')
     assert_blocked(no_draft, "--draft")
 
@@ -125,6 +131,12 @@ def test_git_pr_guards() -> None:
     shell_wrapper_tag = run_hook("bash -lc 'git tag v1.2.3'")
     assert_blocked(shell_wrapper_tag, "bash -c")
 
+    absolute_shell_wrapper_tag = run_hook("/bin/bash -lc 'git tag v1.2.3'")
+    assert_blocked(absolute_shell_wrapper_tag, "bash -c")
+
+    sudo_tag = run_hook("sudo git tag v1.2.3")
+    assert_blocked(sudo_tag, "sudo")
+
     absolute_git_tag = run_hook("/usr/bin/git tag v1.2.3")
     assert_blocked(absolute_git_tag, "git tag")
 
@@ -145,6 +157,9 @@ def test_git_pr_guards() -> None:
 
     push_mirror = run_hook("git push --mirror")
     assert_blocked(push_mirror, "git push --tags/--follow-tags")
+
+    push_tag_syntax = run_hook("git push origin tag release-candidate")
+    assert_blocked(push_tag_syntax, "git push tag ref")
 
     release_create = run_hook("command gh --repo duck8823/dotfiles release create v1.2.3")
     assert_blocked(release_create, "gh release create")
