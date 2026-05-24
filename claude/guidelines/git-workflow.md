@@ -18,8 +18,13 @@
 
 ## コミット・PR ルール
 
-- コミットは関心事ごとに分割。コミットメッセージは「何を・なぜ変えたか」を表す
-- **禁止**: 「レビュー指摘対応」などレビュー起点を示すコミットメッセージ
+- **1 PR = 1 ticket**。GitHub Issue なら PR body に `Closes #<number>`、Jira 等なら PR title/body に `[PROJ-123]` のようなチケット ID を **1つだけ**含める
+- 1 ticket の中で複数コミットに分ける。コミットは「後から読む人が意図を追える最小の意味単位」にする
+  - 例: guard 本体 / tests / docs のように、レビュー可能な単位で分ける
+  - 例: generated 更新は generator / schema 変更と分ける
+  - 例: rename / move と behavior change は分ける
+- レビュー指摘で発生した変更も「レビュー対応」コミットにしない。可能なら該当する既存コミットへ fixup / amend し、難しい場合も `fix: validate PR ticket references` のように **何を・なぜ変えたか**を書く
+- **禁止**: 「レビュー指摘対応」「レビューコメント反映」「address review feedback」「fix review comments」などレビュー起点を示すコミットメッセージ
 - AI がコミットする場合は `Co-authored-by` トレーラーを付与する（Claude Code はデフォルトで付与される）
 - ドラフト PR を使用。マージはスカッシュしない（`--merge`）
 - PR マージ後は必ず関連する GitHub イシューをクローズする
@@ -30,11 +35,12 @@ Claude Code の PreToolUse / PostToolUse hook が `--draft` 不付与・Multi-AI
 
 ### 1. 作成
 - `gh pr create --draft` で必ずドラフト作成。`--draft` 不付与は hook でブロックされる
-- PR body に `Closes #<番号>` を含める
+- PR body に `Closes #<番号>` を含める。Jira 等の場合は title/body に `[PROJ-123]` を1つだけ含める
+- `--fill` は commit message 由来の未検証本文が混入するため使わず、`--title` / `--body` / `--body-file` で ticket を明示する
 
 ### 2. レビュー
 - Multi-AI レビューコメント（Gemini / Codex / Claude の少なくとも 2 系統）を `gh pr comment` で投稿してから ready に移す
-- レビュー対応は新しいコミットを積む（「レビュー指摘対応」というメッセージは禁止）
+- レビュー対応は意味単位のコミットに折り込む。新しいコミットが必要な場合も、メッセージはレビュー起点ではなく変更内容を書く
 
 ### 3. Ready
 - `gh pr ready` の前に検証スタンプ（`analyze` / `test` 通過）が記録されている必要がある。記録がないと hook が警告する（詳細: `~/.claude/guidelines/harness-hooks.md`）

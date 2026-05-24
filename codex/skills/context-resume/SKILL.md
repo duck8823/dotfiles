@@ -1,6 +1,6 @@
 ---
 name: context-resume
-description: Traceary / git / PR / Issue から作業状態を復元し、手書き handoff に頼らず Codex 主体で継続する。multi-AI workspace、再起動後、別 agent からの継続、Claude/Gemini/Codex の調査失敗後に使う。
+description: Traceary / git / PR / Issue から作業状態を復元し、手書き handoff に頼らず Codex が current orchestrator / worker として継続する。multi-AI workspace、再起動後、別 agent からの継続、Claude/Gemini/Codex の調査失敗後に使う。
 ---
 
 # Context Resume

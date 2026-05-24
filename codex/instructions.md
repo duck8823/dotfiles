@@ -73,7 +73,8 @@ Claude 側の構成対応:
 
 運用ルール:
 - `main` へ直接 push しない（明示指示時を除く）
-- コミットは 1コミット1関心事で分割
+- 1 PR = 1 ticket。PR title/body には GitHub Issue の `Closes #123` または Jira 等の `[PROJ-123]` を1つだけ含める
+- コミットは 1コミット1関心事で分割。レビュー指摘で発生した変更も「レビュー対応」コミットにせず、何を・なぜ変えたかを書く
 - コミット時は `Co-authored-by: Codex <noreply@openai.com>` トレーラーを付与する
 - 各修正後に `lint / typecheck / test` を再実行
 - docs-only PR では `git diff --check`、関連 grep、既存の軽量テスト、シェル構文チェックを標準検証にする
@@ -81,12 +82,12 @@ Claude 側の構成対応:
 - レビュー待機はポーリングで確認し、停止せず並行可能な作業を進める
 - 「次は何をするか」を毎回ユーザーに聞かず、優先順位に基づき自律で次対象へ進む
 
-## 自律実行モード（Codex主体）
+## 自律実行モード（Codex が current orchestrator の場合）
 
-Codex 設定では **Codex 主体フローのみ** を定義する。
-（Claude 主体フローは `claude/` 側の設定・コマンドで管理する）
+このファイルは Codex CLI 用なので、Codex が current orchestrator / worker / verifier として動く場合のフローを定義する。
+ただし orchestrator は固定 AI 名ではなく role であり、Claude / Gemini がより適する局面では同じ resume schema / local policy で切り替えられる前提にする。
 
-- 実装/進行: Codex
+- 実装/進行: current orchestrator としての Codex
 - context 継承: Traceary handoff / recent context / git status / PR / Issue を使って復元
 - 1st pass レビュー: local agent policy と policy gate を満たす reviewer。Gemini が無効・失敗なら理由を記録して Claude/Codex fallback
 - PR上の自動レビュー: policy gate を満たす場合は `@codex review`（GitHub App）
@@ -106,7 +107,7 @@ Codex 設定では **Codex 主体フローのみ** を定義する。
 
 ## Codex の運用方針
 
-Codex は dotfiles では **primary orchestrator / worker / verifier** として使う。Traceary / git / PR / workspace packet から context を復元し、追加確認で止まらずに次の合理的アクションへ進む。
+Codex は dotfiles では **orchestrator candidate / worker / verifier** として使う。現状は primary orchestrator になることが多いが固定ではない。Codex が current orchestrator のときは、Traceary / git / PR / workspace packet から context を復元し、追加確認で止まらずに次の合理的アクションへ進む。
 
 ### 主担当
 1. **scoped implementation worker**
@@ -177,8 +178,8 @@ Codex が verify / review を返す際は、以下のフィールドを必ず含
 
 - Claude からの手書き handoff を待たず、Traceary handoff / recent context / git status / PR / Issue から状態を復元する
 - プロジェクトの AGENTS.md / CLAUDE.md / GEMINI.md を読み、アーキテクチャ・命名規則・テスト方針に従うこと
-- コミットは関心事ごとに分割する（1コミット1関心事）
-- PR を作成する場合はドラフト PR（`--draft`）を使う
+- コミットは関心事ごとに分割する（1コミット1関心事）。`review feedback` / `レビュー指摘対応` のようなレビュー起点メッセージは禁止
+- PR を作成する場合はドラフト PR（`--draft`）を使い、PR title/body に ticket 参照を1つだけ含める
 - フロントエンド等の大きな UX 判断は、実装を止めずに design note / Draft PR / reviewer escalation として扱う
 
 ### 6. ユーザーインタビューシミュレーション
@@ -190,7 +191,7 @@ Codex が verify / review を返す際は、以下のフィールドを必ず含
 
 - GitHub Issues のトリアージ、優先順位付け、受け入れ条件の整理
 - マイルストーンとの整合性を確認する
-- Codex 主体で進める Issue、Claude / Gemini specialist に相談する Issue、local policy で無効な agent を使わない Issue を分ける
+- Codex が current orchestrator として進める Issue、Claude / Gemini specialist に相談する Issue、local policy で無効な agent を使わない Issue を分ける
 
 ## コードレビュー指針
 

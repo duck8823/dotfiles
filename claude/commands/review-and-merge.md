@@ -364,7 +364,8 @@ fi
 ### コメント投稿フォーマット
 
 ```bash
-gh pr comment <number> --body "$(cat <<'EOF'
+REVIEW_COMMENT=$(mktemp)
+cat >"$REVIEW_COMMENT" <<'EOF'
 ## 🤖 AI コードレビュー結果
 
 ### レビュアー
@@ -386,7 +387,8 @@ gh pr comment <number> --body "$(cat <<'EOF'
 
 **総合判定:** APPROVE / REQUEST_CHANGES
 EOF
-)"
+gh pr comment <number> --body-file "$REVIEW_COMMENT"
+rm -f "$REVIEW_COMMENT"
 ```
 
 **重要:** `gh pr review` は使わず、必ず `gh pr comment` を使う。

@@ -1,4 +1,4 @@
 interface:
   display_name: "Autonomous Delivery Loop"
-  short_description: "Codex主体で実装→レビュー反映→マージ→次タスク着手を自律実行"
-  default_prompt: "Codex主体で、実装→Draft PR→policy-gated Geminiレビュー反映→policy-gated PR上@codex review対応→マージ→次タスク着手を止まらず進めてください。"
+  short_description: "current orchestrator role が実装→レビュー反映→マージ→次タスク着手を自律実行"
+  default_prompt: "current orchestrator role として、実装→Draft PR→policy-gated multi-AIレビュー反映→policy-gated PR上レビュー対応→マージ→次タスク着手を止まらず進めてください。"
