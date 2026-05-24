@@ -110,6 +110,9 @@ def test_git_pr_guards() -> None:
         rtk_review_msg = run_hook('rtk git commit -m "fix: review comments"')
         assert_blocked(rtk_review_msg, "レビュー起点")
 
+        env_review_msg = run_hook('env FOO=1 git commit -m "fix: review comments"')
+        assert_blocked(env_review_msg, "レビュー起点")
+
         combined_flags = run_hook('git commit -am "fix: review comments"')
         assert_blocked(combined_flags, "レビュー起点")
 
@@ -124,6 +127,9 @@ def test_git_pr_guards() -> None:
 
         fixup_msg = run_hook("git commit --fixup HEAD")
         assert fixup_msg.returncode == 0, fixup_msg.stderr
+
+        reuse_msg = run_hook("git commit -C HEAD")
+        assert reuse_msg.returncode == 0, reuse_msg.stderr
 
         # Commit split guard is advisory by default, but strict mode can block oversized/multi-concern commits.
         repo = tmp_root / "repo"

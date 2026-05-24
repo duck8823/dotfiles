@@ -382,7 +382,7 @@ PY
 
 check_commit_message_policy() {
     COMMAND="$command" python3 - <<'PY'
-import os, pathlib, re, shlex, sys
+import os, pathlib, re, shlex, subprocess, sys
 
 cmd = os.environ.get("COMMAND", "")
 shell_operators = {";", "&", "|", "&&", "||", ";;"}
@@ -863,17 +863,25 @@ if echo "$command" | grep -qE '(^|[;&|])\s*(rtk\s+(proxy\s+)?)?gh\s+release\s+cr
 fi
 
 # コミットメッセージにレビュー起点の文言が含まれていないかチェック
-if echo "$command" | grep -qE '(^|[;&|])\s*(rtk\s+(proxy\s+)?)?git\s+commit\b'; then
-    commit_policy_result=$(check_commit_message_policy)
-    commit_policy_status=$(printf '%s' "$commit_policy_result" | cut -f1)
-    commit_policy_message=$(printf '%s' "$commit_policy_result" | cut -f2-)
-    if [ "$commit_policy_status" = "blocked" ]; then
+commit_policy_result=$(check_commit_message_policy)
+commit_policy_status=$(printf '%s' "$commit_policy_result" | cut -f1)
+commit_policy_message=$(printf '%s' "$commit_policy_result" | cut -f2-)
+case "$commit_policy_status" in
+    ok)
+        check_commit_split_policy
+        ;;
+    none)
+        ;;
+    blocked)
         echo "🚫 [hook] コミットメッセージにレビュー起点の文言（レビュー指摘対応等）が含まれています。" >&2
         [ -n "$commit_policy_message" ] && echo "   message: $commit_policy_message" >&2
         echo "   「何を・なぜ変えたか」でメッセージを書き直してください。" >&2
         exit 2
-    fi
-    check_commit_split_policy
-fi
+        ;;
+    *)
+        echo "🚫 [hook] コミットメッセージ検証に失敗しました。" >&2
+        exit 2
+        ;;
+esac
 
 exit 0
