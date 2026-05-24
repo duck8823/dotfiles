@@ -29,7 +29,7 @@ Options:
 
 Safety modes:
   auto       If run inside a git repository, build and share one sanitized workspace packet; otherwise general.
-  workspace  Build one sanitized workspace packet and share the exact same packet with every engine.
+  workspace  Build one sanitized workspace packet and share the same reviewed packet identity with every engine.
   packet     Append only the explicit --packet file. Caller is responsible for policy review/redaction.
   general    Do not include local repository context. Use only for non-repository general research.
 USAGE
@@ -231,7 +231,9 @@ secret_re = re.compile(
     r"gh[pousr]_[A-Za-z0-9_]{30,}|"
     r"xox[baprs]-[A-Za-z0-9-]+|"
     r"AIza[0-9A-Za-z_-]{35}|"
-    r"sk-[A-Za-z0-9]{20,})"
+    r"sk-[A-Za-z0-9_-]{20,}|"
+    r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|"
+    r"Authorization:\s*Bearer\s+\S+)"
 )
 
 def mask_remote(remote: str) -> str:
@@ -440,6 +442,8 @@ Safety boundary:
 - If local repository context is needed but not provided in this prompt, say exactly what sanitized packet is needed.
 - Prefer official / primary sources. Mark uncertain or secondary-source-only claims.
 - Return concise Japanese output with: conclusion, evidence/source URLs, recommended actions, uncertainty.
+- Transport note: some engine prompts may escape `@` as `\u0040` to prevent CLI file-reference expansion.
+  Treat that as a transport escape only; the reviewed packet identity is the packet_sha256 in status.
 
 PROMPT
 
@@ -480,6 +484,24 @@ run_timeout() {
     timeout "$timeout_seconds" "$@"
     return
   fi
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -c 'import subprocess, sys
+timeout = int(sys.argv[1])
+args = sys.argv[2:]
+data = sys.stdin.buffer.read()
+try:
+    proc = subprocess.run(args, input=data, stdout=sys.stdout.buffer, stderr=sys.stderr.buffer, timeout=timeout)
+    raise SystemExit(proc.returncode)
+except subprocess.TimeoutExpired as exc:
+    if exc.stdout:
+        sys.stdout.buffer.write(exc.stdout)
+    if exc.stderr:
+        sys.stderr.buffer.write(exc.stderr)
+    sys.stderr.write(f"\nTIMEOUT_AFTER={timeout}\n")
+    raise SystemExit(124)
+' "$timeout_seconds" "$@"
+    return
+  fi
   "$@"
 }
 
@@ -499,6 +521,10 @@ classify_result() {
   fi
   if grep -Eqi 'JavaScript heap out of memory|FATAL ERROR: Ineffective mark-compacts|Allocation failed|heap limit' "$file"; then
     echo "process_oom"
+    return
+  fi
+  if grep -Eqi 'TIMEOUT_AFTER=|timed out' "$file"; then
+    echo "timeout"
     return
   fi
   if grep -Eqi 'Opening authentication page|Do you want to continue|authentication page|not authenticated|Please log in|login required' "$file"; then

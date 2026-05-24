@@ -15,6 +15,7 @@ description: Claude / Gemini / Codex の調査協調を安全に回す。外部A
 
 1. **workspace context packet を共有する**
    - repository 内の調査では、secret / private data を除外した workspace packet を生成し、Claude / Gemini / Codex に同一 packet を渡す。
+   - Gemini など `@...` を file reference と解釈する CLI では transport-escape により prompt bytes は異なる場合がある。監査は同一 `packet_sha256` と engine 別 prompt hash で行う。
    - general は repo と無関係な外部動向調査だけに使う。
    - packet は workspace packet に含まれない repo 外 artifact / 追加資料を明示的に渡すときに使う。
 2. **失敗は成果物にする**
@@ -59,6 +60,7 @@ rtk proxy ~/.local/bin/multi-ai-research.sh \
 - `policy_or_permission_denied`: 送信境界を狭める。policy を弱めない。
 - `prompt_file_reference_expansion`: Gemini CLI が packet 内の `@...` を file reference と解釈した。Gemini 用 prompt escaping を確認する。
 - `process_oom`: Gemini / Node が workspace scan や巨大 prompt で OOM。空の per-run cwd で実行し、必要なら packet 上限を下げる。
+- `timeout`: headless CLI が応答しない。Python fallback timeout が効いているか確認し、packet サイズを下げる。
 - `command_failed`: CLI が非0終了。stderr / exit code を確認し、成功 engine だけ採用する。
 - `empty_output`: stderr / quota / CLI crash を確認し、未検証扱いにする。
 

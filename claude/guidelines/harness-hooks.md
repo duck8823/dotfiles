@@ -39,7 +39,7 @@ Claude lifecycle の失敗監査は `PostToolUseFailure` / `StopFailure` / `Suba
 - 「警告が出たから飛ばす」ではなく、**push / ready 前に検証コマンドを実行してから進む**のが正しい運用
 
 ### 想定される失敗パターン
-- 失敗検出は `exit code <非0>` / `exit status <非0>` / 行頭 `FAILED` / 行頭 `ERROR` / 行頭 `error:` / `panic:` に限定する。`exit code 0` や `No errors` ではスタンプを落とさない。
+- 失敗検出は `exit code <非0>` / `exit status <非0>` / 行頭 `FAILED` / 行頭 `ERROR` / 行頭 `error:` / `panic:` / 行頭 `Command failed` に限定する。`exit code 0` や `No errors` ではスタンプを落とさない。
 - 新規ブランチ（`origin/<branch>` 未存在）はドキュメントのみでも常にチェック対象。初回 push 後は正しくスキップされる
 
 ## gh コマンドガード（`check-gh-commands.sh`）

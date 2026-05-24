@@ -66,6 +66,7 @@
 
 Claude / Gemini / Codex の協調調査は `scripts/multi-ai-research.sh` を使う。install 後は `~/.local/bin/multi-ai-research.sh` から呼び出せる。
 git repository 内では、secret / private data を除外した同一 workspace context packet を Claude / Gemini / Codex に共有する。
+Gemini など prompt 内 `@...` を file reference と解釈する CLI では、送信直前に `@` を `\u0040` として transport-escape する場合がある。この場合も source packet は同一で、監査は `packet_sha256` と engine 別 prompt hash の両方で行う。
 
 ```bash
 rtk proxy ./scripts/multi-ai-research.sh \
@@ -74,10 +75,10 @@ rtk proxy ./scripts/multi-ai-research.sh \
 ```
 
 - `auto`: git repository では `workspace`、それ以外では `general` として動く。
-- `workspace`: git status / diff / source files から sanitized packet を生成し、同じ packet hash を各 engine に渡す。
+- `workspace`: git status / diff / source files から sanitized packet を生成し、同じ packet hash を各 engine に渡す。engine 別 transport escape がある場合は prompt hash も併記する。
 - `general`: repo と無関係な外部動向調査だけに使う。
 - `packet`: workspace packet に含まれない repo 外 artifact / 追加資料を渡すときに使う。
-- 結果は `summary.md` として出力され、各 engine の `classification`（`ok` / `trust_failed` / `auth_prompt` / `quota_or_capacity` / `policy_or_permission_denied` / `prompt_file_reference_expansion` / `process_oom` / `command_failed` / `empty_output`）を残す。
+- 結果は `summary.md` として出力され、各 engine の `classification`（`ok` / `trust_failed` / `auth_prompt` / `quota_or_capacity` / `policy_or_permission_denied` / `prompt_file_reference_expansion` / `process_oom` / `timeout` / `command_failed` / `empty_output`）を残す。
 
 ## Traceary memory の扱い
 

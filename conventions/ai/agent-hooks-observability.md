@@ -7,6 +7,7 @@
 - hook は **決定論的 gate / audit / format / context injection** に限定する。
 - 複雑な判断は hook から直接 LLM に丸投げせず、まず command hook + 共有スクリプトに寄せる。
 - Claude の agent-based hooks は experimental のため、production gate は command hook を優先する。
+- Claude Code の lifecycle event 名は公式 hooks reference を一次情報とし、`PostToolUseFailure` / `StopFailure` / `SubagentStop` / `SessionEnd` は 2026-05-24 時点の確認済み event として扱う。
 - Gemini hooks は stdout に最終 JSON、ログは stderr に出す。
 - 監査ログには prompt / command / transcript / session boundary を残す。ただし trace に sensitive data を含める設定は明示管理する。
 
@@ -67,10 +68,11 @@ warning の内訳:
 | `policy_or_permission_denied` | sandbox / approval reviewer / external AI policy deny | policy を弱めず、repo context を外すか redaction packet を狭める |
 | `prompt_file_reference_expansion` | Gemini CLI が packet 内の `@...` を file reference と解釈 | Gemini 用 prompt では `@` を `\u0040` として transport-escape し、同一 packet hash を status に残す |
 | `process_oom` | Gemini / Node が workspace scan や巨大 prompt で OOM | 空の per-run cwd で実行し、必要なら packet 上限を下げる |
+| `timeout` | headless CLI が応答しない / timeout utility 不在 | Python fallback timeout で終了し、packet サイズを下げて再実行する |
 | `command_failed` | CLI 非0終了 / wrapper エラー | stderr / exit code を残し、成功 engine の結果だけ採用する |
 | `empty_output` | CLI crash / quota silent failure / stderr-only | stderr と exit code を確認し未検証扱い |
 
-repo research ではローカル repo 内容を隠すのではなく、foreground orchestrator が sanitized workspace packet を作成してから Claude / Gemini / Codex に同一 packet を共有する。これにより policy / trust 問題を抑えつつ、情報の偏りを避ける。repo と無関係な一般調査だけ `--mode general` を使う。
+repo research ではローカル repo 内容を隠すのではなく、foreground orchestrator が sanitized workspace packet を作成してから Claude / Gemini / Codex に同一 packet を共有する。Gemini など file-reference expansion がある CLI は送信直前の transport escape で byte-level prompt が異なる場合があるが、source packet は同一 `packet_sha256` で監査する。これにより policy / trust 問題を抑えつつ、情報の偏りを避ける。repo と無関係な一般調査だけ `--mode general` を使う。
 
 ## 点検コマンド
 

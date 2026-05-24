@@ -20,7 +20,7 @@ Claude 側の PR review orchestration だけを定義する。
 - authored-by に応じて利益相反を避ける
 - ローカル CLI / subagent の失敗はプロセス停止理由を記録し、ブラウザ認証や固定モデル問題で作業を止めない
 - Medium / High risk の変更では `structure-reviewer` 観点（手続き化・責務配置・境界/IF・振る舞いテスト）を統合レビューに含める
-- Claude / Gemini / Codex の調査失敗は `multi-ai-research` command / `scripts/multi-ai-research.sh` の分類（`trust_failed` / `auth_prompt` / `quota_or_capacity` / `policy_or_permission_denied` / `prompt_file_reference_expansion` / `process_oom` / `command_failed` / `empty_output`）で記録する
+- Claude / Gemini / Codex の調査失敗は `multi-ai-research` command / `scripts/multi-ai-research.sh` の分類（`trust_failed` / `auth_prompt` / `quota_or_capacity` / `policy_or_permission_denied` / `prompt_file_reference_expansion` / `process_oom` / `timeout` / `command_failed` / `empty_output`）で記録する
 
 ## External AI delegation policy gate
 
