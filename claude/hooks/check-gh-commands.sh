@@ -13,11 +13,11 @@ except:
 
 gh_with_timeout() {
     if command -v timeout >/dev/null 2>&1; then
-        timeout 10 gh "$@"
+        timeout 30 gh "$@"
         return
     fi
     if command -v gtimeout >/dev/null 2>&1; then
-        gtimeout 10 gh "$@"
+        gtimeout 30 gh "$@"
         return
     fi
     python3 - "$@" <<'PY'
@@ -29,7 +29,7 @@ try:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        timeout=10,
+        timeout=30,
     )
 except subprocess.TimeoutExpired:
     print("gh command timed out", file=sys.stderr)
@@ -48,7 +48,7 @@ import os, re, shlex, sys
 
 cmd = os.environ.get("COMMAND", "")
 subcommand = os.environ.get("PR_SUBCOMMAND", "")
-shell_operators = {";", "&", "|", "&&", "||", ";;"}
+shell_operators = {";", "&", "|", "&&", "||", ";;", "\n"}
 flags_with_value = {
     "-R", "--repo", "-t", "--title", "-b", "--body", "-F", "--body-file",
     "--template", "--base", "--head", "--assignee", "--reviewer", "--label",
@@ -58,7 +58,8 @@ flags_with_value = {
 
 def shell_tokens(value: str) -> list[str]:
     try:
-        lexer = shlex.shlex(value, posix=True, punctuation_chars=";&|")
+        lexer = shlex.shlex(value, posix=True, punctuation_chars=";&|\n")
+        lexer.whitespace = " \t\r"
         lexer.whitespace_split = True
         return list(lexer)
     except (TypeError, ValueError):
@@ -84,6 +85,11 @@ def normalize_segment(segment: list[str]) -> list[str]:
     changed = True
     while changed and seg:
         changed = False
+        while seg and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=.*", seg[0]):
+            seg = seg[1:]
+            changed = True
+        if changed:
+            continue
         if seg[:1] == ["rtk"]:
             seg = seg[1:]
             if seg[:1] == ["proxy"]:
@@ -92,6 +98,26 @@ def normalize_segment(segment: list[str]) -> list[str]:
             continue
         if seg[:1] == ["command"]:
             seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["exec"]:
+            seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["nohup"]:
+            seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["time"]:
+            seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["nice"]:
+            seg = seg[1:]
+            if seg[:1] == ["-n"] and len(seg) >= 2:
+                seg = seg[2:]
+            elif seg[:1] and re.match(r"^-[0-9]+$", seg[0]):
+                seg = seg[1:]
             changed = True
             continue
         if seg[:1] == ["env"]:
@@ -188,12 +214,15 @@ text = os.environ.get("TICKET_TEXT", "")
 context = os.environ.get("TICKET_CONTEXT", "")
 refs = set()
 
-ticket_prefix = r"(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|issue|issues|ticket|tickets|jira)"
+issue_ref = r"(?:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#([0-9]+)\b"
+closing_keywords = r"(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)"
+reference_keywords = r"(?:issue|issues|ticket|tickets)"
 
-for line in text.splitlines():
-    if re.search(ticket_prefix, line, flags=re.IGNORECASE):
-        for number in re.findall(r"(?:^|[^\w/-])(?:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#([0-9]+)\b", line):
-            refs.add(f"GH#{number}")
+for number in re.findall(rf"\b{closing_keywords}\s*:?\s*{issue_ref}", text, flags=re.IGNORECASE):
+    refs.add(f"GH#{number}")
+
+for number in re.findall(rf"\b{reference_keywords}\s*:?\s*{issue_ref}", text, flags=re.IGNORECASE):
+    refs.add(f"GH#{number}")
 
 for number in re.findall(r"https://github\.com/[^/\s]+/[^/\s]+/issues/([0-9]+)\b", text):
     refs.add(f"GH#{number}")
@@ -216,11 +245,12 @@ check_pr_create_policy() {
 import os, pathlib, re, shlex, subprocess, sys
 
 cmd = os.environ.get("COMMAND", "")
-shell_operators = {";", "&", "|", "&&", "||", ";;"}
+shell_operators = {";", "&", "|", "&&", "||", ";;", "\n"}
 
 def shell_tokens(value: str) -> list[str]:
     try:
-        lexer = shlex.shlex(value, posix=True, punctuation_chars=";&|")
+        lexer = shlex.shlex(value, posix=True, punctuation_chars=";&|\n")
+        lexer.whitespace = " \t\r"
         lexer.whitespace_split = True
         return list(lexer)
     except (TypeError, ValueError):
@@ -248,6 +278,11 @@ def normalize_segment(segment: list[str]) -> list[str]:
     changed = True
     while changed and seg:
         changed = False
+        while seg and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=.*", seg[0]):
+            seg = seg[1:]
+            changed = True
+        if changed:
+            continue
         if seg[:1] == ["rtk"]:
             seg = seg[1:]
             if seg[:1] == ["proxy"]:
@@ -256,6 +291,26 @@ def normalize_segment(segment: list[str]) -> list[str]:
             continue
         if seg[:1] == ["command"]:
             seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["exec"]:
+            seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["nohup"]:
+            seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["time"]:
+            seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["nice"]:
+            seg = seg[1:]
+            if seg[:1] == ["-n"] and len(seg) >= 2:
+                seg = seg[2:]
+            elif seg[:1] and re.match(r"^-[0-9]+$", seg[0]):
+                seg = seg[1:]
             changed = True
             continue
         if seg[:1] == ["env"]:
@@ -295,11 +350,13 @@ def normalize_segment(segment: list[str]) -> list[str]:
 
 def ticket_refs(text: str) -> set[str]:
     refs: set[str] = set()
-    ticket_prefix = r"(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|issue|issues|ticket|tickets|jira)"
-    for line in text.splitlines():
-        if re.search(ticket_prefix, line, flags=re.IGNORECASE):
-            for number in re.findall(r"(?:^|[^\w/-])(?:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#([0-9]+)\b", line):
-                refs.add(f"GH#{number}")
+    issue_ref = r"(?:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#([0-9]+)\b"
+    closing_keywords = r"(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)"
+    reference_keywords = r"(?:issue|issues|ticket|tickets)"
+    for number in re.findall(rf"\b{closing_keywords}\s*:?\s*{issue_ref}", text, flags=re.IGNORECASE):
+        refs.add(f"GH#{number}")
+    for number in re.findall(rf"\b{reference_keywords}\s*:?\s*{issue_ref}", text, flags=re.IGNORECASE):
+        refs.add(f"GH#{number}")
     for number in re.findall(r"https://github\.com/[^/\s]+/[^/\s]+/issues/([0-9]+)\b", text):
         refs.add(f"GH#{number}")
     for key in re.findall(r"\[([A-Z][A-Z0-9]+-[0-9]+)\]", text):
@@ -355,13 +412,15 @@ def parse_create(segment: list[str]) -> tuple[str, str]:
         if str(body_file) == "-" or str(body_file).startswith("<("):
             return "blocked", "gh pr create の body file は検証不能です。--body または通常ファイルの --body-file を使ってください。"
         try:
+            if not expanded.is_file() or expanded.stat().st_size > 1024 * 1024:
+                return "blocked", "gh pr create の body file は通常ファイルかつ1MiB以下にしてください。"
             body += "\n" + expanded.read_text()
         except OSError:
             return "blocked", "gh pr create の body file を読めないため、チケット参照を検証できません。"
 
     text = title + "\n" + body
-    if used_fill and not title and not body:
-        return "blocked", "gh pr create --fill だけでは 1 PR = 1 ticket を検証できません。"
+    if used_fill:
+        return "blocked", "gh pr create --fill は commit message 由来の未検証本文が混入するため使わないでください。--title と --body / --body-file を明示してください。"
 
     refs = sorted(ticket_refs(text))
     if len(refs) == 1:
@@ -394,11 +453,12 @@ check_pr_lifecycle_chain_policy() {
 import os, re, shlex, sys
 
 cmd = os.environ.get("COMMAND", "")
-shell_operators = {";", "&", "|", "&&", "||", ";;"}
+shell_operators = {";", "&", "|", "&&", "||", ";;", "\n"}
 
 def shell_tokens(value: str) -> list[str]:
     try:
-        lexer = shlex.shlex(value, posix=True, punctuation_chars=";&|")
+        lexer = shlex.shlex(value, posix=True, punctuation_chars=";&|\n")
+        lexer.whitespace = " \t\r"
         lexer.whitespace_split = True
         return list(lexer)
     except (TypeError, ValueError):
@@ -424,6 +484,11 @@ def normalize_segment(segment: list[str]) -> list[str]:
     changed = True
     while changed and seg:
         changed = False
+        while seg and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=.*", seg[0]):
+            seg = seg[1:]
+            changed = True
+        if changed:
+            continue
         if seg[:1] == ["rtk"]:
             seg = seg[1:]
             if seg[:1] == ["proxy"]:
@@ -432,6 +497,26 @@ def normalize_segment(segment: list[str]) -> list[str]:
             continue
         if seg[:1] == ["command"]:
             seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["exec"]:
+            seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["nohup"]:
+            seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["time"]:
+            seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["nice"]:
+            seg = seg[1:]
+            if seg[:1] == ["-n"] and len(seg) >= 2:
+                seg = seg[2:]
+            elif seg[:1] and re.match(r"^-[0-9]+$", seg[0]):
+                seg = seg[1:]
             changed = True
             continue
         if seg[:1] == ["env"]:
@@ -491,7 +576,7 @@ check_commit_message_policy() {
 import os, pathlib, re, shlex, subprocess, sys
 
 cmd = os.environ.get("COMMAND", "")
-shell_operators = {";", "&", "|", "&&", "||", ";;"}
+shell_operators = {";", "&", "|", "&&", "||", ";;", "\n"}
 banned = [
     r"レビュー\s*(指摘|コメント|フィードバック)?\s*(対応|反映|修正|修正対応)",
     r"(指摘|コメント|フィードバック)\s*(対応|反映|修正)",
@@ -503,7 +588,8 @@ banned = [
 
 def shell_tokens(value: str) -> list[str]:
     try:
-        lexer = shlex.shlex(value, posix=True, punctuation_chars=";&|")
+        lexer = shlex.shlex(value, posix=True, punctuation_chars=";&|\n")
+        lexer.whitespace = " \t\r"
         lexer.whitespace_split = True
         return list(lexer)
     except (TypeError, ValueError):
@@ -531,6 +617,11 @@ def normalize_segment(segment: list[str]) -> list[str]:
     changed = True
     while changed and seg:
         changed = False
+        while seg and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=.*", seg[0]):
+            seg = seg[1:]
+            changed = True
+        if changed:
+            continue
         if seg[:1] == ["rtk"]:
             seg = seg[1:]
             if seg[:1] == ["proxy"]:
@@ -539,6 +630,26 @@ def normalize_segment(segment: list[str]) -> list[str]:
             continue
         if seg[:1] == ["command"]:
             seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["exec"]:
+            seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["nohup"]:
+            seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["time"]:
+            seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["nice"]:
+            seg = seg[1:]
+            if seg[:1] == ["-n"] and len(seg) >= 2:
+                seg = seg[2:]
+            elif seg[:1] and re.match(r"^-[0-9]+$", seg[0]):
+                seg = seg[1:]
             changed = True
             continue
         if seg[:1] == ["env"]:
@@ -558,10 +669,27 @@ def normalize_segment(segment: list[str]) -> list[str]:
             seg = seg[i:]
             changed = True
             continue
+    if seg[:1] == ["git"]:
+        i = 1
+        while i < len(seg):
+            tok = seg[i]
+            if tok in {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--super-prefix"} and i + 1 < len(seg):
+                i += 2
+                continue
+            if tok.startswith("--git-dir=") or tok.startswith("--work-tree=") or tok.startswith("--namespace=") or tok.startswith("--super-prefix="):
+                i += 1
+                continue
+            if tok in {"--bare", "--no-pager", "--paginate", "--no-replace-objects", "--literal-pathspecs", "--glob-pathspecs", "--noglob-pathspecs", "--icase-pathspecs"}:
+                i += 1
+                continue
+            break
+        seg = ["git", *seg[i:]]
     return seg
 
 def read_message_file(path: str) -> str:
     expanded = pathlib.Path(os.path.expandvars(os.path.expanduser(path)))
+    if not expanded.is_file() or expanded.stat().st_size > 1024 * 1024:
+        raise OSError("commit message file must be a regular file <= 1MiB")
     return expanded.read_text()
 
 def read_commit_message(rev: str) -> str:
@@ -615,12 +743,24 @@ def extract_messages(segment: list[str]) -> tuple[list[str], bool]:
         if tok.startswith("--message="):
             messages.append(tok.split("=", 1)[1])
             continue
+        if tok.startswith("-m") and tok != "-m" and not tok.startswith("--"):
+            messages.append(tok[2:])
+            continue
+        if tok.startswith("-F") and tok != "-F" and not tok.startswith("--"):
+            try:
+                messages.append(read_message_file(tok[2:]))
+            except OSError:
+                unverifiable = True
+            continue
+        if (tok.startswith("-C") or tok.startswith("-c")) and tok not in ("-C", "-c") and not tok.startswith("--"):
+            try:
+                messages.append(read_commit_message(tok[2:]))
+            except (OSError, subprocess.CalledProcessError):
+                unverifiable = True
+            continue
         if tok.startswith("-") and not tok.startswith("--") and "m" in tok[1:]:
             flags = tok[1:]
             m_index = flags.find("m")
-            if m_index != len(flags) - 1:
-                unverifiable = True
-                continue
             inline = flags[m_index + 1:]
             if inline:
                 messages.append(inline)
@@ -669,17 +809,17 @@ if not checked:
 
 combined = "\n".join(messages)
 if not combined:
-    print("blocked\tcommit message を検証できません。-m / --message / -F で明示してください。")
+    print("unverifiable\tcommit message を検証できません。-m / --message / -F で明示してください。")
     sys.exit(0)
 
 for pattern in banned:
     if re.search(pattern, combined, flags=re.IGNORECASE):
         first_line = combined.strip().splitlines()[0] if combined.strip() else ""
-        print("blocked\t" + first_line[:200])
+        print("banned\t" + first_line[:200])
         sys.exit(0)
 
 if unverifiable:
-    print("blocked\tcommit message の一部を検証できません。-m / --message / -F で明示してください。")
+    print("unverifiable\tcommit message の一部を検証できません。-m / --message / -F で明示してください。")
     sys.exit(0)
 
 print("ok\t")
@@ -702,21 +842,7 @@ def concern(path: str) -> str:
     if not parts:
         return path
     top = parts[0]
-    if top in {"claude", "codex", "gemini"}:
-        if len(parts) >= 3 and parts[1] == "skills":
-            return "/".join(parts[:3])
-        if len(parts) >= 2:
-            return "/".join(parts[:2])
-        return top
-    if top == "conventions" and len(parts) >= 2:
-        return "/".join(parts[:2])
-    if top == "scripts":
-        if len(parts) >= 2 and parts[1] == "lib":
-            return "scripts/lib"
-        return "scripts"
-    if top in {"tests", "cmux"}:
-        return top
-    if top in {"README.md", "install.sh"}:
+    if "/" not in path:
         return top
     return top
 
@@ -751,12 +877,13 @@ check_release_guard_policy() {
 import os, re, shlex, sys
 
 cmd = os.environ.get("COMMAND", "")
-shell_operators = {";", "&", "|", "&&", "||", ";;"}
+shell_operators = {";", "&", "|", "&&", "||", ";;", "\n"}
 gh_global_flags_with_value = {"-R", "--repo", "--hostname"}
 
 def shell_tokens(value: str) -> list[str]:
     try:
-        lexer = shlex.shlex(value, posix=True, punctuation_chars=";&|")
+        lexer = shlex.shlex(value, posix=True, punctuation_chars=";&|\n")
+        lexer.whitespace = " \t\r"
         lexer.whitespace_split = True
         return list(lexer)
     except (TypeError, ValueError):
@@ -782,6 +909,11 @@ def normalize_wrappers(segment: list[str]) -> list[str]:
     changed = True
     while changed and seg:
         changed = False
+        while seg and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=.*", seg[0]):
+            seg = seg[1:]
+            changed = True
+        if changed:
+            continue
         if seg[:1] == ["rtk"]:
             seg = seg[1:]
             if seg[:1] == ["proxy"]:
@@ -790,6 +922,26 @@ def normalize_wrappers(segment: list[str]) -> list[str]:
             continue
         if seg[:1] == ["command"]:
             seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["exec"]:
+            seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["nohup"]:
+            seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["time"]:
+            seg = seg[1:]
+            changed = True
+            continue
+        if seg[:1] == ["nice"]:
+            seg = seg[1:]
+            if seg[:1] == ["-n"] and len(seg) >= 2:
+                seg = seg[2:]
+            elif seg[:1] and re.match(r"^-[0-9]+$", seg[0]):
+                seg = seg[1:]
             changed = True
             continue
         if seg[:1] == ["env"]:
@@ -809,6 +961,21 @@ def normalize_wrappers(segment: list[str]) -> list[str]:
             seg = seg[i:]
             changed = True
             continue
+    if seg[:1] == ["git"]:
+        i = 1
+        while i < len(seg):
+            tok = seg[i]
+            if tok in {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--super-prefix"} and i + 1 < len(seg):
+                i += 2
+                continue
+            if tok.startswith("--git-dir=") or tok.startswith("--work-tree=") or tok.startswith("--namespace=") or tok.startswith("--super-prefix="):
+                i += 1
+                continue
+            if tok in {"--bare", "--no-pager", "--paginate", "--no-replace-objects", "--literal-pathspecs", "--glob-pathspecs", "--noglob-pathspecs", "--icase-pathspecs"}:
+                i += 1
+                continue
+            break
+        seg = ["git", *seg[i:]]
     return seg
 
 def normalize_gh(segment: list[str]) -> list[str]:
@@ -837,9 +1004,14 @@ for raw_segment in split_segments(shell_tokens(cmd)):
     if segment[:2] == ["git", "tag"]:
         print("blocked\tgit tag\tリリースタグはユーザーの明示的な承認を得てから作成してください。")
         sys.exit(0)
-    if segment[:2] == ["git", "push"] and any(tok in {"--tags", "--follow-tags"} for tok in segment[2:]):
-        print("blocked\tgit push --tags/--follow-tags\tリリースタグはユーザーの明示的な承認を得てから push してください。")
-        sys.exit(0)
+    if segment[:2] == ["git", "push"]:
+        for tok in segment[2:]:
+            if tok in {"--tags", "--follow-tags"}:
+                print("blocked\tgit push --tags/--follow-tags\tリリースタグはユーザーの明示的な承認を得てから push してください。")
+                sys.exit(0)
+            if tok.startswith("refs/tags/") or re.match(r"^v?[0-9]+(?:\.[0-9]+){1,3}(?:[-+][A-Za-z0-9_.-]+)?$", tok):
+                print("blocked\tgit push tag ref\tリリースタグはユーザーの明示的な承認を得てから push してください。")
+                sys.exit(0)
     if segment[:3] == ["gh", "release", "create"]:
         print("blocked\tgh release create\tリリースはユーザーの明示的な承認を得てから作成してください。")
         sys.exit(0)
@@ -878,8 +1050,16 @@ validate_pr_ticket_or_exit() {
     esac
 }
 
+# shell expansion は hook が実行前に検証できる静的値を壊すため、guarded command では明示ファイルに寄せる
+if [[ "$command" == *'$('* || "$command" == *'`'* || "$command" == *'<('* ]] \
+   && printf '%s' "$command" | grep -qE '(^|[^[:alnum:]_-])(git|gh)([^[:alnum:]_-]|$)'; then
+    echo "🚫 [hook] git/gh command では command substitution / process substitution を使わないでください。" >&2
+    echo "   PR body は --body-file の通常ファイル、commit message は -F の通常ファイルで明示してください。" >&2
+    exit 2
+fi
+
 # AIアカウントをGitHubコラボレーター/レビュアーとして追加しようとしている場合はブロック
-if echo "$command" | grep -qE 'gh api.*(collaborators|PUT.*reviewers)'; then
+if echo "$command" | grep -qE 'gh[[:space:]].*api[[:space:]].*(collaborators|requested_reviewers|reviewers\[\]|team_reviewers\[\])'; then
     echo "🚫 [hook] AIアカウントをGitHubコラボレーター/レビュアーとして追加しないでください。" >&2
     echo "   代わりに 'gh pr comment' でレビュー結果を投稿してください。" >&2
     exit 2
@@ -994,17 +1174,11 @@ case "$merge_status" in
         fi
         validate_pr_ticket_or_exit "gh pr merge" "$pr_text"
 
-        review_body=$(gh_with_timeout api "repos/$repo/issues/$pr_number/comments" --jq '.[].body' 2>/dev/null || true)
-        has_review=$(echo "$review_body" | grep -c '🤖 AI コードレビュー結果' || true)
-        if [ "$has_review" = "0" ]; then
+        review_body=$(gh_with_timeout api "repos/$repo/issues/$pr_number/comments" \
+          --jq '.[] | select(((.body // "") | contains("🤖 AI コードレビュー結果")) and ((.body // "") | test("Gemini|Codex"))) | .body' 2>/dev/null || true)
+        if [ -z "$review_body" ]; then
             echo "🚫 [hook] PR #$pr_number にレビューコメント（🤖 AI コードレビュー結果）がありません。" >&2
-            echo "   レビューを実施してからマージしてください。" >&2
-            exit 2
-        fi
-        has_multi_ai=$(echo "$review_body" | grep -cE 'Gemini|Codex' || true)
-        if [ "$has_multi_ai" = "0" ]; then
-            echo "🚫 [hook] PR #$pr_number に Multi-AI レビュー（Gemini または Codex）がありません。" >&2
-            echo "   Claude 単独レビューではマージできません。Gemini scout または Codex verifier のレビューを実施してください。" >&2
+            echo "   同一コメント内にレビュー marker と Gemini/Codex signature が必要です。" >&2
             exit 2
         fi
         ;;
@@ -1045,10 +1219,15 @@ case "$commit_policy_status" in
         ;;
     none)
         ;;
-    blocked)
+    banned)
         echo "🚫 [hook] コミットメッセージにレビュー起点の文言（レビュー指摘対応等）が含まれています。" >&2
         [ -n "$commit_policy_message" ] && echo "   message: $commit_policy_message" >&2
         echo "   「何を・なぜ変えたか」でメッセージを書き直してください。" >&2
+        exit 2
+        ;;
+    unverifiable)
+        echo "🚫 [hook] $commit_policy_message" >&2
+        echo "   AI実行では commit message を -m / --message / -F の通常ファイルで明示してください。" >&2
         exit 2
         ;;
     *)

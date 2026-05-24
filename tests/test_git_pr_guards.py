@@ -46,7 +46,7 @@ if [ "$1" = "pr" ] && [ "$2" = "view" ]; then
     printf '52\\thttps://github.com/duck8823/dotfiles/pull/52\\n'
     exit 0
   fi
-  printf '%s\\n%s\\n' {title!r} {body!r}
+  printf '%s\\n%b\\n' {title!r} {body!r}
   exit 0
 fi
 if [ "$1" = "api" ]; then
@@ -87,7 +87,10 @@ def test_git_pr_guards() -> None:
     assert_blocked(bare_version_like, "1 PR = 1 ticket")
 
     fill_only = run_hook("gh pr create --draft --fill")
-    assert_blocked(fill_only, "--fill だけでは")
+    assert_blocked(fill_only, "--fill は")
+
+    fill_with_title = run_hook('gh pr create --draft --fill --title "tighten guards" --body "Closes #123"')
+    assert_blocked(fill_with_title, "--fill は")
 
     no_draft = run_hook('gh pr create --title "[OPS-123] tighten guards" --body "details"')
     assert_blocked(no_draft, "--draft")
@@ -95,11 +98,35 @@ def test_git_pr_guards() -> None:
     quoted_draft = run_hook('gh pr create --title "[OPS-123] tighten guards" --body "mentions --draft but no flag"')
     assert_blocked(quoted_draft, "--draft")
 
+    assignment_pr = run_hook('FOO=1 gh pr create --draft --title "tighten guards" --body "Closes #123"')
+    assert assignment_pr.returncode == 0, assignment_pr.stderr
+
+    newline_pr = run_hook('echo ok\ngh pr create --draft --title "tighten guards" --body "no ticket"')
+    assert_blocked(newline_pr, "1 PR = 1 ticket")
+
+    substituted_body = run_hook('gh pr create --draft --title "tighten guards" --body "$(cat body.md)"')
+    assert_blocked(substituted_body, "command substitution")
+
     env_tag = run_hook("env FOO=1 git tag v1.2.3")
     assert_blocked(env_tag, "git tag")
 
+    assignment_tag = run_hook("FOO=1 git tag v1.2.3")
+    assert_blocked(assignment_tag, "git tag")
+
+    exec_tag = run_hook("exec git tag v1.2.3")
+    assert_blocked(exec_tag, "git tag")
+
+    newline_tag = run_hook("echo ok\ngit tag v1.2.3")
+    assert_blocked(newline_tag, "git tag")
+
+    git_global_tag = run_hook("git -C /tmp tag v1.2.3")
+    assert_blocked(git_global_tag, "git tag")
+
     push_tags = run_hook("rtk proxy git push --follow-tags")
     assert_blocked(push_tags, "git push --tags/--follow-tags")
+
+    push_tag_ref = run_hook("git push origin refs/tags/v1.2.3")
+    assert_blocked(push_tag_ref, "git push tag ref")
 
     release_create = run_hook("command gh --repo duck8823/dotfiles release create v1.2.3")
     assert_blocked(release_create, "gh release create")
@@ -139,8 +166,23 @@ def test_git_pr_guards() -> None:
         env_review_msg = run_hook('env FOO=1 git commit -m "fix: review comments"')
         assert_blocked(env_review_msg, "レビュー起点")
 
+        assignment_review_msg = run_hook('FOO=1 git commit -m "fix: review comments"')
+        assert_blocked(assignment_review_msg, "レビュー起点")
+
         combined_flags = run_hook('git commit -am "fix: review comments"')
         assert_blocked(combined_flags, "レビュー起点")
+
+        inline_message = run_hook('git commit -mfix')
+        assert inline_message.returncode == 0, inline_message.stderr
+
+        newline_review_msg = run_hook('echo ok\ngit commit -m "fix: review comments"')
+        assert_blocked(newline_review_msg, "レビュー起点")
+
+        substituted_review_msg = run_hook('git commit -m "$(echo review comments)"')
+        assert_blocked(substituted_review_msg, "command substitution")
+
+        git_global_review_msg = run_hook('git -c user.name=duck commit -m "fix: review comments"')
+        assert_blocked(git_global_review_msg, "レビュー起点")
 
         interactive_msg = run_hook("git commit")
         assert_blocked(interactive_msg, "commit message を検証できません")
