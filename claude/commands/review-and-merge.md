@@ -1,5 +1,5 @@
 ---
-description: 現在のPRを2-AI並列レビュー + Claude最終レビューで全員APPROVEまで修正を繰り返してマージする
+description: 現在のPRをlocal policyに従うMulti-AIレビューで収束させてマージする
 argument-hint: [pr-number] (省略時は現在のブランチのPR)
 allowed-tools: ["Bash", "Read", "Edit", "Write", "Glob", "Grep", "Task"]
 ---
@@ -15,9 +15,9 @@ Gemini / Codex / `@codex review` に PR diff・関連ソース・テスト出力
 
 - trusted repository / git worktree 上で、1 ticket / 1 PR に限定されていること
 - `.env` / credentials / tokens / private keys / shell history / unrelated repo dump を含めないこと
-- Gemini は `gemini --approval-mode plan -p ' ' -e none` の read-only scout として実行すること
+- Gemini は共有デフォルトでは `gemini --approval-mode plan -p ' ' -e none` で実行するが、無効化・approval mode・write 可否は local policy を優先する
 - Codex verifier は reviewer config を指定して実行すること
-- policy deny の場合は設定を弱めず、該当 reviewer を `skipped: policy_denied` として記録し、Claude final + local verification + CI で補完すること
+- policy deny / local policy disabled の場合は設定を弱めず、該当 reviewer を `skipped: policy_denied` / `local_policy_disabled` として記録し、残りの reviewer + local verification + CI で補完すること
 
 ## ステップ1: PR情報の取得
 
@@ -34,13 +34,13 @@ PR番号・タイトル・変更ファイルを把握する。
 
 | authored by | 1st pass | 2nd pass | final |
 |---|---|---|---|
-| Claude | Gemini scout / critic | Codex verifier | Claude |
-| Codex | Gemini scout / critic | Claude reviewer | Claude |
-| 外部生成パッチ / Gemini由来 | Codex verifier | Claude reviewer | Claude |
+| Claude | policy scout / critic | Codex verifier | current orchestrator / Claude |
+| Codex | policy scout / critic | Claude or independent reviewer | current orchestrator |
+| 外部生成パッチ / Gemini由来 | Codex verifier | Claude reviewer | current orchestrator |
 
 - **Gemini**: repo-wide 一貫性、命名 drift、docs / config / l10n drift、diff 外影響
 - **Codex**: セキュリティ、エッジケース、`test_command` / `analyze_command` 実行
-- **Claude**: 変更意図との整合、ユーザー影響、最終マージ可否
+- **Claude**: 変更意図との整合、ユーザー影響、必要時の統合判断
 - **structure-reviewer**: Medium / High risk で、手続き化・責務配置・境界/IF・振る舞いテスト不足を確認
 
 ## ステップ3: コンテキスト収集
@@ -106,7 +106,7 @@ fi
 
 ## ステップ4: レビュー用プロンプトの生成
 
-### Gemini 用（read-only scout / critic）
+### Gemini 用（policy-controlled scout / critic）
 
 ```bash
 GEMINI_PROMPT_FILE="/tmp/${PROJECT}-pr${PR_NUMBER}-gemini-prompt.md"
@@ -204,10 +204,15 @@ PROMPT_EOF
 Gemini は本実行前に短い prompt を `python3` の timeout 付きで実行し、認証待ち・ハング・空出力を先に検出する。
 
 ```bash
-if [ -n "${POLICY_DENY_REASON:-}" ]; then
+if printf ',%s,' "${MULTI_AI_DISABLED_ENGINES:-}" | grep -Eiq ',[[:space:]]*gemini[[:space:]]*,'; then
   GEMINI_AVAILABLE=false
+  GEMINI_SKIP_REASON="local_policy_disabled"
+elif [ -n "${POLICY_DENY_REASON:-}" ]; then
+  GEMINI_AVAILABLE=false
+  GEMINI_SKIP_REASON="${POLICY_DENY_REASON}"
 else
   GEMINI_AVAILABLE=true
+  GEMINI_SKIP_REASON=""
 fi
 GEMINI_PREFLIGHT_OUT=/tmp/${PROJECT}-pr${PR_NUMBER}-gemini-preflight.md
 export GEMINI_PREFLIGHT_OUT
@@ -221,7 +226,7 @@ env["TERM"] = "xterm-256color"
 out_path = os.environ["GEMINI_PREFLIGHT_OUT"]
 try:
     proc = subprocess.run(
-        ["gemini", "--approval-mode", "plan", "-p", " ", "-e", "none"],
+        ["gemini", "--approval-mode", os.environ.get("MULTI_AI_GEMINI_APPROVAL_MODE", "plan"), "-p", " ", "-e", "none"],
         input=prompt,
         text=True,
         capture_output=True,
@@ -264,7 +269,7 @@ env["TERM"] = "xterm-256color"
 out_path = os.environ["GEMINI_REVIEW_OUT"]
 try:
     proc = subprocess.run(
-        ["gemini", "--approval-mode", "plan", "-p", " ", "-e", "none"],
+        ["gemini", "--approval-mode", os.environ.get("MULTI_AI_GEMINI_APPROVAL_MODE", "plan"), "-p", " ", "-e", "none"],
         input=prompt,
         text=True,
         capture_output=True,
@@ -312,8 +317,8 @@ wait
 
 if [ "$GEMINI_AVAILABLE" = true ]; then
   cat /tmp/${PROJECT}-pr${PR_NUMBER}-gemini-review.md
-elif [ -n "${POLICY_DENY_REASON:-}" ]; then
-  echo "Gemini skipped: ${POLICY_DENY_REASON}"
+elif [ -n "${GEMINI_SKIP_REASON:-}" ]; then
+  echo "Gemini skipped: ${GEMINI_SKIP_REASON}"
 else
   echo "Gemini skipped; see $GEMINI_PREFLIGHT_OUT"
 fi
@@ -326,7 +331,7 @@ fi
 
 ### ヘッドレスを使う理由
 - `codex exec`: TUI を起動せず TTY 不要
-- `gemini --approval-mode plan -p`: read-only scout に適したヘッドレス実行
+- `gemini --approval-mode plan -p`: 共有デフォルトの scout 向けヘッドレス実行。local policy で無効化・上書き可
 - 対話モード（`codex` / `gemini`）を tmux で使わない
 
 ### フォールバック
@@ -339,8 +344,8 @@ fi
 
 ## ステップ6: 統合・修正ループ
 
-1. Gemini の repo-wide 指摘を確認する
-2. Codex のセキュリティ / テスト / 再現指摘を確認する
+1. local policy で有効な scout の repo-wide 指摘を確認する
+2. Codex / independent verifier のセキュリティ / テスト / 再現指摘を確認する
 3. Claude が diff 全体を再読し、変更意図・ユーザー影響・プロジェクト規約との整合を判定する
 4. Critical / Major を修正する
 5. `test_command` / `analyze_command` を再実行する。docs-only PR では `git diff --check`、関連 grep、既存の軽量テスト、シェル構文チェックを標準検証にする

@@ -13,6 +13,7 @@
 ## 共通 source of truth
 
 - Multi-AI の role / schema / handoff 境界は `conventions/ai/multi-ai-agent-operations.md` を優先する。
+- Agent の有効/無効、Gemini の approval mode / write 可否などのローカル差分は `conventions/ai/local-agent-policy.md` を優先する。
 - Hook / observability / Traceary の点検基準は `conventions/ai/agent-hooks-observability.md` を優先する。
 - `claude/`, `codex/`, `gemini/` 配下の agent / skill / settings は、上記 convention を各ツール形式へ投影したものとして扱う。
 
@@ -27,7 +28,8 @@
 ## 自律・協調運用での原則
 
 - Foreground orchestrator は最終判断を持ち、worker / scout の結果を統合する。
-- Background worker は scoped task と検証証跡を返す。抽象的な最終判断を持たない。
-- Read-only scout は repo-wide consistency と diff 外影響を探す。write 権限を持たない。
+- 現在の標準では Codex を primary orchestrator とし、Traceary / git / PR / Issue から context を復元して継続する。
+- Background worker は scoped task と検証証跡を返す。
+- Scout は repo-wide consistency と diff 外影響を探す。read-only 固定ではなく、write 可否はローカルポリシーと worktree gate で決める。
 - policy gate、secret 除外、generated code 除外、CI 判定ルールは skill ではなく常時ルール側にも置く。
 - 1つの知識を複数ツールへ展開するときは、内容の source of truth と license / attribution を明記する。

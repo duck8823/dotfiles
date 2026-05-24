@@ -22,7 +22,7 @@ Gemini / Codex CLI / `@codex review` / Claude CLI delegation は、`~/.codex/con
 - PR diff / local branch diff / workspace context packet / 関連ソース / テスト出力など、必要最小限だけを渡す
 - 同じ repo 質問を複数 AI に調査させる場合は、情報の偏りを避けるため同一の sanitized workspace context packet または同一の source/diff bundle を渡す
 - `.env`、credentials、tokens、private keys、shell history、無関係な repo / home directory dump を渡さない
-- Gemini は `gemini --approval-mode plan -p ' ' -e none` の read-only scout に限定する
+- Gemini は共有テンプレートでは plan/scout を既定にするが、無効化・approval mode・write 可否はローカルポリシーで上書きできる。write を許可する場合も dedicated branch / worktree と明示スコープを必須にする
 - Codex verifier は `codex exec --full-auto -c 'agents.default.config_file="$HOME/.codex/agents/reviewer.toml"'` を優先する
 - policy deny 時は Guardian / sandbox / approval を弱めず、`skipped: policy_denied` と理由を記録して Claude-only fallback + local verification + CI で補完する
 
@@ -87,7 +87,8 @@ Codex 設定では **Codex 主体フローのみ** を定義する。
 （Claude 主体フローは `claude/` 側の設定・コマンドで管理する）
 
 - 実装/進行: Codex
-- 1st pass レビュー: policy gate を満たす場合は Gemini、満たさない場合は Claude/Codex fallback
+- context 継承: Traceary handoff / recent context / git status / PR / Issue を使って復元
+- 1st pass レビュー: local agent policy と policy gate を満たす reviewer。Gemini が無効・失敗なら理由を記録して Claude/Codex fallback
 - PR上の自動レビュー: policy gate を満たす場合は `@codex review`（GitHub App）
 - 最終ゲート: PR上の指摘解消 + ユーザー承認フロー
 
@@ -105,7 +106,7 @@ Codex 設定では **Codex 主体フローのみ** を定義する。
 
 ## Codex の運用方針
 
-Codex は dotfiles では **background worker / verifier** として使う。
+Codex は dotfiles では **primary orchestrator / worker / verifier** として使う。Traceary / git / PR / workspace packet から context を復元し、追加確認で止まらずに次の合理的アクションへ進む。
 
 ### 主担当
 1. **scoped implementation worker**
@@ -121,7 +122,7 @@ Codex は dotfiles では **background worker / verifier** として使う。
 
 ### 原則
 
-- 曖昧な UX 判断や最終マージ判断は持たない
+- UX・仕様・リリース判断は根拠を残し、必要なら Claude / Gemini / ユーザーへ escalation する。ただし確認不能を理由に止まり続けない
 - write タスクは isolated branch / worktree 前提
 - 返却は「感想」ではなく、**変更ファイル / 実行コマンド / 結果 / 残リスク** を中心にする
 - 長く走るタスク、CLI ネイティブなタスク、繰り返し検証に強い worker として振る舞う
@@ -172,13 +173,13 @@ Codex が verify / review を返す際は、以下のフィールドを必ず含
 - 調査結果は根拠（公式ドキュメント URL、ソースコード箇所）を必ず示すこと
 - 一次情報が不足する場合は不確実性を明記すること
 
-### 5. オーバーフロー実装（Claude 制限到達時）
+### 5. Context resume / 継続実装
 
-- Claude Code の週間制限に達した際、実装タスクを引き継ぐ
-- プロジェクトの CLAUDE.md を必ず読み、アーキテクチャ・命名規則・テスト方針に従うこと
+- Claude からの手書き handoff を待たず、Traceary handoff / recent context / git status / PR / Issue から状態を復元する
+- プロジェクトの AGENTS.md / CLAUDE.md / GEMINI.md を読み、アーキテクチャ・命名規則・テスト方針に従うこと
 - コミットは関心事ごとに分割する（1コミット1関心事）
 - PR を作成する場合はドラフト PR（`--draft`）を使う
-- フロントエンド（React 等）の大規模 UI 実装は原則 Claude に残す
+- フロントエンド等の大きな UX 判断は、実装を止めずに design note / Draft PR / reviewer escalation として扱う
 
 ### 6. ユーザーインタビューシミュレーション
 
@@ -189,7 +190,7 @@ Codex が verify / review を返す際は、以下のフィールドを必ず含
 
 - GitHub Issues のトリアージ、優先順位付け、受け入れ条件の整理
 - マイルストーンとの整合性を確認する
-- Codex worker に向く Issue と Claude foreground に残す Issue を分ける
+- Codex 主体で進める Issue、Claude / Gemini specialist に相談する Issue、local policy で無効な agent を使わない Issue を分ける
 
 ## コードレビュー指針
 

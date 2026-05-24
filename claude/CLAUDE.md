@@ -80,10 +80,10 @@
 
 詳細: `~/.claude/guidelines/multi-ai-team.md`
 
-- Claude = foreground orchestrator（設計・統合判断・マージゲート）
-- Codex = background worker（実装・テスト・調査・CI/CD）
-- Gemini = read-only scout（一貫性レビュー・計画の俯瞰チェック）
-- 失敗時は1回リトライ → スキップして記録
+- Codex = primary orchestrator / worker / verifier（実装・テスト・調査・CI/CD・レビュー反映）
+- Claude = foreground specialist / integrator（UX・仕様・大きめの統合判断）
+- Gemini = policy-controlled scout / critic / optional worker（一貫性レビュー・計画の俯瞰チェック。read-only 固定ではなく local policy 優先）
+- 失敗時は1回リトライ → スキップして理由を記録し、別 agent / local verification で補完
 
 ## Structure-Behavior Design
 
@@ -124,8 +124,8 @@
 
 ## セッション継続性
 
-- セッション開始時にプロジェクトの CLAUDE.md と引き継ぎドキュメントを読む
-- 計画フェーズ中断時は GitHub イシューにコメントとして状態を保存する
+- セッション開始時にプロジェクトの AGENTS.md / CLAUDE.md と Traceary handoff / recent context / git status を確認する
+- 計画フェーズ中断時は Traceary / GitHub Issue / PR コメントのいずれかに状態を保存し、次の agent が復元できる粒度にする
 
 ## AI レビュー設定（プロジェクト CLAUDE.md 規約）
 

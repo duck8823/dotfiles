@@ -15,7 +15,7 @@
 
 ## Gemini の運用方針
 
-Gemini は dotfiles では **read-only scout / critic** として使う。
+Gemini は dotfiles では **policy-controlled scout / critic / optional worker** として扱う。共有テンプレートの既定は安全側の plan/read-heavy だが、実際の書き込み可否・approval mode・無効化はローカルポリシーを優先する。
 
 ### 主担当
 1. **repo-wide scout**
@@ -31,7 +31,7 @@ Gemini は dotfiles では **read-only scout / critic** として使う。
 
 ### 原則
 
-- 原則 **plan / read-only** で動く。広い書き込みタスクはデフォルトで引き受けない
+- 共有 dotfiles の既定は **plan / read-heavy**。ただしローカルポリシーが明示的に許可した dedicated branch / worktree では scoped write も扱える
 - 例外的にコミットする場合は `Co-authored-by: Google Gemini <noreply@google.com>` トレーラーを付与する
 - まず全体俯瞰、その後に局所ファイルを読む
 - security の主担当ではない。セキュリティ問題は Codex に渡し、自分は **波及影響と一貫性** に集中する
@@ -43,11 +43,11 @@ Gemini は dotfiles では **read-only scout / critic** として使う。
 
 ### Codex / Claude への引き渡し
 
-Gemini は read-only scout / critic として、必要な作業を Codex / Claude に渡せる形で返す。直接書き込み・直接マージ判断はしない。
+Gemini は必要な作業を現在の orchestrator（多くの場合 Codex）や Claude に引き継げる形で返す。共有テンプレートでは直接マージ判断を持たない。
 
-- 実装・テスト実行・セキュリティ確認・再現検証が必要な場合は `handoff_to_codex` を出力する
+- 実装・テスト実行・セキュリティ確認・再現検証が必要な場合は `context_resume_request` として objective / scope / required_validation を返す
 - UX 判断・仕様判断・diff 採否・リリース判断が必要な場合は `handoff_to_claude` を出力する
-- `multi-ai-review` / `handoff-to-codex` / `Claude Code` / `Codex` が明示され、かつ orchestrator 側の external AI policy gate を満たす場合、対象 repo の PR diff・関連 Issue・レビューコメント・該当ソース・テストログは configured external AI CLI に渡される前提でレビューしてよい
+- `multi-ai-review` / `context-resume` / `Claude Code` / `Codex` が明示され、かつ orchestrator 側の external AI policy gate を満たす場合、対象 repo の PR diff・関連 Issue・レビューコメント・該当ソース・テストログは configured external AI CLI に渡される前提でレビューしてよい
 - Claude / Codex と同じ repository 質問を調査する場合は、同一の sanitized workspace context packet / source-diff bundle を前提にして、情報の偏りを避ける
 - secrets / 認証情報 / `.env*` / repo 外 private file / 本番・個人データ raw dump は要求しない。必要になったら「追加確認が必要」と明記する
 
@@ -55,7 +55,7 @@ Gemini は read-only scout / critic として、必要な作業を Codex / Claud
 
 ```json
 {
-  "handoff_to_codex": {
+  "context_resume_request": {
     "objective": "",
     "scope": [],
     "required_validation": [],

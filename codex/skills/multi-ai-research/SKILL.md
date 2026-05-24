@@ -41,6 +41,8 @@ rtk proxy ~/.local/bin/multi-ai-research.sh \
   --mode auto
 ```
 
+`~/.config/ai-agent-policy.env` または環境変数で `MULTI_AI_ENGINES` / `MULTI_AI_DISABLED_ENGINES` を設定している場合はそれを優先する。無効化された engine は `local_policy_disabled` として status に残す。
+
 repo 固有 context が必要な場合:
 
 ```bash
@@ -54,6 +56,7 @@ rtk proxy ~/.local/bin/multi-ai-research.sh \
 ## 統合時に確認する分類
 
 - `ok`: 採用候補。一次情報・不確実性を確認する。
+- `local_policy_disabled`: ローカルポリシーで engine が無効。失敗ではなく skip として記録し、残りの engine / local verification で補完する。
 - `trust_failed`: Gemini workspace trust 問題。workspace packet 実行では `/private/tmp` + `--skip-trust` で再実行し、直接 repo を読ませる運用には戻さない。
 - `auth_prompt`: headless 失敗。ブラウザを開かず fallback。
 - `quota_or_capacity`: 1回だけ retry。再失敗なら欠落理由として記録。

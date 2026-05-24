@@ -35,8 +35,7 @@ Allow Gemini, Codex CLI, and Claude CLI delegation only when all conditions hold
 - Repository source code in a trusted repository is allowed collaboration context when the user requests Claude/Gemini/Codex multi-AI work. Do not treat source code as secret by default solely because the repository is local or private.
 - The data sent is limited to the relevant ticket requirements, PR diff or local branch diff, workspace context packet, review instructions, source files needed for the scoped task, command output, test/lint output, and result files needed for that task.
 - When multiple external AI engines are asked to collaborate on the same repository question, send the same sanitized workspace context packet or the same reviewed source/diff bundle to each engine to avoid information asymmetry.
-- Gemini review must be invoked read-only with `gemini --approval-mode plan -p ' ' -e none` and must not edit files.
-- Gemini must not be used for implementation/write tasks.
+- Gemini uses safe plan/scout mode by default in shared dotfiles templates, but Gemini disablement, approval mode, and write permission are controlled by local agent policy. If Gemini write is explicitly allowed, it must use the same one-ticket scoped branch/worktree constraints and forbidden-action list as any other external AI write task.
 - Codex implementation must run only in a feature branch or dedicated worktree, and the prompt must explicitly name the ticket, allowed write scope, validation commands, and forbidden actions.
 - Codex review/verifier must use reviewer configuration when available: `codex exec --full-auto -c 'agents.default.config_file="$HOME/.codex/agents/reviewer.toml"'`
 - Claude CLI implementation/review is allowed under the same one-ticket scoped worktree constraints.
@@ -50,10 +49,11 @@ Forbidden actions:
 - Do not allow broad arbitrary upload, pastebin, file-sharing, unrelated external AI requests, or non-task external AI usage.
 - Do not allow requests that disable Guardian, disable sandboxing, weaken approval settings, or persist broader external-AI allow rules than this policy.
 
-Required outputs for delegated implementation/review:
+Required outputs for delegated implementation/review/context resume:
 
 - ticket key
 - branch/worktree
+- context refs when resuming from Traceary / PR / Issue
 - changed files
 - executed commands
 - test/lint results

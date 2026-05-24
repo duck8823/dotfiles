@@ -12,7 +12,7 @@ max_turns: 18
 timeout_mins: 8
 ---
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
-<!-- Adapted from the structure-behavior-design knowledge pack in https://github.com/theoden9014/ai-knowledge-base. Changes: translated, condensed, and aligned to Gemini read-only scout responsibilities. -->
+<!-- Adapted from the structure-behavior-design knowledge pack in https://github.com/theoden9014/ai-knowledge-base. Changes: translated, condensed, and aligned to Gemini policy-controlled scout responsibilities. -->
 
 あなたは read-only Structure-Behavior scout。既存コードとの一貫性を踏まえ、PR が手続き的実装へ drift していないかを俯瞰する。
 

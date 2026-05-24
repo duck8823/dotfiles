@@ -2,20 +2,20 @@
 
 ## 原則
 
-- **Claude** は foreground orchestrator として使う
-- **Codex** は background worker / verifier として使う
-- **Gemini** は read-only scout / critic として使う
+- **Codex** は primary orchestrator / worker / verifier として使う
+- **Claude** は foreground specialist / integrator として使う
+- **Gemini** は policy-controlled scout / critic / optional worker として使う
 - すべて **ヘッドレス実行** を基本とする
 - 書き込みタスクは isolated branch / worktree 前提
 
-共通 role / handoff schema / Traceary memory 昇格ルールは
+共通 role / context resume schema / Traceary memory 昇格ルールは
 `conventions/ai/multi-ai-agent-operations.md` を source of truth とする。
 Claude / Gemini / Codex の headless 調査は `~/.local/bin/multi-ai-research.sh`
 （未 install 時は `scripts/multi-ai-research.sh`）を優先し、同一の workspace context packet を各 engine に渡して情報の偏りを避ける。
 
 ## 外部AIへのデータ送信境界
 
-`multi-ai-review` / `handoff-to-codex` / `Claude Code` / `Gemini` / `Codex` / `ai-review` が明示され、かつ `~/.codex/config.toml` の `[auto_review].policy` を満たす場合、対象リポジトリの PR diff・関連 Issue・レビューコメント・該当ソース・テストログ・リポジトリ内の設計 artifact は configured external AI CLI（`claude` / `codex` / `gemini` / `ai-review`）へ渡してよい。これは multi-AI 協業の標準運用であり、同じ確認を毎回求めない。policy gate を満たさない場合は外部AI CLIを起動しない。
+`multi-ai-review` / `context-resume` / `Claude Code` / `Gemini` / `Codex` / `ai-review` が明示され、かつ `~/.codex/config.toml` の `[auto_review].policy` を満たす場合、対象リポジトリの PR diff・関連 Issue・レビューコメント・該当ソース・テストログ・リポジトリ内の設計 artifact は configured external AI CLI（`claude` / `codex` / `gemini` / `ai-review`）へ渡してよい。これは multi-AI 協業の標準運用であり、同じ確認を毎回求めない。policy gate を満たさない場合は外部AI CLIを起動しない。
 
 追加確認が必要なもの:
 
@@ -24,7 +24,7 @@ Claude / Gemini / Codex の headless 調査は `~/.local/bin/multi-ai-research.s
 - ユーザー個人情報・顧客データ・本番データの raw dump
 - 外部サービスへの書き込み（メール送信、Slack 投稿、本番操作など）
 
-Claude / Gemini から Codex / Claude Code へ渡すプロンプトには、上記の境界を明記し、secrets を貼り付けない。repo 外 artifact を渡す必要がある場合は、その path と目的を明示して人間確認を取る。
+agent 間で context を共有する場合は、Traceary / git / PR / Issue から resume packet に蒸留し、上記の境界を明記する。secrets を貼り付けない。repo 外 artifact を渡す必要がある場合は、その path と目的を明示して人間確認を取る。
 
 ## キャッシュ・作業ディレクトリの env 強制
 
@@ -46,7 +46,7 @@ export PUB_CACHE="$HOME/.pub-cache"
 | ツール | 目的 | コマンド例 | 補足 |
 |--------|------|-----------|------|
 | Codex | review / plan / worker | `codex exec --full-auto - < <prompt> \| tee <file>` | `-c 'agents.default.config_file=...'` で役割付与 |
-| Gemini | scout / review / planning | `gemini --approval-mode plan -p ' ' -e none < <prompt> 2>&1 \| tee <output>` | `GEMINI_SYSTEM_MD=...` で役割付与 |
+| Gemini | scout / review / planning / optional scoped worker | `gemini --approval-mode ${MULTI_AI_GEMINI_APPROVAL_MODE:-plan} -p ' ' -e none < <prompt> 2>&1 \| tee <output>` | `GEMINI_SYSTEM_MD=...` で役割付与。write 可否は local policy 優先 |
 | Claude Code | design / implementation delegation | `claude -p < /tmp/claude-worker.md \| tee <output>` | `claude --print` も同じ headless 用途で使う |
 
 > `gemini -e none` は公式にサポートされた「拡張を無効化する」指定。旧来の `-e ''` は使わない。
@@ -54,9 +54,10 @@ export PUB_CACHE="$HOME/.pub-cache"
 ## 運用ルール
 
 ### Gemini
-- 既定は `--approval-mode plan`（read-only）
+- 共有 dotfiles の既定は `--approval-mode plan`（安全側）
 - repo-wide scan、既存パターン比較、docs / config / l10n drift 検出に使う
-- 書き込みをさせるのは、明示的に許可した isolated worktree 実験時のみ
+- 書き込み可否・無効化・approval mode は local policy を優先する
+- 書き込みをさせる場合は、明示的に許可した isolated branch / worktree に限定する
 - **自律レビュー中のブラウザ認証禁止**: headless 実行で `Opening authentication page in your browser` / `Do you want to continue?` が出たら、その場で Gemini プロセスを停止し、ブラウザを開かずフォールバックする
 - **headless 事前確認**: multi-AI review 前に短い read-only prompt をタイムアウト付きで実行し、認証プロンプト・空出力・quota を先に検出する。`gemini --version` だけでは認証可否の確認にならない
 - **1プロンプト1質問**: 複合的な質問（多項目チェック等）ではツールエラー後にリカバリできず空出力で終了する。質問は短く単一にして個別実行する
@@ -71,8 +72,8 @@ export PUB_CACHE="$HOME/.pub-cache"
 - **スキル自動ロード**: `~/.codex/skills/` のスキルがプロンプトより優先される場合がある。レビュー等の明確なタスクでは、プロンプト冒頭に目的を強調して記載する
 
 ### Claude
-- subagents / Task は sidecar 調査に使う
-- マージ判断とユーザー影響の最終責任はメインセッションが持つ
+- subagents / Task は sidecar 調査や UX/仕様判断の補助に使う
+- Codex 主体運用でも、ユーザー影響が大きい判断では Claude specialist として使う
 
 ## エージェント指定付き実行
 
@@ -92,13 +93,13 @@ GEMINI_SYSTEM_MD=$HOME/.gemini/agents/<agent-name>.md \
   < /tmp/<agent>-prompt.md 2>&1 | tee /tmp/<agent>-result.json
 ```
 
-## 相互委譲の標準パターン
+## Context resume の標準パターン
 
-### Claude → Codex
+### Traceary / git / PR → current orchestrator
 
-- scoped implementation / verifier / security / CI / shell は Codex に渡す
-- 依頼文には Objective / Acceptance Criteria / Out of Scope / Constraints / Required Validation / Output Format を含める
-- Codex の返却は `validated_commands` 付きの検証証跡を必須にする
+- 手書き handoff を待たず、Traceary handoff / recent context / git status / PR / Issue から復元する
+- resume packet には Objective / Current State / Scope / Forbidden Actions / Required Validation / Output Format を含める
+- verifier の返却は `validated_commands` 付きの検証証跡を必須にする
 
 ### Claude → Claude Code
 
@@ -106,11 +107,11 @@ GEMINI_SYSTEM_MD=$HOME/.gemini/agents/<agent-name>.md \
 - headless (`claude -p` / `claude --print`) を優先し、ブラウザ認証プロンプトや secrets 要求が出たら停止する
 - repo 外 artifact（デザイン zip 等）は、ユーザーがその path の送信を明示承認した場合だけ渡す
 
-### Gemini → Codex / Claude
+### Gemini → current orchestrator / Claude
 
-- Gemini は原則 read-only のため直接実装しない
-- 実装・検証が必要な場合は `handoff_to_codex`、UX / 統合判断が必要な場合は `handoff_to_claude` の依頼文 artifact を返す
-- 実行は foreground orchestrator（Claude または Codex メイン）が行う
+- Gemini は local policy に従い、scout / critic / optional worker として使う
+- 実装・検証が必要な場合は `context_resume_request`、UX / 統合判断が必要な場合は `handoff_to_claude` 相当の decision request を返す
+- 実行は current orchestrator（標準では Codex）が行う
 
 ## worktree 運用
 
@@ -138,7 +139,7 @@ Gemini で例外的に書き込みを試す場合だけ、公式 worktree 機能
 gemini --worktree <task-name>
 ```
 
-ただし dotfiles の標準運用では、Gemini を実装担当にしない。
+ただし write 可否は local policy と worktree gate を必ず通す。
 
 ## 並列実行方式
 
