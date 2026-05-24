@@ -54,6 +54,10 @@ agent 間の共有 artifact は「handoff」ではなく、再開可能な conte
 - reviewer では author と利益相反を明示する。author と同じ engine は独立最終レビュー扱いにしない。
 - `validated_commands` が空の verifier 出力は「未検証」として扱う。
 
+## Quality gate policy
+
+品質 gate の正本は `conventions/ai/quality-gates.md` とする。各 agent は role / capability ベースで gate を満たす artifact を確認し、local policy で engine が無効な場合は欠落理由を記録して代替 reviewer / local verification / CI で補完する。
+
 ## Git / PR guard policy
 
 - **1 PR = 1 ticket** を hard gate とする。GitHub Issue なら `Closes #123`、Jira 等なら `[PROJ-123]` のような ticket ID を PR title/body に1つだけ含める。
