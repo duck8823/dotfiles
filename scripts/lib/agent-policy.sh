@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Shared local agent policy loader for dotfiles scripts/hooks.
+# Bash-only: uses indirect expansion to keep per-run env vars higher
+# precedence than the durable policy file.
 # This file intentionally does not `source` the policy file. It parses only
 # allowlisted KEY=VALUE lines and keeps shell env vars higher precedence than
 # the durable policy file.
@@ -64,6 +66,7 @@ agent_policy_csv_contains() {
   local list="$1"
   local needle="$2"
   local item
+  local IFS=$' \t\n'
   needle="$(printf '%s' "$needle" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
   for item in ${list//,/ }; do
     item="$(printf '%s' "$item" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
@@ -80,6 +83,7 @@ agent_policy_is_disabled() {
 agent_policy_csv_filter_disabled() {
   local list="$1"
   local item kept=""
+  local IFS=$' \t\n'
   for item in ${list//,/ }; do
     item="$(printf '%s' "$item" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
     [ -n "$item" ] || continue
@@ -98,6 +102,7 @@ agent_policy_csv_filter_disabled() {
 agent_policy_csv_disabled_for() {
   local list="$1"
   local item skipped=""
+  local IFS=$' \t\n'
   for item in ${list//,/ }; do
     item="$(printf '%s' "$item" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
     [ -n "$item" ] || continue

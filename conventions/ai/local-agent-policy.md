@@ -7,6 +7,7 @@
 - Codex / Claude / Gemini は固定階層ではなく、現在の orchestrator と task scope に応じて協調する。
 - 共有 dotfiles は安全側のデフォルトを置くが、Gemini を常に read-only に固定したり、特定 agent の使用を強制したりしない。
 - ローカル環境で Gemini が不安定・禁止・quota 不足なら、Gemini を無効化して Codex / Claude / local verification にフォールバックする。
+- `MULTI_AI_DISABLED_ENGINES=codex` は `multi-ai-research.sh` などの orchestrated engine selection では尊重するが、Claude hook では Codex 自体を全面ブロックしない。Codex は primary orchestrator なので、write safety は branch / worktree gate で制御する。
 - write を許可する agent は、必ず dedicated branch / worktree、明示スコープ、禁止操作、検証コマンドを持つ。
 - policy によって agent を skip した場合は、失敗ではなく `skipped: local_policy_disabled` として記録する。
 
