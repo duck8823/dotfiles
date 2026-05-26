@@ -28,6 +28,12 @@ Allow Gemini, Codex CLI, and Claude CLI delegation only when all conditions hold
 - Work must be scoped to one ticket / one PR. Do not combine multiple tickets into one task, branch, review request, or PR.
 - If an existing PR accidentally contains multiple tickets, do not close it; narrow the existing PR to one ticket and create separate PRs for the remaining tickets.
 - PR title/body must reference exactly one ticket. Use `Closes #123` for GitHub Issues or a single Jira-style key such as `[PROJ-123]`.
+- Maintenance / release-remediation exception:
+  - When the user explicitly asks for a `[MAINTENANCE]` PR, or explicitly says not to link a closed ticket, PR title/body may omit ticket references and use `[MAINTENANCE]` instead.
+  - This exception is limited to one-PR maintenance fixes such as release apply remediation, operational follow-up, policy/doc cleanup, or small infrastructure unblockers where linking a closed ticket would be misleading.
+  - The PR body must still include Motivation, Changes, Verification, residual risks, and relevant PR/release context.
+  - Do not use this exception for feature work, bug fixes with an active ticket, multi-ticket work, or broad unscoped cleanup.
+  - For required output fields, use `ticket key: N/A ([MAINTENANCE])`.
 - The task is one of:
   - read-only PR review / verifier work
   - read-only repository / workspace research requested by the user
