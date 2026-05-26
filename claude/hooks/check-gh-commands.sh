@@ -243,13 +243,14 @@ for key in re.findall(r"\[([A-Z][A-Z0-9]+-[0-9]+)\]", text):
     refs.add(f"JIRA:{key}")
 
 ordered = sorted(refs)
+ticketless_prefixes = ("[MAINTENANCE]", "[FIX]", "[PROPOSAL]")
 title_line = text.split("\n", 1)[0].lstrip() if text else ""
-is_maintenance = title_line.startswith("[MAINTENANCE]")
+ticketless_prefix = next((p for p in ticketless_prefixes if title_line.startswith(p)), "")
 if len(ordered) == 1:
     print("ok\t" + ordered[0])
 elif not ordered:
-    if is_maintenance:
-        print("ok\tMAINTENANCE")
+    if ticketless_prefix:
+        print("ok\tTICKETLESS:" + ticketless_prefix.strip("[]"))
     else:
         print("missing\t")
 else:
@@ -461,12 +462,14 @@ def parse_create(segment: list[str]) -> tuple[str, str]:
         return "blocked", "gh pr create --fill は commit message 由来の未検証本文が混入するため使わないでください。--title と --body / --body-file を明示してください。"
 
     refs = sorted(ticket_refs(text))
-    is_maintenance = title.lstrip().startswith("[MAINTENANCE]")
+    ticketless_prefixes = ("[MAINTENANCE]", "[FIX]", "[PROPOSAL]")
+    title_stripped = title.lstrip()
+    ticketless_prefix = next((p for p in ticketless_prefixes if title_stripped.startswith(p)), "")
     if len(refs) == 1:
         return "ok", refs[0]
     if not refs:
-        if is_maintenance:
-            return "ok", "MAINTENANCE"
+        if ticketless_prefix:
+            return "ok", "TICKETLESS:" + ticketless_prefix.strip("[]")
         return "blocked", "gh pr create は 1 PR = 1 ticket のため、PR title/body に Issue/Jira 等のチケット参照が1つ必要です。"
     return "blocked", "gh pr create に複数のチケット参照があります: " + ",".join(refs)
 
