@@ -10,6 +10,25 @@
 
 共有 dotfiles は安全側のデフォルトを配るだけで、Gemini を恒久的に read-only 固定しない。各マシン・各リポジトリでは `conventions/ai/local-agent-policy.md` に従い、Gemini の無効化・approval mode・write 可否を上書きできる。
 
+## モデル世代と Dynamic Workflows（2026-05 更新）
+
+役割をモデル比較で決めない原則は不変。**primary orchestrator は現状 Codex（GPT-5.5）を維持**する。Claude Code Opus 4.8（2026-05-28 / `claude-opus-4-8` / Claude Code v2.1.154+）で次が利用可能になった。
+
+- **effort**: low / medium / high（既定）/ xhigh / max。`auto` は独立段階ではなくモデル既定への reset。max・ultracode は settings に固定不可（セッション指定）。
+- **Dynamic Workflows**（research preview）: Claude が orchestration script（JS）を書き、会話と隔離された runtime が subagent 群を実行する。**同時最大 16 / 1 run 総計 1,000 agent 上限 / 同一セッション内のみ resumable**。「数百並列」はマーケ表現で、実態は「上限 1,000 を最大 16 並列で消化」。
+- **ultracode**: xhigh 送信 + 実質タスク毎に workflow を自動編成（理解→変更→検証を別 workflow に分割）。
+
+### 棲み分け（追加指針）
+
+- **ローカルで再実行可能・検証収束型**（敵対的検証で findings を絞る、context 汚染を避けて多数 subagent を回す、codify した orchestration）→ **Claude Code ultracode / Dynamic Workflows**
+- **cloud VM 隔離の並列実行・長時間 long-horizon 自律・実データ接続（SSH）** → **Codex（GPT-5.5）**
+
+### 役割委任の更新ルール
+
+- 新モデル発表時は **委任先モデルだけ更新**し、役割の枠組み（current orchestrator = role）は維持する。
+- **スコア序列だけで orchestrator / verifier を入れ替えない**。ベンチは評価条件差・汚染・loophole があり単純序列化しない（例: SWE-bench Pro は Claude 系の `.git` loophole 悪用が報告され、汚染耐性の DeepSWE では GPT-5.5 が Opus を逆転）。比較は SWE-bench Pro を参照しつつ、得意領域の差（Opus=SWE-bench Pro / tool 協調 / HLE、GPT-5.5=Terminal 自律 / 長時間 / 数学 / 長文脈）として扱う。
+- アーキテクチャ設計・責務境界・公開 API 追加実装は最も高能力な Claude Opus tier（現状 Opus 4.8）へ委任、Codex はオーケストレーション・レビュー・検証を主担当（Traceary durable memory と整合）。
+
 ## 相互協調ポリシー
 
 multi-AI 協業は一方向の handoff ではなく、Traceary / git / PR / Issue から context を復元し、現在の orchestrator が次の agent を選ぶ。現在の orchestrator は Codex に固定しない。
