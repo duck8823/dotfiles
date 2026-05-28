@@ -1,6 +1,6 @@
 name = "architect"
 description = "境界・責務分離・変更単位の設計を評価する。複数案比較、層境界、拡張性、rollbackしやすさの判断に使う"
-model = "o4-mini"
+model = "gpt-5.5"
 model_reasoning_effort = "high"
 
 developer_instructions = """
