@@ -88,6 +88,8 @@ agent 間の共有 artifact は「handoff」ではなく、再開可能な conte
 - Guardrail / hook は LLM 判断ではなく、決定論的な policy gate・secret 除外・CI 判定・failure classification に寄せる。
 - Tracing / memory / session audit は便利だが、prompt / tool payload / function output が sensitive data を含む可能性があるため、include sensitive data は明示 opt-in とする。
 - MCP / external connector は per-client consent・scope 表示・redirect/token 検証を前提にし、token passthrough や broad external upload を禁止する。
+- Claude Code Opus 4.8（2026-05）で effort（既定 high）/ ultracode / Dynamic Workflows（Claude が JS orchestration script を書き、隔離 runtime が subagent 群を実行。同時最大 16・1 run 総計 1,000 agent 上限・同一セッション内のみ resumable）が使えるようになり、Claude もローカルで大規模オーケストレーションを自走できる。orchestrator は引き続き role で選ぶ（現状 primary は Codex / GPT-5.5）。ローカルの codify / 検証収束型は Claude ultracode、cloud 並列・長時間 long-horizon 自律は Codex に寄せる。
+- 新モデル発表時は委任先モデルだけ更新し、役割の枠組みは維持する。ベンチ（SWE-bench Pro 等）は評価条件差・汚染・loophole で単純序列化できないため（例: SWE-bench Pro は Claude 系の `.git` loophole 悪用が報告され、DeepSWE では GPT-5.5 が Opus を逆転）、スコア差だけで orchestrator / verifier を入れ替えない。
 
 ## Claude / Gemini / Codex research 協調
 

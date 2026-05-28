@@ -1,6 +1,6 @@
 name = "reviewer"
 description = "セキュリティ脆弱性・エッジケース・テスト実行でコード品質を検証する。実行証跡つきのレビューに使う"
-model = "o4-mini"
+model = "gpt-5.5"
 model_reasoning_effort = "high"
 
 developer_instructions = """

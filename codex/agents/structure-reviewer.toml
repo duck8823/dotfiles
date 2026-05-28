@@ -4,7 +4,7 @@
 
 name = "structure-reviewer"
 description = "手続き的実装・責務漏れ・境界/IF劣化・振る舞いテスト不足を検出する Structure-Behavior reviewer"
-model = "o4-mini"
+model = "gpt-5.5"
 model_reasoning_effort = "high"
 
 developer_instructions = """

@@ -2,7 +2,7 @@
 name: reviewer
 description: コールチェーン追跡でバグ・エラーハンドリング漏れ・テストカバレッジ不足を検出するレビューエージェント
 isolation: worktree
-model: sonnet
+model: opus
 tools: Read, Glob, Grep, Bash(flutter test *, flutter analyze *, godot *)
 ---
 

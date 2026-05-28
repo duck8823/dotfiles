@@ -1,6 +1,6 @@
 name = "qa"
 description = "受け入れ条件からテストシナリオを導出し、テスト実行・リグレッション確認を行うQAエージェント"
-model = "o4-mini"
+model = "gpt-5.4-mini"
 model_reasoning_effort = "medium"
 
 developer_instructions = """

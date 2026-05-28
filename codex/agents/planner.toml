@@ -1,6 +1,6 @@
 name = "planner"
 description = "スプリント計画の技術分析を一括で行う。依存・影響範囲・Wave構成・フィジビリティ・リスク・担当判定"
-model = "o4-mini"
+model = "gpt-5.5"
 model_reasoning_effort = "high"
 
 developer_instructions = """

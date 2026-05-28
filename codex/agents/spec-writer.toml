@@ -1,6 +1,6 @@
 name = "spec-writer"
 description = "Issueのテスト戦略・エッジケース・セキュリティ考慮事項・検証計画を仕様化する"
-model = "o4-mini"
+model = "gpt-5.5"
 model_reasoning_effort = "medium"
 
 developer_instructions = """

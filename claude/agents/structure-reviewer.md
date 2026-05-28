@@ -2,7 +2,7 @@
 name: structure-reviewer
 description: 手続き的実装・責務漏れ・境界/IF劣化・振る舞いテスト不足を検出する Structure-Behavior レビューエージェント
 isolation: worktree
-model: sonnet
+model: opus
 tools: Read, Glob, Grep, Bash(git diff *, rg *, grep *)
 ---
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
