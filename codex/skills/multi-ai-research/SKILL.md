@@ -60,7 +60,7 @@ rtk proxy ~/.local/bin/multi-ai-research.sh \
 - `no_effective_engines`: local policy filtering 後に実行可能 engine が 0。dry-run 以外は非0で終了し、local verification / CI に切り替える。
 - `tool_not_found`: CLI が未インストールまたは PATH にない。該当 engine を skip し、残りで補完する。
 - `trust_failed`: Gemini workspace trust 問題。workspace packet 実行では `/private/tmp` + `--skip-trust` で再実行し、直接 repo を読ませる運用には戻さない。
-- `auth_prompt`: headless 失敗。ブラウザを開かず fallback。
+- `auth_prompt`: login / 認証失敗（ブラウザ認証プロンプト・対話ログイン）。ここで停止し、ユーザーに認証修正を依頼する。別 engine への暗黙の代替・fallback はしない（設定不備を隠すため禁止）。
 - `quota_or_capacity`: 1回だけ retry。再失敗なら欠落理由として記録。
 - `policy_or_permission_denied`: 送信境界を狭める。policy を弱めない。
 - `prompt_file_reference_expansion`: Gemini CLI が packet 内の `@...` を file reference と解釈した。Gemini 用 prompt escaping を確認する。

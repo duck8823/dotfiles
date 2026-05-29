@@ -212,8 +212,8 @@ wait $PID_CODEX $PID_GEMINI
 | **Gemini タイムアウト** | 同上 | 1回リトライ → Codex scout で代替 |
 | **Gemini headless 認証待ち / login 失敗** | 出力ファイルに `Opening authentication page in your browser` / `Do you want to continue?` | ブラウザを開かずプロセス停止 → **fallback せずユーザーに認証修正を依頼**（暗黙代替しない） |
 | **Codex fixed-role model failure** | subagent エラーに `model is not supported` | `agent_type` 未指定の default subagent で再実行 → 失敗時はメインセッションで直接検証 |
-| **Codex capacity failure** | stderr ファイルに `rate_limit` / `capacity` | 30秒待ってリトライ → スキップ |
-| **Gemini capacity failure** | 出力ファイルに `429` / `RESOURCE_EXHAUSTED`、または exit 0 + 空出力 | 30秒待ってリトライ → スキップ |
+| **Codex capacity failure** | stderr ファイルに `rate_limit` / `capacity` | 30秒待ってリトライ → 当該 engine のみスキップし、代替 reviewer / local verification / CI で継続 |
+| **Gemini capacity failure** | 出力ファイルに `429` / `RESOURCE_EXHAUSTED`、または exit 0 + 空出力 | 30秒待ってリトライ → 当該 engine のみスキップし、代替 reviewer / local verification で継続 |
 | **JSON パース失敗** | jq / python3 でパース不能 | 1回リトライ → 統合ログに記録してスキップ |
 | **部分レビュー** | multi-AI レビュー中の一部のみ完了 | 完了分で統合判断を続行。欠落を記録 |
 

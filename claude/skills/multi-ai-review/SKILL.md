@@ -18,7 +18,7 @@ Claude 側の PR review orchestration だけを定義する。
 - **Codex** は security / test verifier
 - **Claude** は統合判断とマージゲート
 - authored-by に応じて利益相反を避ける
-- ローカル CLI / subagent の失敗はプロセス停止理由を記録し、ブラウザ認証や固定モデル問題で作業を止めない
+- ローカル CLI / subagent の失敗はプロセス停止理由を記録する。transient 失敗（quota / capacity / timeout）では全体を止めず代替 reviewer / local verification / CI で継続するが、login / 認証失敗（auth_prompt / ブラウザ認証プロンプト / 対話ログイン）では暗黙の代替をせず停止し、ユーザーに認証修正を促す
 - Medium / High risk の変更では `structure-reviewer` 観点（手続き化・責務配置・境界/IF・振る舞いテスト）を統合レビューに含める
 - Claude / Gemini / Codex の調査失敗は `multi-ai-research` command / `scripts/multi-ai-research.sh` の分類（`trust_failed` / `auth_prompt` / `quota_or_capacity` / `policy_or_permission_denied` / `prompt_file_reference_expansion` / `process_oom` / `timeout` / `command_failed` / `empty_output`）で記録する
 
@@ -197,7 +197,7 @@ fi
 fi
 ```
 
-`POLICY_DENIED_FILE` が空でない場合は Gemini / Codex CLI へ diff を渡さず、`skipped: policy_denied` と理由を統合コメントに記録して Claude-only fallback + local verification + CI で補完する。preflight または本実行が timeout / 認証プロンプト / 空出力 / 非0終了になった場合は、Gemini 失敗として Codex scout / independent reviewer へフォールバックする。
+`POLICY_DENIED_FILE` が空でない場合は Gemini / Codex CLI へ diff を渡さず、`skipped: policy_denied` と理由を統合コメントに記録して Claude-only fallback + local verification + CI で補完する。preflight または本実行が timeout / 空出力 / 非0終了（login / 認証失敗を除く）になった場合は、Gemini 失敗として記録 → 1回リトライ → Codex scout / independent reviewer へフォールバックする。preflight または本実行が login / 認証失敗（auth_prompt / "Opening authentication page in your browser" / "Do you want to continue?" / 対話ログイン、exit 42）で停止した場合は、別 engine への暗黙の代替をせず処理を停止し、ユーザーに認証修正を依頼する（設定不備を隠さない）。
 
 ### 3. Codex verifier
 Claude authored PR または外部生成パッチのときのみ実行する。
@@ -259,8 +259,8 @@ Claude は以下を行う。
 - docs-only PR の標準検証は `git diff --check`、関連 grep、リポジトリ既存の軽量テスト（例: `python3 tests/test_install_sync.py`）、シェル構文チェックを優先する
 
 ### 7. エラーハンドリング
-- Gemini / Codex が失敗 → 1回リトライ
-- Gemini が headless 認証プロンプトで停止 → ブラウザを開かず停止し、Codex scout / independent reviewer で代替
+- Gemini / Codex が transient 失敗（quota / capacity / timeout / 空出力 / 非0終了、login / 認証失敗を除く）→ 1回リトライ
+- Gemini が headless 認証プロンプト（login / 認証失敗）で停止 → ブラウザを開かず処理を停止し、別 engine への暗黙の代替をせずユーザーに認証修正を依頼する（設定不備を隠さないため fallback / リトライしない）
 - Codex の固定ロール subagent が `model is not supported` で失敗 → `agent_type` 未指定の default subagent で代替
 - 2回目も失敗 → Claude reviewer で補完
 - 最低2系統のレビューが成功すれば統合を続行する。欠落した系統と理由は PR コメントに記録する
