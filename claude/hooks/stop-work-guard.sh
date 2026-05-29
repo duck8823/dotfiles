@@ -142,20 +142,34 @@ def main():
               "完了済み・壁打ち/相談・ユーザー判断待ちのいずれかなら、"
               "その旨を一言述べてから停止してください。")
 
-    # 観測ログ: block の発火を記録（誤発火検証用）。書き込み失敗は握りつぶす
+    # 観測ログ: block の発火を記録（誤発火検証用）。書き込み失敗は握りつぶす。
+    # FIFO/symlink でブロック・乗っ取りされないよう O_NOFOLLOW|O_NONBLOCK で開き、
+    # 機微情報の漏えいを抑えるため dir=0700 / file=0600 にする。
     try:
         log_path = os.environ.get("STOP_WORK_GUARD_LOG") or os.path.expanduser(
             "~/.claude/logs/stop-work-guard.log")
         log_file = pathlib.Path(log_path)
-        log_file.parent.mkdir(parents=True, exist_ok=True)
+        log_dir = log_file.parent
+        os.makedirs(log_dir, exist_ok=True)
+        try:
+            os.chmod(log_dir, 0o700)
+        except OSError:
+            pass
         entry = {
             "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
             "session": key,
             "turn_id": turn_id,
             "prompt_head": prompt_text[:80],
         }
-        with open(log_file, "a", encoding="utf-8") as lf:
-            lf.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        line = (json.dumps(entry, ensure_ascii=False) + "\n").encode("utf-8")
+        flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NONBLOCK
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        fd = os.open(log_file, flags, 0o600)
+        try:
+            os.write(fd, line)
+        finally:
+            os.close(fd)
     except Exception:
         pass
 
