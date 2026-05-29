@@ -1413,15 +1413,27 @@ case "$merge_status" in
             echo "🚫 [hook] PR #$pr_number の title/body を確認できません。" >&2
             exit 2
         fi
-        validate_pr_ticket_or_exit "gh pr merge" "$pr_text"
+        pr_author=$(gh_with_timeout pr view "${view_args[@]}" --json author \
+          -q '.author.login' 2>/dev/null || true)
+        case "$pr_author" in
+            "dependabot[bot]"|"app/dependabot"|"dependabot")
+                # dependabot 作成の依存 bump PR は ticket 参照・レビュー marker を免除し、
+                # 自律マージを許可する。dependabot の scope は依存更新に限定され、安全性は
+                # CI / branch protection に委ねる（人手で ticket 化するのはノイズになるため）。
+                echo "ℹ️  [hook] dependabot PR (#$pr_number, author=$pr_author): ticket / レビュー marker を免除してマージを許可" >&2
+                ;;
+            *)
+                validate_pr_ticket_or_exit "gh pr merge" "$pr_text"
 
-        review_body=$(gh_with_timeout api "repos/$repo/issues/$pr_number/comments" \
-          --jq '.[] | select(((.body // "") | contains("🤖 AI コードレビュー結果")) and ((.body // "") | test("Gemini|Codex"))) | .body' 2>/dev/null || true)
-        if [ -z "$review_body" ]; then
-            echo "🚫 [hook] PR #$pr_number にレビューコメント（🤖 AI コードレビュー結果）がありません。" >&2
-            echo "   同一コメント内にレビュー marker と Gemini/Codex signature が必要です。" >&2
-            exit 2
-        fi
+                review_body=$(gh_with_timeout api "repos/$repo/issues/$pr_number/comments" \
+                  --jq '.[] | select(((.body // "") | contains("🤖 AI コードレビュー結果")) and ((.body // "") | test("Gemini|Codex"))) | .body' 2>/dev/null || true)
+                if [ -z "$review_body" ]; then
+                    echo "🚫 [hook] PR #$pr_number にレビューコメント（🤖 AI コードレビュー結果）がありません。" >&2
+                    echo "   同一コメント内にレビュー marker と Gemini/Codex signature が必要です。" >&2
+                    exit 2
+                fi
+                ;;
+        esac
         ;;
     none)
         ;;
