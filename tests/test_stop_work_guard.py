@@ -8,6 +8,8 @@ fail-safe（malformed 行で traceback を出さない）と path traversal 耐�
 
 import json
 import shutil
+import os
+import stat
 import subprocess
 import tempfile
 from pathlib import Path
@@ -20,7 +22,8 @@ STATE_DIR = Path("/tmp/stop-work-guard")
 SESSION_IDS = [
     "test-sg-block", "test-sg-tool", "test-sg-chat", "test-sg-active",
     "test-sg-toolresult", "test-sg-missing", "test-sg-question", "test-sg-verb",
-    "test-sg-malformed",
+    "test-sg-malformed", "test-sg-log", "test-sg-log-pass",
+    "test-sg-fifo", "test-sg-trunc",
 ]
 
 
@@ -32,15 +35,19 @@ def make_transcript(dirpath: Path, rows: list, name="transcript.jsonl") -> str:
     return str(p)
 
 
-def run_hook(transcript_path: str, session_id: str, stop_hook_active: bool = False):
+def run_hook(transcript_path: str, session_id: str, stop_hook_active: bool = False, log_path=None):
     payload = json.dumps({
         "hook_event_name": "Stop",
         "transcript_path": transcript_path,
         "session_id": session_id,
         "stop_hook_active": stop_hook_active,
     })
+    env = dict(os.environ)
+    if log_path is not None:
+        env["STOP_WORK_GUARD_LOG"] = str(log_path)
     proc = subprocess.run(
-        ["bash", str(HOOK)], input=payload, text=True, capture_output=True
+        ["bash", str(HOOK)], input=payload, text=True, capture_output=True, env=env,
+        timeout=15,
     )
     assert proc.returncode == 0, f"hook must always exit 0, got {proc.returncode}"
     return proc.stdout.strip(), proc.stderr
@@ -167,6 +174,42 @@ def main() -> None:
                      for h in blk.get("hooks", [])]
         assert any("stop-work-guard.sh" in c for c in stop_cmds), \
             "[13] template Stop hooks must register stop-work-guard.sh"
+
+        # 15. ログ先が FIFO でも hook はブロックせず block を返す（fail-safe）
+        sid = "test-sg-fifo"
+        fifo = tmp / "fifo.log"
+        os.mkfifo(fifo)
+        tp = make_transcript(tmp, [u("修正して", "uid-15"), a_text("…")], "t15.jsonl")
+        out, _ = run_hook(tp, sid, log_path=fifo)  # run_hook の timeout=15 で固まれば検出
+        assert is_block(out), "[15] must block even when log target is a FIFO"
+
+        # 16. prompt_head は 80 文字に切り詰められる
+        sid = "test-sg-trunc"
+        logp_t = tmp / "trunc.log"
+        tp = make_transcript(tmp, [u("修正して" + "あ" * 200, "uid-16"), a_text("…")], "t16.jsonl")
+        run_hook(tp, sid, log_path=logp_t)
+        rec = json.loads(logp_t.read_text().strip().splitlines()[0])
+        assert len(rec["prompt_head"]) == 80, \
+            f"[16] prompt_head must be 80 chars, got {len(rec['prompt_head'])}"
+
+        # 17. ログファイルは 0600 で作成される
+        assert stat.S_IMODE(os.stat(logp_t).st_mode) == 0o600, \
+            f"[17] log file must be mode 0600, got {oct(stat.S_IMODE(os.stat(logp_t).st_mode))}"
+
+        # 14. block 時はログを 1 行記録し、素通り時は記録しない（観測ログ）
+        sid = "test-sg-log"
+        logp = tmp / "guard.log"
+        tp = make_transcript(tmp, [u("修正して", "uid-14a"), a_text("…")], "t14a.jsonl")
+        assert is_block(run_hook(tp, sid, log_path=logp)[0]), "[14] block expected"
+        assert logp.exists(), "[14] log must be created on block"
+        lines = logp.read_text().strip().splitlines()
+        assert len(lines) == 1, f"[14] expected 1 log line, got {len(lines)}"
+        assert "修正して" in json.loads(lines[0]).get("prompt_head", ""), \
+            "[14] log must contain prompt head"
+        tp2 = make_transcript(tmp, [u("どう思う？", "uid-14b"), a_text("…")], "t14b.jsonl")
+        run_hook(tp2, "test-sg-log-pass", log_path=logp)
+        assert len(logp.read_text().strip().splitlines()) == 1, \
+            "[14] pass must not append to log"
 
         print("stop-work-guard test OK")
     finally:
