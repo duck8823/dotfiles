@@ -42,6 +42,15 @@
             "command": "bash {{HOME}}/.claude/hooks/stop-self-review.sh"
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash {{HOME}}/.claude/hooks/stop-work-guard.sh"
+          }
+        ]
       }
     ],
     "Notification": [
