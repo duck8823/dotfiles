@@ -11,7 +11,8 @@
 - 小変更を止めない。docs-only / typo / formatting / 既存パターンの単純横展開には軽量 lane を用意する。
 - High risk 変更は、実装前に ADR または同等の設計判断・rollback・検証方針を残す。ADR の適用条件と template は `conventions/ai/adr-guidance.md` を参照する。
 - 重大度は最終的に MUST / SHOULD / NIT に正規化する。CRITICAL / HIGH / MAJOR は原則 MUST、MINOR / WARNING は SHOULD または NIT として integrator role が triage する。
-- 外部 AI が local policy / quota / auth / permission で失敗した場合は、失敗分類を記録し、代替 reviewer / local verification / CI で補完する。
+- 外部 AI が quota / capacity / timeout / local policy で失敗した場合は、失敗分類を記録し、代替 reviewer / local verification / CI で補完する。ただし **login / 認証失敗は fallback せず停止し、ユーザーに認証修正を促す**（auth は設定不備であり、別エンジンへの暗黙の代替は問題を隠すため）。
+- **fallback でレビュー / 検証を代替する場合、代替レビュアーは実装に使ったモデルと同等以下にしない**。実装モデルより上位の能力ティア、または上位の effort（xhigh / max 等）でレビューする。同等 / 下位モデルでのレビューは新たな保証を与えない。
 
 ## Risk lanes
 
@@ -156,7 +157,8 @@ merge 前に、変更が ticket scope を超えず、レビューと検証が収
 | Failure | 扱い |
 |---|---|
 | `local_policy_disabled` | 失敗ではなく skip。代替 reviewer / local verification で補完する |
-| `auth_prompt` / `quota_or_capacity` | ブラウザ認証で止めず、欠落理由を記録して fallback する |
+| `auth_prompt` / login failure | **fallback せず停止**。ブラウザは開かず、認証が必要な旨をユーザーに通知して再実行を促す（別エンジンへ暗黙代替しない） |
+| `quota_or_capacity` | 欠落理由を記録して fallback する。fallback レビュアーは実装モデル以上のモデル / effort を使う |
 | `policy_or_permission_denied` | policy を弱めず、packet を狭めるか local verification に切り替える |
 | `timeout` / `empty_output` | 未検証として扱う。Gate 2 では `INSUFFICIENT_CONTEXT`、Gate 3 / Gate 4 では補完不可なら block とし、代替 reviewer / local verification / CI で補完できる場合だけ進行可 |
 | LLM reviewer の主観的 disagreement | integrator role が MUST / SHOULD / NIT に triage する。決定論的証跡、既存規約、ticket 受け入れ条件を優先し、規約外の新しい設計判断は ADR / Design Note / follow-up Issue に逃がす |

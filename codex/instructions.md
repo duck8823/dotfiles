@@ -59,7 +59,7 @@ High risk で判断不能な場合は破壊的変更を避け、Draft PR / desig
 2. Draft PR 作成（Motivation必須）
 3. External AI delegation policy gate を確認し、許可される場合は Gemini レビュー依頼
 4. 指摘をトリアージして反映
-5. Gemini がブロッカーなしになるまで 3-4 を繰り返す（policy deny / headless 認証プロンプト等で失敗した場合は理由を記録して代替 reviewer を使う）
+5. Gemini がブロッカーなしになるまで 3-4 を繰り返す（policy deny / quota / capacity / timeout / 空出力等の transient 失敗は理由を記録して代替 reviewer / local verification / CI で継続する。ただし login / 認証失敗（auth_prompt / ブラウザ認証プロンプト / 対話ログイン）は fallback せず停止し、ユーザーに認証修正を依頼する。別 engine への暗黙の代替はしない）
 6. PR を Ready/Open にして、policy gate を満たす場合は `@codex review`
 7. Codex 指摘をトリアージして反映
 8. 追加修正・rebase・force-with-lease push 後は再度 `@codex review` を依頼する
@@ -89,7 +89,7 @@ Claude 側の構成対応:
 
 - 実装/進行: current orchestrator としての Codex
 - context 継承: Traceary handoff / recent context / git status / PR / Issue を使って復元
-- 1st pass レビュー: local agent policy と policy gate を満たす reviewer。Gemini が無効・失敗なら理由を記録して Claude/Codex fallback
+- 1st pass レビュー: local agent policy と policy gate を満たす reviewer。Gemini が無効・transient 失敗（quota / capacity / timeout / policy deny / local_policy_disabled）なら理由を記録して Claude/Codex fallback。ただし login / 認証失敗は fallback せず停止し、ユーザーに認証修正を依頼する
 - PR上の自動レビュー: policy gate を満たす場合は `@codex review`（GitHub App）
 - 最終ゲート: PR上の指摘解消 + ユーザー承認フロー
 

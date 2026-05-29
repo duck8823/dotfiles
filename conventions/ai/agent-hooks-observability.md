@@ -67,7 +67,7 @@ warning の内訳:
 | `no_effective_engines` | local policy filtering 後に有効 engine が 0 | dry-run 以外は非0終了。local verification / CI へ切り替える |
 | `tool_not_found` | CLI 未インストール / PATH 不備 | 該当 engine を skip し、残りの engine で補完する |
 | `trust_failed` | Gemini の untrusted workspace | workspace packet を生成後、実行は `/private/tmp` + `--skip-trust`。直接 repo を読ませる運用には戻さない |
-| `auth_prompt` | headless 認証待ち | ブラウザを開かず失敗記録。local reviewer / Codex verifier へ fallback |
+| `auth_prompt` / login 失敗 | headless 認証待ち | ブラウザを開かず停止。**fallback せずユーザーに認証修正を依頼**（暗黙の engine 代替は設定不備を隠す） |
 | `quota_or_capacity` | quota / capacity / 429 | 1回だけ retry。再失敗なら欠落理由を統合結果に記録 |
 | `policy_or_permission_denied` | sandbox / approval reviewer / external AI policy deny | policy を弱めず、repo context を外すか redaction packet を狭める |
 | `prompt_file_reference_expansion` | Gemini CLI が packet 内の `@...` を file reference と解釈 | Gemini 用 prompt では `@` を `\u0040` として transport-escape し、同一 packet hash を status に残す |

@@ -59,7 +59,7 @@ export PUB_CACHE="$HOME/.pub-cache"
 - repo-wide scan、既存パターン比較、docs / config / l10n drift 検出に使う
 - 書き込み可否・無効化・approval mode は local policy を優先する
 - 書き込みをさせる場合は、明示的に許可した isolated branch / worktree に限定する
-- **自律レビュー中のブラウザ認証禁止**: headless 実行で `Opening authentication page in your browser` / `Do you want to continue?` が出たら、その場で Gemini プロセスを停止し、ブラウザを開かずフォールバックする
+- **自律レビュー中のブラウザ認証禁止**: headless 実行で `Opening authentication page in your browser` / `Do you want to continue?` が出たら、その場で Gemini プロセスを停止する。これは login / 認証失敗なので **fallback せず、認証が必要な旨をユーザーに通知して再実行を促す**（別エンジンへ暗黙代替しない）
 - **headless 事前確認**: multi-AI review 前に短い read-only prompt をタイムアウト付きで実行し、認証プロンプト・空出力・quota を先に検出する。`gemini --version` だけでは認証可否の確認にならない
 - **1プロンプト1質問**: 複合的な質問（多項目チェック等）ではツールエラー後にリカバリできず空出力で終了する。質問は短く単一にして個別実行する
 - **クォータ枯渇のサイレント失敗**: 連続実行で `429 QUOTA_EXHAUSTED` が発生しても exit code 0 で終了し出力が空になる。出力ファイルが空の場合はクォータ枯渇を疑う
@@ -210,11 +210,13 @@ wait $PID_CODEX $PID_GEMINI
 |---|---|---|
 | **Codex タイムアウト** | 結果ファイルが空のまま 10分超過 | 1回リトライ → Claude が直接実行 |
 | **Gemini タイムアウト** | 同上 | 1回リトライ → Codex scout で代替 |
-| **Gemini headless 認証待ち** | 出力ファイルに `Opening authentication page in your browser` / `Do you want to continue?` | ブラウザを開かずプロセス停止 → Codex scout / default subagent で代替 |
+| **Gemini headless 認証待ち / login 失敗** | 出力ファイルに `Opening authentication page in your browser` / `Do you want to continue?` | ブラウザを開かずプロセス停止 → **fallback せずユーザーに認証修正を依頼**（暗黙代替しない） |
 | **Codex fixed-role model failure** | subagent エラーに `model is not supported` | `agent_type` 未指定の default subagent で再実行 → 失敗時はメインセッションで直接検証 |
-| **Codex capacity failure** | stderr ファイルに `rate_limit` / `capacity` | 30秒待ってリトライ → スキップ |
-| **Gemini capacity failure** | 出力ファイルに `429` / `RESOURCE_EXHAUSTED`、または exit 0 + 空出力 | 30秒待ってリトライ → スキップ |
+| **Codex capacity failure** | stderr ファイルに `rate_limit` / `capacity` | 30秒待ってリトライ → 当該 engine のみスキップし、代替 reviewer / local verification / CI で継続 |
+| **Gemini capacity failure** | 出力ファイルに `429` / `RESOURCE_EXHAUSTED`、または exit 0 + 空出力 | 30秒待ってリトライ → 当該 engine のみスキップし、代替 reviewer / local verification で継続 |
 | **JSON パース失敗** | jq / python3 でパース不能 | 1回リトライ → 統合ログに記録してスキップ |
 | **部分レビュー** | multi-AI レビュー中の一部のみ完了 | 完了分で統合判断を続行。欠落を記録 |
 
 フォールバック発生時は `.ai-logs/` の統合ログに障害種別・AI・リトライ回数を記録する。
+
+**fallback でレビューを代替する場合、代替レビュアーは実装に使ったモデルと同等以下にしない**（実装より上位モデル、または上位 effort で行う）。`login` / 認証失敗は fallback 対象外で、停止してユーザーに認証修正を依頼する。正本は `conventions/ai/quality-gates.md`。
