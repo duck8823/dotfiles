@@ -51,37 +51,51 @@ class InfrastructureError(AppError):
 ### 実装例
 
 ```python
+from sqlalchemy.exc import SQLAlchemyError
+
 from app.domain.types import UserId
 from app.domain.user import User
-from app.errors import AppError, NotFoundError, ValidationError
+from app.errors import InfrastructureError, NotFoundError
 
 
-def get_user(self, user_id: UserId) -> User:
-    """ユーザーを取得して検証する。
+def find_by_id(self, user_id: UserId) -> User | None:
+    """ID でユーザーを取得する。存在しなければ None を返す。
 
     Args:
         user_id: 取得対象のユーザー ID。
 
     Returns:
-        検証済みのユーザーエンティティ。
+        ユーザーエンティティ。存在しない場合は None。
+
+    Raises:
+        InfrastructureError: データソースへのアクセスに失敗した場合。
+    """
+    try:
+        row = self._session.execute(_FIND_BY_ID, {"id": user_id.value}).one_or_none()
+    except SQLAlchemyError as e:
+        # DB ドライバ例外は境界でドメイン向けの InfrastructureError へ変換し、原因を連鎖させる
+        raise InfrastructureError(f"ユーザーの取得に失敗しました: {user_id}") from e
+    return _to_user(row) if row is not None else None
+
+
+def get_user(self, user_id: UserId) -> User:
+    """ユーザーを取得する。
+
+    Args:
+        user_id: 取得対象のユーザー ID。
+
+    Returns:
+        ユーザーエンティティ。
 
     Raises:
         NotFoundError: 指定 ID のユーザーが存在しない場合。
-        ValidationError: ユーザーがドメインの不変条件に違反している場合。
+        InfrastructureError: データソースアクセスに失敗した場合（find_by_id から伝播）。
     """
-    try:
-        user = self._user_repo.find_by_id(user_id)
-    except RepositoryError as e:
-        raise NotFoundError(f"ユーザーの取得に失敗しました: {user_id}") from e
-
+    # 「存在しない」は None で表現し、インフラ障害は InfrastructureError として伝播させる。
+    # ドメインの不変条件違反は値オブジェクト/エンティティ生成時に ValidationError が送出される。
+    user = self._user_repo.find_by_id(user_id)
     if user is None:
         raise NotFoundError(f"ユーザーが見つかりません: {user_id}")
-
-    try:
-        self._validate_user(user)
-    except ValueError as e:
-        raise ValidationError("ユーザーのバリデーションに失敗しました") from e
-
     return user
 ```
 
