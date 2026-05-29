@@ -75,7 +75,7 @@ Claude 側の構成対応:
 - `main` へ直接 push しない（明示指示時を除く）
 - 1 PR = 1 ticket。PR title/body には GitHub Issue の `Closes #123` または Jira 等の `[PROJ-123]` を1つだけ含める
 - コミットは 1コミット1関心事で分割。レビュー指摘で発生した変更も「レビュー対応」コミットにせず、何を・なぜ変えたかを書く
-- コミット時は `Co-authored-by: Codex <noreply@openai.com>` トレーラーを付与する
+- **Codex worker は自分が実装した変更を自分でコミットする**（orchestrator に代理コミットさせない）。コミット時は `Co-authored-by: Codex <noreply@openai.com>` トレーラーを付与する
 - 各修正後に `lint / typecheck / test` を再実行
 - docs-only PR では `git diff --check`、関連 grep、既存の軽量テスト、シェル構文チェックを標準検証にする
 - `gh pr checks` が `no checks reported` の場合だけ CI未設定/未報告として扱う。失敗・キャンセル・pending・認証/通信エラーはマージ不可として分離してPRコメントに明記する

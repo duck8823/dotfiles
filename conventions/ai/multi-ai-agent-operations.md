@@ -9,6 +9,7 @@
 - 現在の実運用では Codex が primary orchestrator になることが多いが、それは現状の適性であって恒久的な希望状態ではない。Claude / Gemini / Codex は同じ role / responsibility / resume schema で協調・代替できるようにする。
 - Gemini を dotfiles で恒久的に read-only 固定しない。共有テンプレートは安全側の plan/scout を既定にするが、write 可否・無効化・approval mode はローカルポリシーを優先する。
 - 手書き handoff を標準にせず、Traceary / git / PR / Issue / workspace packet から context を復元する。
+- 実装は **実装したエージェント / セッションがコミットする**。orchestrator は採否判断・gate・統合を担うが、他セッションの実装を代理コミットしない（authorship を実装に一致させる）。同一エージェントが worker と orchestrator を兼ねる solo セッション、および成果物を返すだけの in-session ephemeral subagent はこの限りでない。
 
 ## 共通ロール
 
@@ -16,7 +17,7 @@
 |---|---|---|---|
 | Primary orchestrator | 現在の main session（現状は Codex が多いが固定しない） | 全体進行、採否判断、PR ゲート、レビュー反映 | 方針、採否理由、統合コメント、次アクション |
 | Foreground specialist / integrator | Claude / Codex | UX・仕様・大きめの統合判断 | 設計判断、ユーザー影響整理、統合レビュー |
-| Scoped implementation worker | Codex / local policy で許可された agent | dedicated branch / worktree の write | 変更ファイル、実行コマンド、結果、残リスク |
+| Scoped implementation worker | Codex / local policy で許可された agent | dedicated branch / worktree の write・**自分の変更のコミット** | 変更ファイル、実行コマンド、結果、残リスク、自分が打ったコミット |
 | Scout / critic | Gemini / Claude / Codex | 既定は read-heavy。write は local policy 次第 | 既存パターン逸脱、命名 drift、diff 外影響 |
 | Security / verification reviewer | Codex / verifier agent | test / lint / 静的解析、セキュリティ観点 | `validated_commands` 付き findings |
 | Call-chain reviewer | Claude subagent / Codex reviewer | Read / Grep / 必要最小の test | 呼び出し元からのバグ・エラー処理・テスト漏れ |
