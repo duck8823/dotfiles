@@ -58,7 +58,7 @@ multi-AI 協業は一方向の handoff ではなく、Traceary / git / PR / Issu
 1. **現在の orchestrator role を明示する** — 多くの作業では現状 Codex が主導するが、能力・可用性・local policy に応じて Claude / Gemini / Codex のいずれにも切り替えられる。
 2. **agent の可否は local policy で決める** — Gemini 禁止環境では無理に起動せず `local_policy_disabled` として記録する。
 3. **write は branch / worktree gate を通す** — Gemini でも Claude でも Codex でも、write は main/master 直下で実行しない。
-4. **停止より記録と代替** — auth / quota / policy deny / disabled は理由を残し、別 agent / local verification / CI へ進む。
+4. **記録と代替（ただし認証は停止）** — quota / capacity / timeout / policy deny / disabled は理由を残し、別 agent / local verification / CI へ進む。**login / 認証失敗だけは fallback せず停止し、ユーザーに認証修正を促す**（暗黙の engine 代替は設定不備を隠す）。
 
 ## 開発フェーズ別の AI 活用
 
@@ -83,11 +83,14 @@ multi-AI 協業は一方向の handoff ではなく、Traceary / git / PR / Issu
 
 | 障害 | 対応 |
 |---|---|
+| 認証 / ログイン失敗 | **fallback せず停止**しユーザーに認証修正を依頼（別 agent へ暗黙代替しない） |
 | local policy disabled | 起動せず `local_policy_disabled` として記録。残りの agent で補完 |
-| Codex タイムアウト/失敗 | 1回リトライ → Claude / local shell verification で補完 |
-| Gemini タイムアウト/失敗 | 1回リトライ → Codex scout / Claude reviewer で代替 |
+| Codex タイムアウト / capacity 失敗 | 1回リトライ → Claude / local shell verification で補完 |
+| Gemini タイムアウト / capacity 失敗 | 1回リトライ → Codex scout / Claude reviewer で代替 |
 | Claude headless 失敗 | Codex が repo context と Traceary を読んで継続 |
 | 部分レビュー（一部 AI のみ完了） | 完了した AI の結果で統合判断を続行。欠落を統合ログに記録 |
+
+> **fallback でレビューを代替する場合、代替レビュアーは実装に使ったモデルと同等以下にしない**（実装より上位モデル、または上位 effort で行う）。詳細は `conventions/ai/quality-gates.md` を参照。
 
 ## 役割×AI マトリクス
 
