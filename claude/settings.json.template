@@ -79,7 +79,7 @@
           },
           {
             "type": "command",
-            "command": "command -v rtk >/dev/null 2>&1 && rtk hook claude || bash {{HOME}}/.claude/hooks/check-codex-worktree.sh"
+            "command": "if command -v rtk >/dev/null 2>&1; then rtk hook claude; else bash {{HOME}}/.claude/hooks/check-codex-worktree.sh; fi"
           }
         ]
       }
