@@ -15,7 +15,7 @@
 INPUT=$(cat)
 
 STOP_GUARD_INPUT="$INPUT" python3 - <<'PY'
-import os, json, re, hashlib, pathlib
+import os, json, re, hashlib, pathlib, time
 
 
 def main():
@@ -141,6 +141,24 @@ def main():
               "作業が残っているなら継続してください。"
               "完了済み・壁打ち/相談・ユーザー判断待ちのいずれかなら、"
               "その旨を一言述べてから停止してください。")
+
+    # 観測ログ: block の発火を記録（誤発火検証用）。書き込み失敗は握りつぶす
+    try:
+        log_path = os.environ.get("STOP_WORK_GUARD_LOG") or os.path.expanduser(
+            "~/.claude/logs/stop-work-guard.log")
+        log_file = pathlib.Path(log_path)
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+        entry = {
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "session": key,
+            "turn_id": turn_id,
+            "prompt_head": prompt_text[:80],
+        }
+        with open(log_file, "a", encoding="utf-8") as lf:
+            lf.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
     print(json.dumps({"decision": "block", "reason": reason}, ensure_ascii=False))
 
 

@@ -8,6 +8,7 @@ fail-safe（malformed 行で traceback を出さない）と path traversal 耐�
 
 import json
 import shutil
+import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -20,7 +21,7 @@ STATE_DIR = Path("/tmp/stop-work-guard")
 SESSION_IDS = [
     "test-sg-block", "test-sg-tool", "test-sg-chat", "test-sg-active",
     "test-sg-toolresult", "test-sg-missing", "test-sg-question", "test-sg-verb",
-    "test-sg-malformed",
+    "test-sg-malformed", "test-sg-log", "test-sg-log-pass",
 ]
 
 
@@ -32,15 +33,18 @@ def make_transcript(dirpath: Path, rows: list, name="transcript.jsonl") -> str:
     return str(p)
 
 
-def run_hook(transcript_path: str, session_id: str, stop_hook_active: bool = False):
+def run_hook(transcript_path: str, session_id: str, stop_hook_active: bool = False, log_path=None):
     payload = json.dumps({
         "hook_event_name": "Stop",
         "transcript_path": transcript_path,
         "session_id": session_id,
         "stop_hook_active": stop_hook_active,
     })
+    env = dict(os.environ)
+    if log_path is not None:
+        env["STOP_WORK_GUARD_LOG"] = str(log_path)
     proc = subprocess.run(
-        ["bash", str(HOOK)], input=payload, text=True, capture_output=True
+        ["bash", str(HOOK)], input=payload, text=True, capture_output=True, env=env
     )
     assert proc.returncode == 0, f"hook must always exit 0, got {proc.returncode}"
     return proc.stdout.strip(), proc.stderr
@@ -167,6 +171,21 @@ def main() -> None:
                      for h in blk.get("hooks", [])]
         assert any("stop-work-guard.sh" in c for c in stop_cmds), \
             "[13] template Stop hooks must register stop-work-guard.sh"
+
+        # 14. block 時はログを 1 行記録し、素通り時は記録しない（観測ログ）
+        sid = "test-sg-log"
+        logp = tmp / "guard.log"
+        tp = make_transcript(tmp, [u("修正して", "uid-14a"), a_text("…")], "t14a.jsonl")
+        assert is_block(run_hook(tp, sid, log_path=logp)[0]), "[14] block expected"
+        assert logp.exists(), "[14] log must be created on block"
+        lines = logp.read_text().strip().splitlines()
+        assert len(lines) == 1, f"[14] expected 1 log line, got {len(lines)}"
+        assert "修正して" in json.loads(lines[0]).get("prompt_head", ""), \
+            "[14] log must contain prompt head"
+        tp2 = make_transcript(tmp, [u("どう思う？", "uid-14b"), a_text("…")], "t14b.jsonl")
+        run_hook(tp2, "test-sg-log-pass", log_path=logp)
+        assert len(logp.read_text().strip().splitlines()) == 1, \
+            "[14] pass must not append to log"
 
         print("stop-work-guard test OK")
     finally:
