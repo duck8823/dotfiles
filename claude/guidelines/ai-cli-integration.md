@@ -63,6 +63,8 @@ export PUB_CACHE="$HOME/.pub-cache"
 - **headless 事前確認**: multi-AI review 前に短い read-only prompt をタイムアウト付きで実行し、認証プロンプト・空出力・quota を先に検出する。`gemini --version` だけでは認証可否の確認にならない
 - **1プロンプト1質問**: 複合的な質問（多項目チェック等）ではツールエラー後にリカバリできず空出力で終了する。質問は短く単一にして個別実行する
 - **クォータ枯渇のサイレント失敗**: 連続実行で `429 QUOTA_EXHAUSTED` が発生しても exit code 0 で終了し出力が空になる。出力ファイルが空の場合はクォータ枯渇を疑う
+- **model ID**: 正しい ID は `gemini-3.1-pro-preview`。`gemini-3.1-pro`（`-preview` なし）と `gemini-3.5-flash` は当アカウントで `404 ModelNotFound`。CLI は modelRouting（`settings.json` の `general.plan.modelRouting`）で自動選択するため通常 `-m` は不要で、`-m` 強制が 404 の主因。`GEMINI_REVIEW_MODEL` / `-m` で固定する場合のみ `gemini-3.1-pro-preview` を使う
+- **大入力で timeout**: 数千行規模の review は timeout しやすい。whole-repo を渡さず diff / sanitized packet を focused に保ち、`-e none` で拡張を無効化する（Codex 同様、大 PR は grep 中心 + 代表ファイル spot-read の focused prompt にする）
 
 ### Codex
 - scoped 実装、テスト、CI/CD、セキュリティ、シェル自動化に使う
