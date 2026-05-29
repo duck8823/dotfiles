@@ -1,8 +1,14 @@
 {
   "permissions": {
     "allow": [
+      "Bash(claude -p:*)",
+      "Bash(claude --print:*)",
+      "Bash(codex exec:*)",
+      "Bash(gemini --approval-mode plan:*)",
+      "Bash(ai-review --pr:*)",
       "Bash(gh pr comment:*)",
-      "Bash(gh pr checks:*)"
+      "Bash(gh pr checks:*)",
+      "Bash(gh issue:*)"
     ]
   },
   "hooks": {
@@ -73,7 +79,7 @@
           },
           {
             "type": "command",
-            "command": "bash {{HOME}}/.claude/hooks/check-codex-worktree.sh"
+            "command": "if command -v rtk >/dev/null 2>&1; then rtk hook claude; else bash {{HOME}}/.claude/hooks/check-codex-worktree.sh; fi"
           }
         ]
       }
@@ -148,6 +154,5 @@
       }
     ]
   },
-  "skipDangerousModePermissionPrompt": false,
-  "model": "sonnet"
+  "skipDangerousModePermissionPrompt": false
 }
