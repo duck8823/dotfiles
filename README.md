@@ -241,7 +241,7 @@ MULTI_AI_MAX_FILE_BYTES=25000
 MULTI_AI_MAX_TOTAL_BYTES=600000
 ```
 
-`multi-ai-research.sh` はこのポリシーを読み取り、無効化された engine を skip として記録します。CLI の `--engines` は `MULTI_AI_ENGINES` をその実行だけ上書きしますが、`MULTI_AI_DISABLED_ENGINES` は安全側の deny-list として引き続き優先されます。workspace packet は既定で `MULTI_AI_MAX_FILE_BYTES=25000` / `MULTI_AI_MAX_TOTAL_BYTES=600000` に抑え、PR review では必要なら `--packet` で diff 중심の明示 context を渡します。
+`multi-ai-research.sh` はこのポリシーを読み取り、無効化された engine を skip として記録します。CLI の `--engines` は `MULTI_AI_ENGINES` をその実行だけ上書きしますが、`MULTI_AI_DISABLED_ENGINES` は安全側の deny-list として引き続き優先されます。workspace packet は既定で `MULTI_AI_MAX_FILE_BYTES=25000` / `MULTI_AI_MAX_TOTAL_BYTES=600000` に抑え、PR review では必要なら `--packet` で diff 中心の明示 context を渡します。
 
 ### Codex の設定
 
