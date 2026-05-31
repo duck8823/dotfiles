@@ -128,9 +128,17 @@
 - ガイドライン新規追加時は既存ファイルへの統合を優先
 
 ### 作業の継続と中断
-- 文脈量が増えた・compact が近い・出力が長くなりそう、を理由に作業を中断しない。要約は auto-compact（閾値は環境変数 `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`、現在 80）に委ねて作業を継続する
+- 文脈量が増えた・compact が近い・出力が長くなりそう、を理由に作業を中断しない。要約は auto-compact（`CLAUDE_CODE_AUTO_COMPACT_WINDOW=500000` × `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=60`、1M context model では約 300k token 目安）に委ねて作業を継続する
 - Claude Code にはモデルが能動的に compact を発動する手段は無い。auto-compact が閾値で自動発動し、発動後も会話は自動継続するため、これに任せて走り切る
 - 作業を区切ってよいのは「タスクが実際に完了した」「ユーザー判断が必要」「壁打ち・相談・質問への回答」の3つに限る。それ以外で手を止めて御託を並べない
+
+### コンテキスト節約の実装規約
+- モデル割当は `~/.claude/guidelines/multi-ai-team.md` と各 agent frontmatter を優先する。Claude の architect / reviewer / structure-reviewer は PR #66 の決定どおり Opus tier を維持し、品質ゲートを token 節約目的で暗黙に下げない
+- agent を多数起動すると各 agent が独立 context を持つため、必要最小限に絞る。節約はモデル格下げではなく、spawn 数・compact window・Bash/MCP 出力・plugin 常時有効数で行う
+- `BASH_MAX_OUTPUT_LENGTH=12000` 前提で、長いログ・テスト出力は失われずファイルに保存される。回答には failure summary / path / 再現コマンドだけを載せる
+- source file が 800 行を超える場合、新しい責務をそのファイルに足さない。既存責務の範囲内の小修正を除き、component / domain object / formatter / test fixture へ分割する
+- generated / l10n / lock / vendor / snapshot は 800 行制限の対象外。ただし編集は generator / script / 小さな patch で行い、Claude の巨大 `Edit` で全量差し替えしない
+- 大きいファイルを読む前に `rg`, symbol search, `sed -n`, language server を使い、必要な範囲だけ読む。全文 `Read` は最後の手段
 
 ## セッション継続性
 

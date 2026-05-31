@@ -26,6 +26,27 @@ if [[ -f "$file_path" ]]; then
     fi
 fi
 
+
+warn_large_source_file() {
+    local path="$1"
+    [ -f "$path" ] || return 0
+
+    case "$path" in
+        */build/*|*/.dart_tool/*|*/generated/*|*.g.dart|*.freezed.dart|*.gr.dart|*.mocks.dart|*.arb|*.lock|*.snap|*.snapshot|*.pb.go|*.gen.*)
+            return 0
+            ;;
+    esac
+
+    local limit="${CLAUDE_LARGE_SOURCE_FILE_WARN_LINES:-800}"
+    local lines
+    lines=$(wc -l < "$path" 2>/dev/null | tr -d ' ' || echo 0)
+    if [ "${lines:-0}" -gt "$limit" ]; then
+        echo "⚠️  [hook] large file: $path is ${lines} lines (> ${limit}). Avoid adding new responsibility here; split into a smaller owner/module unless this is a narrow existing-responsibility edit." >&2
+    fi
+}
+
+warn_large_source_file "$file_path"
+
 # --- Dart ---
 if echo "$file_path" | grep -qE '\.dart$'; then
     dir=$(dirname "$file_path")
