@@ -302,7 +302,8 @@ if not base_ref:
 
 sensitive_path_re = re.compile(
     r"(^|/)(\.env(\..*)?|\.aws/|\.ssh/|id_(rsa|dsa|ecdsa|ed25519)(\.pub)?|"
-    r".*\.(pem|key|p12|pfx)|.*secret.*|.*credential.*|.*token.*|.*history|\.DS_Store)$",
+    r".*\.(pem|key|p12|pfx)|.*secret.*|.*credential.*|"
+    r"(token|tokens|.*[._-]tokens?)(\..*)?|.*history|\.DS_Store)$",
     re.IGNORECASE,
 )
 secret_re = re.compile(

@@ -175,6 +175,35 @@ def main() -> None:
         assert "gemini_model: gemini-test" in budget_status
         assert "codex_model: gpt-test" in budget_status
 
+        workspace = tmp_root / "workspace-packet"
+        (workspace / "docs").mkdir(parents=True)
+        (workspace / "docs" / "token-budget.md").write_text("token budget guidance\n")
+        (workspace / "api-token.txt").write_text("secret placeholder\n")
+        run(["git", "init"], cwd=workspace)
+        out_dir = tmp_root / "workspace-packet-out"
+        run(
+            [
+                "bash",
+                str(script),
+                "--topic",
+                "workspace packet",
+                "--mode",
+                "workspace",
+                "--workspace-root",
+                str(workspace),
+                "--engines",
+                "claude",
+                "--dry-run",
+                "--out-dir",
+                str(out_dir),
+            ],
+            env={"HOME": str(tmp_root / "no-policy-home")},
+        )
+        packet = (out_dir / "workspace-context.md").read_text()
+        assert "### docs/token-budget.md" in packet
+        assert "api-token.txt (sensitive path)" in packet
+        assert "### api-token.txt" not in packet
+
         no_policy_home = tmp_root / "hook-home"
         no_policy_home.mkdir()
         plan = run(
