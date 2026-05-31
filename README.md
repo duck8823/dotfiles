@@ -106,7 +106,8 @@ AI knowledge の分類基準（rules / skills / agents / prompts / guidelines）
 
 Multi-AI の role / context resume schema / 共通化方針は
 `conventions/ai/multi-ai-agent-operations.md`、hook / Traceary / observability の点検基準は
-`conventions/ai/agent-hooks-observability.md` を参照してください。
+`conventions/ai/agent-hooks-observability.md`、token budget の共通方針は
+`conventions/ai/token-budget.md` を参照してください。
 
 Claude / Gemini / Codex への headless 調査委譲は `scripts/multi-ai-research.sh`
 （install 後は `~/.local/bin/multi-ai-research.sh`）を使い、同一の workspace
@@ -232,9 +233,15 @@ MULTI_AI_DISABLED_ENGINES=gemini
 # 例: Gemini の headless review は plan mode に固定
 MULTI_AI_GEMINI_APPROVAL_MODE=plan
 MULTI_AI_GEMINI_ALLOW_WRITE=false
+
+# 例: read-only research / scout は軽めの reasoning と小さめ packet で回す
+MULTI_AI_CODEX_REASONING_EFFORT=medium
+MULTI_AI_TOOL_OUTPUT_TOKEN_LIMIT=12000
+MULTI_AI_MAX_FILE_BYTES=25000
+MULTI_AI_MAX_TOTAL_BYTES=600000
 ```
 
-`multi-ai-research.sh` はこのポリシーを読み取り、無効化された engine を skip として記録します。CLI の `--engines` は `MULTI_AI_ENGINES` をその実行だけ上書きしますが、`MULTI_AI_DISABLED_ENGINES` は安全側の deny-list として引き続き優先されます。
+`multi-ai-research.sh` はこのポリシーを読み取り、無効化された engine を skip として記録します。CLI の `--engines` は `MULTI_AI_ENGINES` をその実行だけ上書きしますが、`MULTI_AI_DISABLED_ENGINES` は安全側の deny-list として引き続き優先されます。workspace packet は既定で `MULTI_AI_MAX_FILE_BYTES=25000` / `MULTI_AI_MAX_TOTAL_BYTES=600000` に抑え、PR review では必要なら `--packet` で diff 중심の明示 context を渡します。
 
 ### Codex の設定
 

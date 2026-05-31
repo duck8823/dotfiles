@@ -3,6 +3,12 @@ approvals_reviewer = "guardian_subagent"
 approval_policy = "on-request"
 model_instructions_file = "instructions.md"
 
+# Token budget defaults. Keep primary model selection local, but avoid
+# spending extra output/history tokens by default.
+model_reasoning_summary = "none"
+tool_output_token_limit = 12000
+web_search = "cached"
+
 # プロジェクトごとに trust_level を設定する
 # install.sh 実行後にこのファイルを編集してください
 #
@@ -14,6 +20,19 @@ guardian_approval = true
 multi_agent = true
 apps = true
 prevent_idle_sleep = true
+
+[agents]
+# Default is 6. Limit fan-out so broad prompts do not silently spawn many
+# independent contexts. Increase per task with `-c agents.max_threads=N` when needed.
+max_threads = 4
+max_depth = 1
+job_max_runtime_seconds = 1200
+
+[memories]
+# Reduce background memory work during heavy external-context sessions.
+disable_on_external_context = true
+min_rate_limit_remaining_percent = 50
+max_rollouts_per_startup = 4
 
 [notice]
 hide_full_access_warning = true

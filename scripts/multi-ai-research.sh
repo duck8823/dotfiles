@@ -21,8 +21,8 @@ Options:
   --workspace-root PATH     Workspace root for --mode workspace/auto (default: current directory)
   --base-ref REF            Base ref for workspace diff (default: origin/main if present, else main)
   --source-extensions LIST  Comma-separated text/source extensions to include in workspace packets
-  --max-file-bytes N        Max bytes per source file in workspace packet (default: 50000)
-  --max-total-bytes N       Max total source bytes in workspace packet (default: 1500000)
+  --max-file-bytes N        Max bytes per source file in workspace packet (default: MULTI_AI_MAX_FILE_BYTES or 25000)
+  --max-total-bytes N       Max total source bytes in workspace packet (default: MULTI_AI_MAX_TOTAL_BYTES or 600000)
   --dry-run                 Write prompts/status plan but do not call external CLIs.
   --timeout SECONDS         Per-engine timeout when timeout/gtimeout exists (default: 600)
   -h, --help                Show this help.
@@ -37,8 +37,11 @@ Local policy:
   This script reads ~/.config/ai-agent-policy.env or AI_AGENT_POLICY_FILE when present.
   Supported keys: MULTI_AI_ENGINES, MULTI_AI_DISABLED_ENGINES,
   MULTI_AI_GEMINI_APPROVAL_MODE, MULTI_AI_GEMINI_SKIP_TRUST,
-  MULTI_AI_CODEX_SANDBOX, MULTI_AI_CLAUDE_PERMISSION_MODE,
-  MULTI_AI_TIMEOUT_SECONDS, MULTI_AI_ALLOW_UNSAFE_RESEARCH_MODES.
+  MULTI_AI_CODEX_SANDBOX, MULTI_AI_CODEX_MODEL, MULTI_AI_CODEX_REASONING_EFFORT,
+  MULTI_AI_GEMINI_MODEL, MULTI_AI_TOOL_OUTPUT_TOKEN_LIMIT,
+  MULTI_AI_MAX_FILE_BYTES, MULTI_AI_MAX_TOTAL_BYTES,
+  MULTI_AI_CLAUDE_PERMISSION_MODE, MULTI_AI_TIMEOUT_SECONDS,
+  MULTI_AI_ALLOW_UNSAFE_RESEARCH_MODES.
 USAGE
 }
 
@@ -73,12 +76,16 @@ out_dir=""
 workspace_root="$(pwd)"
 base_ref=""
 source_extensions="md,markdown,sh,bash,zsh,toml,json,yml,yaml,go,py,ts,tsx,js,jsx,dart,rs,java,kt,swift,rb,php,css,scss,html,sql,graphql,proto,txt,rules,ghostty"
-max_file_bytes=50000
-max_total_bytes=1500000
+max_file_bytes="${MULTI_AI_MAX_FILE_BYTES:-25000}"
+max_total_bytes="${MULTI_AI_MAX_TOTAL_BYTES:-600000}"
 disabled_engines="${MULTI_AI_DISABLED_ENGINES:-}"
 gemini_approval_mode="${MULTI_AI_GEMINI_APPROVAL_MODE:-plan}"
 gemini_skip_trust="${MULTI_AI_GEMINI_SKIP_TRUST:-true}"
 codex_sandbox="${MULTI_AI_CODEX_SANDBOX:-read-only}"
+codex_model="${MULTI_AI_CODEX_MODEL:-}"
+codex_reasoning_effort="${MULTI_AI_CODEX_REASONING_EFFORT:-medium}"
+gemini_model="${MULTI_AI_GEMINI_MODEL:-}"
+tool_output_token_limit="${MULTI_AI_TOOL_OUTPUT_TOKEN_LIMIT:-12000}"
 claude_permission_mode="${MULTI_AI_CLAUDE_PERMISSION_MODE:-plan}"
 
 while [ "$#" -gt 0 ]; do
@@ -151,6 +158,25 @@ if ! [[ "$timeout_seconds" =~ ^[1-9][0-9]*$ ]]; then
   echo "WARN: invalid MULTI_AI_TIMEOUT_SECONDS=${timeout_seconds}; falling back to 600" >&2
   timeout_seconds=600
 fi
+if ! [[ "$max_file_bytes" =~ ^[1-9][0-9]*$ ]]; then
+  echo "WARN: invalid max_file_bytes=${max_file_bytes}; falling back to 25000" >&2
+  max_file_bytes=25000
+fi
+if ! [[ "$max_total_bytes" =~ ^[1-9][0-9]*$ ]]; then
+  echo "WARN: invalid max_total_bytes=${max_total_bytes}; falling back to 600000" >&2
+  max_total_bytes=600000
+fi
+if ! [[ "$tool_output_token_limit" =~ ^[1-9][0-9]*$ ]]; then
+  echo "WARN: invalid MULTI_AI_TOOL_OUTPUT_TOKEN_LIMIT=${tool_output_token_limit}; falling back to 12000" >&2
+  tool_output_token_limit=12000
+fi
+case "$codex_reasoning_effort" in
+  minimal|low|medium|high|xhigh) ;;
+  *)
+    echo "WARN: invalid MULTI_AI_CODEX_REASONING_EFFORT=${codex_reasoning_effort}; falling back to medium" >&2
+    codex_reasoning_effort=medium
+    ;;
+esac
 
 unsafe_research_modes="${MULTI_AI_ALLOW_UNSAFE_RESEARCH_MODES:-false}"
 if [ "$unsafe_research_modes" != "true" ]; then
@@ -641,15 +667,20 @@ run_gemini() {
   local gemini_cwd="$out_dir/gemini-cwd"
   mkdir -p "$gemini_cwd"
   local trust_args=()
+  local model_args=()
   case "$(printf '%s' "$gemini_skip_trust" | tr '[:upper:]' '[:lower:]')" in
     true|1|yes|on) trust_args+=(--skip-trust) ;;
   esac
+  if [ -n "$gemini_model" ]; then
+    model_args+=(--model "$gemini_model")
+  fi
   (
     cd "$gemini_cwd"
     export TERM=xterm-256color
     export NO_BROWSER=true
     run_timeout gemini \
       "${trust_args[@]}" \
+      "${model_args[@]}" \
       --approval-mode "$gemini_approval_mode" \
       -e none \
       --output-format text \
@@ -674,12 +705,20 @@ run_codex() {
   fi
   local codex_cwd="$out_dir/codex-cwd"
   mkdir -p "$codex_cwd"
+  local model_args=()
+  if [ -n "$codex_model" ]; then
+    model_args+=(--model "$codex_model")
+  fi
   (
     cd "$codex_cwd"
     run_timeout codex exec \
       --ephemeral \
       --skip-git-repo-check \
       --sandbox "$codex_sandbox" \
+      "${model_args[@]}" \
+      -c "model_reasoning_effort=\"${codex_reasoning_effort}\"" \
+      -c 'model_reasoning_summary="none"' \
+      -c "tool_output_token_limit=${tool_output_token_limit}" \
       - < "$prompt_path"
   ) >"$out" 2>"$err" || {
     local code=$?
@@ -708,7 +747,13 @@ engines="$(agent_policy_csv_filter_disabled "$engines_requested")"
   echo "- policy_file: ${AI_AGENT_POLICY_FILE:-${HOME:-}/.config/ai-agent-policy.env}"
   echo "- gemini_approval_mode: $gemini_approval_mode"
   echo "- gemini_skip_trust: $gemini_skip_trust"
+  echo "- gemini_model: ${gemini_model:-'(default routing)'}"
   echo "- codex_sandbox: $codex_sandbox"
+  echo "- codex_model: ${codex_model:-'(default config)'}"
+  echo "- codex_reasoning_effort: $codex_reasoning_effort"
+  echo "- tool_output_token_limit: $tool_output_token_limit"
+  echo "- max_file_bytes: $max_file_bytes"
+  echo "- max_total_bytes: $max_total_bytes"
   echo "- claude_permission_mode: $claude_permission_mode"
   echo "- prompt: $prompt_path"
   echo "- prompt_sha256: $(sha256_file "$prompt_path")"
