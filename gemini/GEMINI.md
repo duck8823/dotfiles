@@ -41,6 +41,14 @@ Gemini は dotfiles では **policy-controlled scout / critic / optional worker*
 - built-in / custom subagents が有効なら、大規模な read-heavy 調査に活用してよい
 
 
+### コンテキスト / token budget 運用
+
+- 共有設定は `tools.truncateToolOutputThreshold=12000`, `compactToolOutput=true`, `includeDirectoryTree=false` を前提に、必要な範囲だけ読む。
+- まず `grep_search` / `glob` / `list_directory` で候補を絞り、`read_many_files` や全量読みは最後にする。
+- `--all-files` や巨大 `--include-directories` は使わず、PR diff / Issue / 検証ログをまとめた curated packet を優先する。
+- project ごとに build artifacts / generated / vendor / logs を `.geminiignore` へ逃がす。`.geminiignore` は restart 後に有効になる。
+- 現在の共有既定は OAuth personal なので Gemini CLI の token caching は効かない。API key / Vertex AI に切り替える場合だけ token caching の恩恵があるが、credentials は dotfiles に入れない。
+
 ### Codex / Claude への引き渡し
 
 Gemini は必要な作業を現在の orchestrator（多くの場合 Codex）や Claude に引き継げる形で返す。共有テンプレートでは直接マージ判断を持たない。

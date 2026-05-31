@@ -29,15 +29,23 @@
       "respectGeminiIgnore": true,
       "enableRecursiveFileSearch": true,
       "enableFuzzySearch": true
-    }
+    },
+    "includeDirectoryTree": false,
+    "discoveryMaxDirs": 80
   },
   "tools": {
     "useRipgrep": true,
-    "disableLLMCorrection": true
+    "disableLLMCorrection": true,
+    "truncateToolOutputThreshold": 12000,
+    "shell": {
+      "backgroundCompletionBehavior": "silent",
+      "enableShellOutputEfficiency": true
+    }
   },
   "ui": {
     "compactToolOutput": true,
-    "showLineNumbers": true
+    "showLineNumbers": true,
+    "escapePastedAtSymbols": true
   },
   "experimental": {
     "worktrees": true,

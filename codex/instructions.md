@@ -45,6 +45,15 @@ High risk で判断不能な場合は破壊的変更を避け、Draft PR / desig
 - consumer-oriented でない巨大 IF、boolean flag、infra DTO leakage がないか
 - テストが private method / call order ではなく、観測可能な振る舞いを守っているか
 
+## コンテキスト / token budget 運用
+
+- Token 節約は品質 gate の暗黙ダウングレードではなく、scope・出力・subagent fan-out・research packet サイズで行う。
+- read-only research / scout / triage では `MULTI_AI_CODEX_REASONING_EFFORT=medium` を既定にし、deep implementation / security review / merge gate だけ high/xhigh へ上げる。
+- `tool_output_token_limit=12000` 前提で、長いログはファイル保存 + 要約 + path 参照にする。stdout 全量を回答や PR コメントへ貼らない。
+- Codex subagent は 1 agent = 独立 context として token を消費する。既定 `agents.max_threads=4`, `max_depth=1` を超える fan-out は、明示的に必要な観点数と検証価値がある場合だけ使う。
+- `multi-ai-research.sh` の workspace packet は既定で 25KB/file・600KB total に制限する。大規模 repo では `--packet` で Issue/PR/diff/検証ログ中心の curated context を渡す。
+- Web search は既定 `cached` を優先し、最新性が必要な調査だけ live 相当の検索へ切り替える。
+
 ## 自律運用フロー（全体）
 
 ユーザーから自律実行要求があった場合、`autonomous-pr-flow` を**1Issue単位ではなく全体進行（複数Issue/PR）**に適用する。

@@ -63,6 +63,10 @@ def main() -> None:
         )
         status = (out_dir / "status.md").read_text()
         assert "engines_effective: claude,gemini" in status
+        assert "codex_reasoning_effort: medium" in status
+        assert "tool_output_token_limit: 12000" in status
+        assert "max_file_bytes: 25000" in status
+        assert "max_total_bytes: 600000" in status
 
         out_dir = tmp_root / "tool-not-found"
         run(
@@ -131,6 +135,74 @@ def main() -> None:
             },
         )
         assert "engines_effective: gemini" in (out_dir / "status.md").read_text()
+
+        budget_policy = write_policy(
+            tmp_root / "budget.env",
+            "\n".join(
+                [
+                    "MULTI_AI_CODEX_REASONING_EFFORT=low",
+                    "MULTI_AI_TOOL_OUTPUT_TOKEN_LIMIT=8000",
+                    "MULTI_AI_MAX_FILE_BYTES=12345",
+                    "MULTI_AI_MAX_TOTAL_BYTES=54321",
+                    "MULTI_AI_GEMINI_MODEL=gemini-test",
+                    "MULTI_AI_CODEX_MODEL=gpt-test",
+                ]
+            )
+            + "\n",
+        )
+        out_dir = tmp_root / "budget-policy"
+        run(
+            [
+                "bash",
+                str(script),
+                "--topic",
+                "budget policy",
+                "--mode",
+                "general",
+                "--engines",
+                "codex,gemini",
+                "--dry-run",
+                "--out-dir",
+                str(out_dir),
+            ],
+            env={"AI_AGENT_POLICY_FILE": str(budget_policy)},
+        )
+        budget_status = (out_dir / "status.md").read_text()
+        assert "codex_reasoning_effort: low" in budget_status
+        assert "tool_output_token_limit: 8000" in budget_status
+        assert "max_file_bytes: 12345" in budget_status
+        assert "max_total_bytes: 54321" in budget_status
+        assert "gemini_model: gemini-test" in budget_status
+        assert "codex_model: gpt-test" in budget_status
+
+        workspace = tmp_root / "workspace-packet"
+        (workspace / "docs").mkdir(parents=True)
+        (workspace / "docs" / "token-budget.md").write_text("token budget guidance\n")
+        (workspace / "api-token.txt").write_text("secret placeholder\n")
+        run(["git", "init"], cwd=workspace)
+        out_dir = tmp_root / "workspace-packet-out"
+        run(
+            [
+                "bash",
+                str(script),
+                "--topic",
+                "workspace packet",
+                "--mode",
+                "workspace",
+                "--workspace-root",
+                str(workspace),
+                "--engines",
+                "claude",
+                "--dry-run",
+                "--out-dir",
+                str(out_dir),
+            ],
+            env={"HOME": str(tmp_root / "no-policy-home")},
+        )
+        packet = (out_dir / "workspace-context.md").read_text()
+        assert "### docs/token-budget.md" in packet
+        assert "api-token.txt (sensitive path)" in packet
+        assert "### api-token.txt" not in packet
 
         no_policy_home = tmp_root / "hook-home"
         no_policy_home.mkdir()

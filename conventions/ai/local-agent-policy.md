@@ -30,8 +30,18 @@ MULTI_AI_GEMINI_SKIP_TRUST=true
 # Gemini write を試す場合は dedicated branch/worktree で明示する
 MULTI_AI_GEMINI_ALLOW_WRITE=false
 
+# 必要なときだけ Gemini model を固定。未設定なら CLI の routing/modelSteering に委ねる
+MULTI_AI_GEMINI_MODEL=
+
 # Codex research/verifier の sandbox 既定
 MULTI_AI_CODEX_SANDBOX=read-only
+MULTI_AI_CODEX_REASONING_EFFORT=medium
+MULTI_AI_CODEX_MODEL=
+MULTI_AI_TOOL_OUTPUT_TOKEN_LIMIT=12000
+
+# workspace packet の既定上限。大きい repo は --packet で明示 context を渡す
+MULTI_AI_MAX_FILE_BYTES=25000
+MULTI_AI_MAX_TOTAL_BYTES=600000
 
 # Claude headless research の permission mode 既定
 MULTI_AI_CLAUDE_PERMISSION_MODE=plan
