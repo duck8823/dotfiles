@@ -24,6 +24,8 @@ Gemini / Codex CLI / `@codex review` / Claude CLI delegation は、`~/.codex/con
 - `.env`、credentials、tokens、private keys、shell history、無関係な repo / home directory dump を渡さない
 - Gemini は共有テンプレートでは plan/scout を既定にするが、無効化・approval mode・write 可否はローカルポリシーで上書きできる。write を許可する場合も dedicated branch / worktree と明示スコープを必須にする
 - Codex verifier は `codex exec --full-auto -c 'agents.default.config_file="$HOME/.codex/agents/reviewer.toml"'` を優先する
+- local orchestrator の `gh pr merge` は `duck8823` owner/org のリポジトリに限り、PR が draft でなく、1 ticket / allowed ticket-less prefix、blocking review なし、Multi-AI/local verification 証跡、CI pass または `no checks reported`、branch protection 尊重を満たす場合は自律実行してよい。`duck8823` 以外の owner/org では自律 merge 禁止で、現ターンの具体的 PR merge 指示が必要
+- この例外は main/master 直 push、production deploy / infra apply、store/TestFlight upload、release tag / GitHub Release 作成には適用しない
 - policy deny 時は Guardian / sandbox / approval を弱めず、`skipped: policy_denied` と理由を記録して Claude-only fallback + local verification + CI で補完する
 
 ## Structure-Behavior Design gate
@@ -79,6 +81,7 @@ Claude 側の構成対応:
 - 各修正後に `lint / typecheck / test` を再実行
 - docs-only PR では `git diff --check`、関連 grep、既存の軽量テスト、シェル構文チェックを標準検証にする
 - `gh pr checks` が `no checks reported` の場合だけ CI未設定/未報告として扱う。失敗・キャンセル・pending・認証/通信エラーはマージ不可として分離してPRコメントに明記する
+- `duck8823` owner/org の PR は上記 gate を満たせば AI local orchestrator が自律 merge して次対象へ進む。その他 owner/org では自律 merge しない
 - レビュー待機はポーリングで確認し、停止せず並行可能な作業を進める
 - 「次は何をするか」を毎回ユーザーに聞かず、優先順位に基づき自律で次対象へ進む
 
@@ -91,7 +94,7 @@ Claude 側の構成対応:
 - context 継承: Traceary handoff / recent context / git status / PR / Issue を使って復元
 - 1st pass レビュー: local agent policy と policy gate を満たす reviewer。Gemini が無効・transient 失敗（quota / capacity / timeout / policy deny / local_policy_disabled）なら理由を記録して Claude/Codex fallback。ただし login / 認証失敗は fallback せず停止し、ユーザーに認証修正を依頼する
 - PR上の自動レビュー: policy gate を満たす場合は `@codex review`（GitHub App）
-- 最終ゲート: PR上の指摘解消 + ユーザー承認フロー
+- 最終ゲート: PR上の指摘解消 + owner-scoped merge policy（`duck8823` は自律 merge 可、その他 owner/org は具体的なユーザー承認が必要）
 
 ## ブランチ保護運用
 
