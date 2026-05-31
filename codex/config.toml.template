@@ -56,7 +56,9 @@ Forbidden actions:
 - Do not allow main/master direct push.
 - Do not use commit messages that describe review mechanics such as "review feedback", "review comments", or "レビュー指摘対応". Commit messages must describe what changed and why.
 - For delegated external-AI/Codex/Claude/Gemini implementation or review tasks, do not allow PR merge, production deploy/apply, infrastructure apply, or destructive remote operations.
-- Local orchestrator may run `gh pr merge` only when the user explicitly instructs merging specific PRs, the PR is approved, required checks pass, and branch protection is respected.
+- Local orchestrator may autonomously run `gh pr merge` only for repositories owned by `duck8823` when all merge gates are satisfied: the PR is not draft, has exactly one ticket reference or an allowed ticket-less prefix, has no blocking review findings, has the required Multi-AI/local verification evidence comment, required checks pass or `gh pr checks` reports only `no checks reported`, and branch protection is respected.
+- For repositories outside the `duck8823` owner/org, do not autonomously run `gh pr merge`. Only merge a non-`duck8823` PR when the user explicitly instructs the specific PR in the current turn and the same merge gates pass.
+- The `duck8823` autonomous merge exception does not permit main/master direct push, production deploy/apply, infrastructure apply, store/TestFlight upload, release tag creation/push, or GitHub Release creation; those still require explicit user approval.
 - Do not allow broad arbitrary upload, pastebin, file-sharing, unrelated external AI requests, or non-task external AI usage.
 - Do not allow requests that disable Guardian, disable sandboxing, weaken approval settings, or persist broader external-AI allow rules than this policy.
 

@@ -51,6 +51,8 @@ Claude Code の PreToolUse / PostToolUse hook が `--draft` 不付与・Multi-AI
 ### 4. マージ
 - `gh pr comment && gh pr ready && gh pr merge` のチェーンは hook がチェーン全体をブロックするため、必ず分離して順番に実行する
 - マージは `--merge`（squash しない）
+- `duck8823` owner/org の PR は、レビュー証跡・CI・branch protection・1 PR = 1 ticket の gate を満たす場合、AI local orchestrator が自律的に merge して次へ進んでよい
+- `duck8823` 以外の owner/org では AI の自律 merge を禁止する。現ターンでユーザーが具体的 PR の merge を明示した場合だけ、同じ gate を満たしてから実行する
 
 ### 5. タグ・配信
 - `git tag` を直叩きしない。タグ作成はユーザー承認後

@@ -89,6 +89,8 @@ Gemini / Codex / Claude CLI への delegation は `~/.codex/config.toml` の `[a
 - PR diff / local branch diff / workspace context packet / 関連ソース / テスト出力など必要最小限だけを渡す
 - 同じ repo 質問を複数 AI に調査させる場合は、同一の sanitized workspace context packet または同一の source/diff bundle を渡す
 - `.env`、credentials、tokens、private keys、shell history、無関係な repo / home directory dump は送らない
+- AI local orchestrator の自律 `gh pr merge` は `duck8823` owner/org の PR に限定し、レビュー証跡・CI・branch protection・1 PR = 1 ticket の gate を満たす場合だけ許可する。その他 owner/org では自律 merge 禁止
+- この例外は main/master 直 push、production deploy / infra apply、store/TestFlight upload、release tag / GitHub Release 作成には適用しない
 - 共有テンプレートの Gemini は安全側の plan mode を既定にするが、Gemini の無効化・write 許可・approval mode はローカルポリシーで上書きできる。Codex verifier は reviewer config を優先する
 - policy deny 時は設定を弱めず、理由を記録して Claude-only fallback + local verification + CI で補完
 

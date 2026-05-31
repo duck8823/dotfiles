@@ -56,13 +56,15 @@ Gemini / Codex CLI / `@codex review` は、`~/.codex/config.toml` の `[auto_rev
 9. Ready/Open + policy gate を満たす場合は `@codex review`
 10. Codex 指摘反映 → 再レビュー依頼を繰り返し
 11. 追加修正・rebase・force-with-lease push 後は再度 `@codex review` を依頼する
-12. ブロッカー解消後にマージ
+12. ブロッカー解消後に owner-scoped merge policy へ進む。`duck8823` owner/org の PR は merge gates を満たせば自律 merge し、その他 owner/org の PR は自律 merge しない
 
 ## 実行ルール
 - ユーザーから明示指示がない限り `main` へ直接 push しない（全リポジトリ共通）。
 - 各修正後に必ず `lint / typecheck / test` を再実行する。
 - docs-only PR では `git diff --check`、関連 grep、既存の軽量テスト、シェル構文チェックを標準検証にする。
 - `gh pr checks` が `no checks reported` の場合だけ CI未設定/未報告として扱う。失敗・キャンセル・pending・認証/通信エラーはマージ不可として分離してPRコメントに明記する。
+- `duck8823` owner/org の PR は、draft 解除済み、1 ticket / allowed ticket-less prefix、blocking review なし、Multi-AI/local verification 証跡あり、CI pass または `no checks reported`、branch protection 尊重を満たす場合に限り、AI local orchestrator が自律的に `gh pr merge` してよい。その他 owner/org では自律 merge 禁止。
+- 自律 merge 例外は main/master 直 push、production deploy / infra apply、store/TestFlight upload、release tag / GitHub Release 作成には適用しない。
 - レビュー待機はポーリングで監視し、停止せず並行可能な作業を進める。
 - 誤検知レビューは「却下理由 + 検証結果」をスレッドに残す。
 - レビューコメント返信は「何をどう直したか」を簡潔に記録する。
