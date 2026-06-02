@@ -168,7 +168,9 @@ cat > "$GEMINI_PROMPT_FILE" <<PROMPT
 出力:
 - 指摘は ファイル名:行番号 形式
 - 重大度は MUST / SHOULD / NIT
-- 最終判定は APPROVE / REQUEST_CHANGES
+- canonical review schema の `verdict` を使い、`decision` など別名の判定フィールドを追加しない
+- JSON で返す。最低限 `source`, `verdict`, `required_context_checked`, `missing_context`, `findings`, `validated_commands`, `results`, `residual_risks`, `impacted_files`, `summary` を含める
+- `verdict` は APPROVE / REQUEST_CHANGES / INSUFFICIENT_CONTEXT
 
 ## PR
 $(cat "$PR_INFO_FILE")

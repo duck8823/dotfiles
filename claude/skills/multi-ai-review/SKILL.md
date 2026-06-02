@@ -104,6 +104,9 @@ cat > /tmp/gemini-review.md <<PROMPT
 - 命名 drift
 - Structure-Behavior drift（肥大 usecase / handler、責務漏れ、data-only model、primitive obsession、IF劣化、振る舞いテスト不足）
 - generated なコードと判断できるものは原則スキップし、generator / schema / template 側を見る
+- canonical review schema の `verdict` を使い、`decision` など別名の判定フィールドを追加しない
+- JSON で返す。最低限 `source`, `verdict`, `required_context_checked`, `missing_context`, `findings`, `validated_commands`, `results`, `residual_risks`, `impacted_files`, `summary` を含める
+- `verdict` は APPROVE / REQUEST_CHANGES / INSUFFICIENT_CONTEXT
 
 ## Diff
 $(cat "$DIFF_FILE")
