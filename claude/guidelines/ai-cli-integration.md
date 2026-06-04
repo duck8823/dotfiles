@@ -59,7 +59,7 @@ export PUB_CACHE="$HOME/.pub-cache"
 - repo-wide scan、既存パターン比較、docs / config / l10n drift 検出に使う
 - 書き込み可否・無効化・approval mode は local policy を優先する
 - 書き込みをさせる場合は、明示的に許可した isolated branch / worktree に限定する
-- **自律レビュー中のブラウザ認証禁止**: headless 実行で `Opening authentication page in your browser` / `Do you want to continue?` が出たら、その場で Gemini プロセスを停止し、ブラウザを開かずフォールバックする
+- **自律レビュー中のブラウザ認証禁止**: headless 実行で `Opening authentication page in your browser` / `Do you want to continue?` / login_required / not_logged_in が出たら、その場で Gemini プロセスを停止し、ブラウザを開かず、fallback せずユーザーに Gemini CLI へのログインを促す
 - **headless 事前確認**: multi-AI review 前に短い read-only prompt をタイムアウト付きで実行し、認証プロンプト・空出力・quota を先に検出する。`gemini --version` だけでは認証可否の確認にならない
 - **1プロンプト1質問**: 複合的な質問（多項目チェック等）ではツールエラー後にリカバリできず空出力で終了する。質問は短く単一にして個別実行する
 - **クォータ枯渇のサイレント失敗**: 連続実行で `429 QUOTA_EXHAUSTED` が発生しても exit code 0 で終了し出力が空になる。出力ファイルが空の場合はクォータ枯渇を疑う
@@ -105,7 +105,7 @@ GEMINI_SYSTEM_MD=$HOME/.gemini/agents/<agent-name>.md \
 ### Claude → Claude Code
 
 - UX を伴う UI 実装、設計意図の保持、大きめの統合実装は Claude Code に渡してよい
-- headless (`claude -p` / `claude --print`) を優先し、ブラウザ認証プロンプトや secrets 要求が出たら停止する
+- headless (`claude -p` / `claude --print`) を優先し、ブラウザ認証プロンプト / login_required / not_logged_in や secrets 要求が出たら停止する。認証・ログイン失敗は fallback せず、ユーザーに Claude Code CLI へのログインを促す
 - repo 外 artifact（デザイン zip 等）は、ユーザーがその path の送信を明示承認した場合だけ渡す
 
 ### Gemini → current orchestrator / Claude
@@ -200,7 +200,7 @@ wait $PID_CODEX $PID_GEMINI
 ## エラーハンドリング
 
 - Codex は stderr を別ファイルに保存する。Gemini は `2>&1 | tee` で統合キャプチャする（応答テキストが stderr に混在するため）
-- 失敗時は1回だけリトライ、2回目失敗でスキップして失敗を記録
+- quota / capacity / timeout / 空出力は1回だけリトライし、2回目失敗でスキップして失敗を記録。auth_prompt / login_required / not_logged_in は retry/fallback せず、ユーザーにログインを促して停止
 - Codex を非リポジトリで使う場合は `--skip-git-repo-check` を付ける
 - タイムアウト・JSON不正・空出力は統合ログに残す
 
@@ -210,11 +210,11 @@ wait $PID_CODEX $PID_GEMINI
 |---|---|---|
 | **Codex タイムアウト** | 結果ファイルが空のまま 10分超過 | 1回リトライ → Claude が直接実行 |
 | **Gemini タイムアウト** | 同上 | 1回リトライ → Codex scout で代替 |
-| **Gemini headless 認証待ち** | 出力ファイルに `Opening authentication page in your browser` / `Do you want to continue?` | ブラウザを開かずプロセス停止 → Codex scout / default subagent で代替 |
+| **Gemini headless 認証待ち** | 出力ファイルに `Opening authentication page in your browser` / `Do you want to continue?` / login_required / not_logged_in | ブラウザを開かずプロセス停止 → fallback せずユーザーに Gemini CLI ログインを促す |
 | **Codex fixed-role model failure** | subagent エラーに `model is not supported` | `agent_type` 未指定の default subagent で再実行 → 失敗時はメインセッションで直接検証 |
 | **Codex capacity failure** | stderr ファイルに `rate_limit` / `capacity` | 30秒待ってリトライ → スキップ |
 | **Gemini capacity failure** | 出力ファイルに `429` / `RESOURCE_EXHAUSTED`、または exit 0 + 空出力 | 30秒待ってリトライ → スキップ |
 | **JSON パース失敗** | jq / python3 でパース不能 | 1回リトライ → 統合ログに記録してスキップ |
 | **部分レビュー** | multi-AI レビュー中の一部のみ完了 | 完了分で統合判断を続行。欠落を記録 |
 
-フォールバック発生時は `.ai-logs/` の統合ログに障害種別・AI・リトライ回数を記録する。
+フォールバック発生時は `.ai-logs/` の統合ログに障害種別・AI・リトライ回数を記録する。auth_prompt / login_required / not_logged_in はフォールバック発生ではなく AUTH_REQUIRED として記録し、ユーザーにログインを促して停止する。

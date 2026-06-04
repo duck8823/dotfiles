@@ -39,7 +39,7 @@ multi-AI 協業は一方向の handoff ではなく、Traceary / git / PR / Issu
 1. **現在の orchestrator role を明示する** — 多くの作業では現状 Codex が主導するが、能力・可用性・local policy に応じて Claude / Gemini / Codex のいずれにも切り替えられる。
 2. **agent の可否は local policy で決める** — Gemini 禁止環境では無理に起動せず `local_policy_disabled` として記録する。
 3. **write は branch / worktree gate を通す** — Gemini でも Claude でも Codex でも、write は main/master 直下で実行しない。
-4. **停止より記録と代替** — auth / quota / policy deny / disabled は理由を残し、別 agent / local verification / CI へ進む。
+4. **失敗理由ごとに分岐** — quota / capacity / policy deny / disabled は理由を残し、別 agent / local verification / CI へ進んでよい。auth_prompt / login_required / not_logged_in は代替せず、ユーザーに対象 CLI へのログインを促して停止する。
 
 ## 開発フェーズ別の AI 活用
 

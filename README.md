@@ -91,6 +91,7 @@ Gemini / Codex / Claude CLI への delegation は `~/.codex/config.toml` の `[a
 - `.env`、credentials、tokens、private keys、shell history、無関係な repo / home directory dump は送らない
 - 共有テンプレートの Gemini は安全側の plan mode を既定にするが、Gemini の無効化・write 許可・approval mode はローカルポリシーで上書きできる。Codex verifier は reviewer config を優先する
 - policy deny 時は設定を弱めず、理由を記録して Claude-only fallback + local verification + CI で補完
+- Gemini / Claude Code CLI が `auth_prompt` / `login_required` / `not_logged_in` / browser auth prompt で失敗した場合は、fallback せずユーザーに該当 CLI へのログインを促して停止。quota / capacity / rate limit は fallback 可
 
 ### Codex 設定（`~/.codex/`）
 

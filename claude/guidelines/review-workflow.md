@@ -59,7 +59,7 @@ diff の内容を確認した後、以下の観点で diff 外のソースコー
 ### 実行ポリシー
 
 - Gemini は共有デフォルトでは `--approval-mode plan` で走らせるが、無効化・approval mode・write 可否は local policy を優先する
-- Gemini が認証プロンプト・quota・空出力で失敗した場合は、ブラウザ認証で止めずに Codex scout / default subagent へフォールバックする
+- Gemini が認証プロンプト / login_required / not_logged_in で失敗した場合は、ブラウザを開かず、Codex scout / default subagent へフォールバックせず、ユーザーに Gemini CLI へのログインを促して停止する。quota / capacity / rate limit / 空出力は理由を記録して Codex scout / default subagent へフォールバックしてよい
 - Codex は review 時に必要なコマンド（`test_command`, `analyze_command`）を実行して検証する
 - Codex の固定ロール subagent がモデル非互換で失敗した場合は、同じ依頼を `agent_type` 未指定の default subagent で再実行する
 - Codex が current orchestrator の場合は Codex が統合コメントを作り、ユーザー影響が大きい論点だけ Claude specialist へ渡す。Orchestrator は固定ではない

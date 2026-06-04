@@ -156,7 +156,8 @@ merge 前に、変更が ticket scope を超えず、レビューと検証が収
 | Failure | 扱い |
 |---|---|
 | `local_policy_disabled` | 失敗ではなく skip。代替 reviewer / local verification で補完する |
-| `auth_prompt` / `quota_or_capacity` | ブラウザ認証で止めず、欠落理由を記録して fallback する |
+| `auth_prompt` / `login_required` / `not_logged_in` | ブラウザを開かず、fallback せず停止。ユーザーに対象 CLI へのログインを促す |
+| `quota_or_capacity` | 1回だけ retry。再失敗なら欠落理由を記録し、代替 reviewer / local verification で補完してよい |
 | `policy_or_permission_denied` | policy を弱めず、packet を狭めるか local verification に切り替える |
 | `timeout` / `empty_output` | 未検証として扱う。Gate 2 では `INSUFFICIENT_CONTEXT`、Gate 3 / Gate 4 では補完不可なら block とし、代替 reviewer / local verification / CI で補完できる場合だけ進行可 |
 | LLM reviewer の主観的 disagreement | integrator role が MUST / SHOULD / NIT に triage する。決定論的証跡、既存規約、ticket 受け入れ条件を優先し、規約外の新しい設計判断は ADR / Design Note / follow-up Issue に逃がす |
