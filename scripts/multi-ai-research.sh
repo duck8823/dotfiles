@@ -581,7 +581,7 @@ classify_result() {
     echo "timeout"
     return
   fi
-  if grep -Eqi 'Opening authentication page|Do you want to continue|authentication page|not authenticated|Please log in|login required' "$file"; then
+  if grep -Eqi 'Opening authentication page|Do you want to continue|authentication page|not authenticated|not logged in|not_logged_in|Please log in|login required|login_required' "$file"; then
     echo "auth_prompt"
     return
   fi
@@ -754,6 +754,7 @@ if [ -z "$engines" ]; then
   exit 75
 fi
 
+auth_required_engine=""
 IFS=',' read -r -a engine_array <<< "$engines"
 for engine in "${engine_array[@]}"; do
   engine="$(printf '%s' "$engine" | tr -d '[:space:]')"
@@ -784,6 +785,16 @@ for engine in "${engine_array[@]}"; do
     echo "- classification: $classification"
     echo "- output: $result_file"
   } >> "$status_path"
+  if [ "$classification" = "auth_prompt" ]; then
+    auth_required_engine="$engine"
+    {
+      printf '\n## AUTH_REQUIRED\n'
+      echo "- engine: $engine"
+      echo "- action: log in to the $engine CLI, then rerun multi-ai-research"
+      echo "- fallback: not executed"
+    } >> "$status_path"
+    break
+  fi
 done
 
 {
@@ -801,3 +812,8 @@ done
 } > "$summary_path"
 
 echo "$summary_path"
+
+if [ -n "${auth_required_engine:-}" ]; then
+  echo "AUTH_REQUIRED: ${auth_required_engine} CLI login required; no fallback was executed. Log in and rerun multi-ai-research." >&2
+  exit 78
+fi

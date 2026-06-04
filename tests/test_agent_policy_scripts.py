@@ -82,6 +82,39 @@ def main() -> None:
         )
         assert "classification: tool_not_found" in (out_dir / "status.md").read_text()
 
+        fake_bin = tmp_root / "fake-bin"
+        fake_bin.mkdir()
+        fake_gemini = fake_bin / "gemini"
+        fake_gemini.write_text("#!/usr/bin/env bash\necho 'login_required: please log in to Gemini CLI' >&2\nexit 1\n")
+        fake_gemini.chmod(0o755)
+        fake_codex_marker = tmp_root / "codex-ran"
+        fake_codex = fake_bin / "codex"
+        fake_codex.write_text(f"#!/usr/bin/env bash\ntouch {fake_codex_marker}\necho codex-ran\n")
+        fake_codex.chmod(0o755)
+        out_dir = tmp_root / "auth-required-no-fallback"
+        result = run(
+            [
+                "bash",
+                str(script),
+                "--topic",
+                "auth required",
+                "--mode",
+                "general",
+                "--engines",
+                "gemini,codex",
+                "--out-dir",
+                str(out_dir),
+            ],
+            env={"PATH": f"{fake_bin}:/usr/bin:/bin", "HOME": str(tmp_root / "no-policy-home")},
+            check=False,
+        )
+        assert result.returncode == 78
+        auth_status = (out_dir / "status.md").read_text()
+        assert "classification: auth_prompt" in auth_status
+        assert "## AUTH_REQUIRED" in auth_status
+        assert "fallback: not executed" in auth_status
+        assert not fake_codex_marker.exists()
+
         all_disabled_policy = write_policy(
             tmp_root / "all-disabled.env",
             "MULTI_AI_DISABLED_ENGINES=claude,gemini\n",
