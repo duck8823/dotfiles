@@ -25,6 +25,7 @@ Gemini / Codex CLI / `@codex review` / Claude CLI delegation は、`~/.codex/con
 - Gemini は共有テンプレートでは plan/scout を既定にするが、無効化・approval mode・write 可否はローカルポリシーで上書きできる。write を許可する場合も dedicated branch / worktree と明示スコープを必須にする
 - Codex verifier は `codex exec --full-auto -c 'agents.default.config_file="$HOME/.codex/agents/reviewer.toml"'` を優先する
 - policy deny 時は Guardian / sandbox / approval を弱めず、`skipped: policy_denied` と理由を記録して Claude-only fallback + local verification + CI で補完する
+- Gemini / Claude Code CLI が `auth_prompt` / `login_required` / `not_logged_in` / browser auth prompt で失敗した場合は、代替 reviewer / Codex subagent fallback を起動せず、ユーザーに当該 CLI へのログインを促して停止する。quota / capacity / rate limit の場合は理由を記録して代替 reviewer で補完してよい
 
 ## Structure-Behavior Design gate
 
@@ -59,7 +60,7 @@ High risk で判断不能な場合は破壊的変更を避け、Draft PR / desig
 2. Draft PR 作成（Motivation必須）
 3. External AI delegation policy gate を確認し、許可される場合は Gemini レビュー依頼
 4. 指摘をトリアージして反映
-5. Gemini がブロッカーなしになるまで 3-4 を繰り返す（policy deny / headless 認証プロンプト等で失敗した場合は理由を記録して代替 reviewer を使う）
+5. Gemini がブロッカーなしになるまで 3-4 を繰り返す（policy deny は理由を記録して代替 reviewer 可。headless 認証プロンプト / login_required / not_logged_in の場合は代替 reviewer を起動せず、ユーザーに Gemini CLI ログインを促して停止する。quota / capacity / rate limit は理由を記録して代替 reviewer 可）
 6. PR を Ready/Open にして、policy gate を満たす場合は `@codex review`
 7. Codex 指摘をトリアージして反映
 8. 追加修正・rebase・force-with-lease push 後は再度 `@codex review` を依頼する
@@ -89,7 +90,7 @@ Claude 側の構成対応:
 
 - 実装/進行: current orchestrator としての Codex
 - context 継承: Traceary handoff / recent context / git status / PR / Issue を使って復元
-- 1st pass レビュー: local agent policy と policy gate を満たす reviewer。Gemini が無効・失敗なら理由を記録して Claude/Codex fallback
+- 1st pass レビュー: local agent policy と policy gate を満たす reviewer。Gemini が無効・quota・capacity・rate limit・timeout・空出力で失敗なら理由を記録して Claude/Codex fallback 可。ただし Gemini / Claude Code CLI の認証・ログイン失敗は fallback せず、ユーザーにログインを促して停止する
 - PR上の自動レビュー: policy gate を満たす場合は `@codex review`（GitHub App）
 - 最終ゲート: PR上の指摘解消 + ユーザー承認フロー
 

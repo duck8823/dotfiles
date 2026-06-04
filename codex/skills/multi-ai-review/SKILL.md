@@ -24,10 +24,10 @@ Codex 側の PR review orchestration だけを定義する。
 - **GitHubメンション禁止**: `@claude @gemini multi-ai-review` は使わない。
 - **GitHub reviewer追加禁止**: Gemini / Claude / Codex などの AI アカウントを reviewer / collaborator に追加しない。
 - **投稿はPRコメント**: 統合結果は `gh pr comment` で投稿する。`gh pr review` はユーザーまたはプロジェクト規約で明示される場合以外は使わない。
-- **headless優先**: Gemini / Claude Code CLI は headless で実行し、ブラウザ認証プロンプトが出たら止める。
+- **headless優先**: Gemini / Claude Code CLI は headless で実行し、ブラウザ認証プロンプトが出たら止める。`auth_prompt` / `login_required` / `not_logged_in` / browser auth prompt は fallback 対象にせず、ユーザーに当該 CLI へのログインを促して停止する。
 - **外部AIへのデータ送信境界**: PR diff / issue / review comment を Gemini / Claude Code CLI / Codex CLI / ai-review へ渡す前に `~/.codex/config.toml` の `[auto_review].policy` を満たすことを確認する。ユーザーが `multi-ai-review` / Claude / Gemini / Codex / ai-review 利用を明示し、かつ policy gate を満たす場合は、このリポジトリの PR diff・関連 Issue・レビューコメントを configured external AI CLI に渡す承認済みとして扱う。secrets・認証情報・repo外 private file・Downloads 等を追加で渡す場合だけ確認する。明示がない場合、または policy gate を満たさない場合は確認・skip する。
 - **最低2系統**: 2系統以上のレビューが成功すれば統合を続行できる。local policy で無効な系統は `local_policy_disabled` としてコメントに記録する。
-- **拒否/無効化時の扱い**: 外部 AI CLI が local policy / sandbox / auth / quota で拒否された場合、代替禁止の明示がない限りユーザー確認で停止せず、拒否理由を PR コメントへ記録して default subagent / Codex verifier / local gate で補完する。
+- **拒否/無効化時の扱い**: 外部 AI CLI が local policy / sandbox / disabled / quota / capacity / rate limit で拒否された場合、代替禁止の明示がない限りユーザー確認で停止せず、拒否理由を PR コメントへ記録して default subagent / Codex verifier / local gate で補完してよい。ただし auth / login_required / not_logged_in / browser auth prompt は補完禁止で、PR コメント用のレビュー継続ではなくユーザーにログインを促して停止する。
 - **調査失敗の分類**: Claude / Gemini / Codex の workspace packet 調査や repo 外一次情報調査では `multi-ai-research` skill / `scripts/multi-ai-research.sh` を使い、`trust_failed` / `auth_prompt` / `quota_or_capacity` / `policy_or_permission_denied` / `prompt_file_reference_expansion` / `process_oom` / `timeout` / `command_failed` / `empty_output` を記録する。
 - **generated code**: 生成物は原則レビュー対象外。generator / schema / template / build 設定を優先する。
 - **CIゲート**: `gh pr checks` の `no checks reported` だけを CI 未設定扱いにする。`fail` / `cancel` / `pending` / 認証・通信エラーはマージ不可として扱う。
@@ -38,12 +38,12 @@ Codex 側の PR review orchestration だけを定義する。
 
 | authored by | 1st pass | 2nd pass | integrator |
 |---|---|---|---|
-| Codex | Gemini/policy scout | Claude Code reviewer（不可なら default subagent reviewer） | Codex |
+| Codex | Gemini/policy scout | Claude Code reviewer（quota/capacity/timeout/command missing なら default subagent reviewer。auth/login_required/not_logged_in は停止） | Codex |
 | Claude | Gemini/policy scout | Codex verifier | Codex |
-| Gemini / 外部生成 | Codex verifier | Claude Code reviewer（不可なら default subagent reviewer） | Codex |
+| Gemini / 外部生成 | Codex verifier | Claude Code reviewer（quota/capacity/timeout/command missing なら default subagent reviewer。auth/login_required/not_logged_in は停止） | Codex |
 | 不明 | Gemini/policy scout | Codex verifier + 必要なら default subagent reviewer | Codex |
 
-Codex authored PR では利益相反を避け、Codex verifier を独立レビュー扱いにしない。Claude Code CLI が使えない場合は、代替 reviewer の欠落理由を明記する。
+Codex authored PR では利益相反を避け、Codex verifier を独立レビュー扱いにしない。Claude Code CLI が quota / capacity / timeout / command missing で使えない場合は、代替 reviewer の欠落理由を明記する。Claude Code CLI が auth / login_required / not_logged_in の場合は代替 reviewer を起動せず、ユーザーにログインを促して停止する。
 
 ## 手順
 
@@ -147,7 +147,7 @@ fi
 
 ### 3. Gemini/policy scout
 
-Gemini は repo-wide consistency scout として使う。ブラウザ認証プロンプト、timeout、空出力、非0終了は失敗として扱い、ブラウザを開かない。
+Gemini は repo-wide consistency scout として使う。ブラウザ認証プロンプト / login_required / not_logged_in は `AUTH_REQUIRED` として扱い、ブラウザを開かず、fallback せずユーザーに Gemini CLI ログインを促して停止する。timeout、空出力、quota / capacity / rate limit、非0終了は失敗理由を記録し、必要なら代替 reviewer で補完してよい。
 
 ```bash
 GEMINI_PROMPT_FILE="$WORK_DIR/gemini-prompt.md"
@@ -232,13 +232,19 @@ except subprocess.TimeoutExpired as exc:
     open(out_path, "w").write(text)
     sys.exit(124)
 open(out_path, "w").write(text)
-if "Opening authentication page in your browser" in text or "Do you want to continue?" in text:
+lower_text = text.lower()
+if ("Opening authentication page in your browser" in text or "Do you want to continue?" in text or "login_required" in lower_text or "not_logged_in" in lower_text or "login required" in lower_text or "not logged in" in lower_text):
     sys.exit(42)
 if not text.strip() or proc.returncode != 0:
     sys.exit(proc.returncode or 1)
 PY
 case $? in
   0) ;;
+  42)
+    echo "AUTH_REQUIRED: Gemini CLI login is required. Run Gemini CLI login/auth in a terminal, then rerun multi-ai-review." > "$GEMINI_PREFLIGHT_OUT"
+    echo "Gemini CLI login is required; not falling back to Codex/default reviewer." >&2
+    exit 42
+    ;;
   *) GEMINI_AVAILABLE=false ;;
 esac
 fi
@@ -278,13 +284,19 @@ except subprocess.TimeoutExpired as exc:
     open(out_path, "w").write(text)
     sys.exit(124)
 open(out_path, "w").write(text)
-if "Opening authentication page in your browser" in text or "Do you want to continue?" in text:
+lower_text = text.lower()
+if ("Opening authentication page in your browser" in text or "Do you want to continue?" in text or "login_required" in lower_text or "not_logged_in" in lower_text or "login required" in lower_text or "not logged in" in lower_text):
     sys.exit(42)
 if not text.strip() or proc.returncode != 0:
     sys.exit(proc.returncode or 1)
 PY
   case $? in
     0) ;;
+    42)
+      echo "AUTH_REQUIRED: Gemini CLI login is required. Run Gemini CLI login/auth in a terminal, then rerun multi-ai-review." > "$GEMINI_REVIEW_OUT"
+      echo "Gemini CLI login is required; not falling back to Codex/default reviewer." >&2
+      exit 42
+      ;;
     *) GEMINI_AVAILABLE=false ;;
   esac
 fi
@@ -296,7 +308,7 @@ fi
 
 ### 4. 独立 verifier
 
-Codex authored PR では、可能なら Claude Code CLI を reviewer として使う。Claude Code CLI が使えない、認証待ち、quota、timeout の場合は default subagent reviewer へフォールバックし、欠落理由を記録する。
+Codex authored PR では、可能なら Claude Code CLI を reviewer として使う。Claude Code CLI が quota / capacity / timeout / command missing の場合は default subagent reviewer へフォールバックし、欠落理由を記録する。Claude Code CLI が認証待ち / login_required / not_logged_in / browser auth prompt の場合は default subagent reviewer へフォールバックせず、ユーザーに Claude Code CLI へのログインを促して停止する。
 
 Claude / 外部生成 authored PR では Codex verifier を使い、実行証跡を必ず含める。
 
@@ -401,16 +413,23 @@ except subprocess.TimeoutExpired as exc:
     open(out_path, "w").write(text)
     sys.exit(124)
 open(out_path, "w").write(text)
+if "Opening authentication page in your browser" in text or "Do you want to continue?" in text or "not logged in" in text.lower() or "login required" in text.lower():
+    sys.exit(42)
 if not (proc.stdout or "").strip() or proc.returncode != 0:
     sys.exit(proc.returncode or 1)
 PY
 case $? in
   0) ;;
+  42)
+    echo "AUTH_REQUIRED: Claude Code CLI login is required. Log in to Claude Code CLI, then rerun multi-ai-review." > "$VERIFIER_REVIEW_OUT"
+    echo "Claude Code CLI login is required; not falling back to default subagent reviewer." >&2
+    exit 42
+    ;;
   *) CLAUDE_AVAILABLE=false ;;
 esac
 ```
 
-Claude Code CLI を使う場合は、headless 実行が可能なことを `claude --help` 等で確認してから使う。対話ログインやブラウザ認証が出た場合は起動せず、fallback する。
+Claude Code CLI を使う場合は、headless 実行が可能なことを `claude --help` 等で確認してから使う。対話ログインやブラウザ認証が出た場合は起動せず、fallback せず、ユーザーに Claude Code CLI へのログインを促して停止する。
 
 ### 5. Codex 統合レビュー
 
@@ -470,9 +489,11 @@ gh pr comment "$PR_NUMBER" --body-file "$COMMENT_FILE"
 
 | 失敗 | 対応 |
 |---|---|
-| Gemini が browser auth prompt | ブラウザを開かず失敗扱い。理由を記録し fallback |
-| Gemini timeout / quota / 空出力 | 1回だけ再試行。失敗なら fallback |
-| Claude Code CLI 不可 | default subagent reviewer または Codex verifier に fallbackし、利益相反リスクを明記 |
+| Gemini が browser auth prompt / login_required / not_logged_in | ブラウザを開かず、fallback せず停止。ユーザーに Gemini CLI へのログインを促す |
+| Gemini timeout / 空出力 | 1回だけ再試行。失敗なら fallback 可 |
+| Gemini quota / capacity / rate limit | 理由を記録し fallback 可 |
+| Claude Code CLI auth / login_required / not_logged_in | fallback せず停止。ユーザーに Claude Code CLI へのログインを促す |
+| Claude Code CLI quota / capacity / timeout / command missing | default subagent reviewer または Codex verifier に fallbackし、利益相反リスクを明記 |
 | Codex reviewer role が model unsupported | `agent_type` 未指定の default subagent で再実行 |
 | `gh pr checks` 認証・通信エラー | CI状態不明としてマージ不可 |
 | `no checks reported` | CI未設定/未報告。マージ可否は他検証で判断 |
@@ -482,6 +503,7 @@ gh pr comment "$PR_NUMBER" --body-file "$COMMENT_FILE"
 - `@claude @gemini multi-ai-review` を PR コメントに投げること。
 - AI アカウントを GitHub reviewer / collaborator に追加すること。
 - headless 失敗時に勝手にブラウザログインを進めること。
+- Gemini / Claude Code CLI の auth / login_required / not_logged_in を default subagent / Codex verifier fallback で補完すること。
 - テスト未実行で verifier を成功扱いにすること。
 - diff に存在しない内容をレビュー結果として捏造すること。
 - 失敗したレビュアーを黙って省略すること。
