@@ -248,20 +248,27 @@ except subprocess.TimeoutExpired as exc:
     open(out_path, "w").write(text)
     sys.exit(124)
 open(out_path, "w").write(text)
-if "Opening authentication page in your browser" in text or "Do you want to continue?" in text:
+lower_text = text.lower()
+if ("Opening authentication page in your browser" in text or "Do you want to continue?" in text or "login_required" in lower_text or "not_logged_in" in lower_text or "login required" in lower_text or "not logged in" in lower_text):
     sys.exit(42)
 if not text.strip() or proc.returncode != 0:
     sys.exit(proc.returncode or 1)
 PY
 case $? in
   0) ;;
-  42|124) GEMINI_AVAILABLE=false ;;
+  42)
+    GEMINI_AVAILABLE=false
+    GEMINI_SKIP_REASON="AUTH_REQUIRED: Gemini CLI login required"
+    echo "Gemini CLI login is required; not falling back. Log in to Gemini CLI, then rerun review." >&2
+    exit 42
+    ;;
+  124) GEMINI_AVAILABLE=false ;;
   *) GEMINI_AVAILABLE=false ;;
 esac
 fi
 ```
 
-`GEMINI_AVAILABLE=false` の場合は Gemini 本実行を起動せず、理由を PR コメントに記録して Codex scout / independent reviewer にフォールバックする。
+`GEMINI_AVAILABLE=false` の場合は Gemini 本実行を起動しない。`GEMINI_SKIP_REASON` が `AUTH_REQUIRED` / login_required / not_logged_in の場合は PRレビューを代替で継続せず、ユーザーに Gemini CLI へのログインを促して停止する。それ以外は理由を PR コメントに記録して Codex scout / independent reviewer にフォールバックしてよい。
 
 ### Gemini CLI
 
@@ -291,14 +298,20 @@ except subprocess.TimeoutExpired as exc:
     open(out_path, "w").write(text)
     sys.exit(124)
 open(out_path, "w").write(text)
-if "Opening authentication page in your browser" in text or "Do you want to continue?" in text:
+lower_text = text.lower()
+if ("Opening authentication page in your browser" in text or "Do you want to continue?" in text or "login_required" in lower_text or "not_logged_in" in lower_text or "login required" in lower_text or "not logged in" in lower_text):
     sys.exit(42)
 if not text.strip() or proc.returncode != 0:
     sys.exit(proc.returncode or 1)
 PY
   case $? in
     0) ;;
-    42|124) GEMINI_AVAILABLE=false ;;
+    42)
+      echo "AUTH_REQUIRED: Gemini CLI login is required. Log in to Gemini CLI, then rerun review." > "$GEMINI_REVIEW_OUT"
+      echo "Gemini CLI login is required; not falling back." >&2
+      exit 42
+      ;;
+    124) GEMINI_AVAILABLE=false ;;
     *) GEMINI_AVAILABLE=false ;;
   esac
 fi
@@ -327,7 +340,15 @@ wait
 if [ "$GEMINI_AVAILABLE" = true ]; then
   cat /tmp/${PROJECT}-pr${PR_NUMBER}-gemini-review.md
 elif [ -n "${GEMINI_SKIP_REASON:-}" ]; then
-  echo "Gemini skipped: ${GEMINI_SKIP_REASON}"
+  case "$GEMINI_SKIP_REASON" in
+    AUTH_REQUIRED*)
+      echo "Gemini AUTH_REQUIRED: log in to Gemini CLI, then rerun review"
+      exit 42
+      ;;
+    *)
+      echo "Gemini skipped: ${GEMINI_SKIP_REASON}"
+      ;;
+  esac
 else
   echo "Gemini skipped; see $GEMINI_PREFLIGHT_OUT"
 fi
@@ -345,10 +366,10 @@ fi
 
 ### フォールバック
 - 空出力 or `EXIT_CODE != 0` は失敗とみなす
-- Gemini 出力に `Opening authentication page in your browser` / `Do you want to continue?` が出たら、ブラウザを開かずプロセスを止めて失敗扱いにする
+- Gemini 出力に `Opening authentication page in your browser` / `Do you want to continue?` / login_required / not_logged_in が出たら、ブラウザを開かずプロセスを止め、fallback せずユーザーに Gemini CLI へのログインを促して停止する
 - Codex / Task の固定ロールが `model is not supported` で失敗したら、ロール未指定の default subagent で同じ依頼を再実行する
 - 1回だけリトライする
-- 2回目も失敗したら Claude reviewer / Task / Codex scout で補完する
+- 2回目も失敗したら Claude reviewer / Task / Codex scout で補完する。ただし auth_prompt / login_required / not_logged_in は補完対象外
 - 最低2レビュアーが成功すればレビュー継続可。失敗した系統と理由は PR コメントに明記する
 
 ## ステップ6: 統合・修正ループ

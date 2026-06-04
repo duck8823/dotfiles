@@ -18,7 +18,7 @@ Claude 側の PR review orchestration だけを定義する。
 - **Codex** は security / test verifier
 - **Claude** は統合判断とマージゲート
 - authored-by に応じて利益相反を避ける
-- ローカル CLI / subagent の失敗はプロセス停止理由を記録し、ブラウザ認証や固定モデル問題で作業を止めない
+- ローカル CLI / subagent の失敗はプロセス停止理由を記録する。quota / capacity / timeout / 固定モデル問題は代替 reviewer 可。ただしブラウザ認証 / login_required / not_logged_in は代替 reviewer に進まず、ユーザーに該当 CLI へのログインを促して停止する
 - Medium / High risk の変更では `structure-reviewer` 観点（手続き化・責務配置・境界/IF・振る舞いテスト）を統合レビューに含める
 - Claude / Gemini / Codex の調査失敗は `multi-ai-research` command / `scripts/multi-ai-research.sh` の分類（`trust_failed` / `auth_prompt` / `quota_or_capacity` / `policy_or_permission_denied` / `prompt_file_reference_expansion` / `process_oom` / `timeout` / `command_failed` / `empty_output`）で記録する
 
@@ -31,7 +31,7 @@ Gemini / Codex / Claude CLI へ PR diff・local branch diff・関連ソースを
 - `.env`、credentials、tokens、private keys、secret files、shell history、無関係な repo / home directory dump を送らない
 - Gemini は共有デフォルトでは `NO_BROWSER=true gemini --skip-trust --approval-mode ${MULTI_AI_GEMINI_APPROVAL_MODE:-plan} ${GEMINI_REVIEW_MODEL:+-m $GEMINI_REVIEW_MODEL} -p ' ' -e none -o text` で使う。無効化・write 可否は local policy を優先する
 - Codex verifier は `codex exec --full-auto -c 'agents.default.config_file="$HOME/.codex/agents/reviewer.toml"'` を優先する
-- policy / Guardian / sandbox の拒否が出た場合は設定を弱めず、`skipped: policy_denied` または具体的な拒否理由を記録して Claude-only fallback に進む
+- policy / Guardian / sandbox の拒否が出た場合は設定を弱めず、`skipped: policy_denied` または具体的な拒否理由を記録して Claude-only fallback に進む。ただし auth_prompt / login_required / not_logged_in / browser auth prompt は `skipped` ではなく `AUTH_REQUIRED` とし、fallback せずユーザーにログインを促して停止する
 
 この gate は multi-AI review を止めるためではなく、許可条件を満たすケースで安全に回すための前処理である。
 
@@ -46,7 +46,7 @@ Gemini / Codex / Claude CLI へ PR diff・local branch diff・関連ソースを
 - 本番データ・個人データの raw dump
 - 外部サービスへの書き込み
 
-Sandbox / reviewer が external AI 送信を拒否した場合、設定を弱めず、拒否理由を PR コメントまたは `.ai-logs/` に記録してフォールバックする。代替禁止または Claude Code 委譲が必須指定の場合は停止する。
+Sandbox / reviewer が external AI 送信を拒否した場合、設定を弱めず、拒否理由を PR コメントまたは `.ai-logs/` に記録してフォールバックする。代替禁止または Claude Code 委譲が必須指定の場合は停止する。auth_prompt / login_required / not_logged_in / browser auth prompt は fallback せず、ユーザーに該当 CLI へのログインを促して停止する。
 
 ## 手順
 
@@ -147,14 +147,16 @@ except subprocess.TimeoutExpired as exc:
     open(os.environ["GEMINI_PREFLIGHT_OUT"], "w").write(text)
     sys.exit(124)
 open(os.environ["GEMINI_PREFLIGHT_OUT"], "w").write(text)
-if "Opening authentication page in your browser" in text or "Do you want to continue?" in text:
+lower_text = text.lower()
+if ("Opening authentication page in your browser" in text or "Do you want to continue?" in text or "login_required" in lower_text or "not_logged_in" in lower_text or "login required" in lower_text or "not logged in" in lower_text):
     sys.exit(42)
 if not text.strip() or proc.returncode != 0:
     sys.exit(proc.returncode or 1)
 PY
 
-if [ $? -eq 0 ]; then
-  python3 - <<'PY'
+case $? in
+  0)
+    python3 - <<'PY'
 import os, subprocess, sys
 prompt = open("/tmp/gemini-review.md").read()
 env = os.environ.copy()
@@ -186,18 +188,37 @@ except subprocess.TimeoutExpired as exc:
     open("/tmp/gemini-review-result.json", "w").write(text)
     sys.exit(124)
 open("/tmp/gemini-review-result.json", "w").write(text)
-if "Opening authentication page in your browser" in text or "Do you want to continue?" in text:
+lower_text = text.lower()
+if ("Opening authentication page in your browser" in text or "Do you want to continue?" in text or "login_required" in lower_text or "not_logged_in" in lower_text or "login required" in lower_text or "not logged in" in lower_text):
     sys.exit(42)
 if not text.strip() or proc.returncode != 0:
     sys.exit(proc.returncode or 1)
 PY
-else
-  echo "Gemini preflight failed; fallback required. See $GEMINI_PREFLIGHT_OUT" > /tmp/gemini-review-result.json
-fi
+    case $? in
+      0) ;;
+      42)
+        echo "AUTH_REQUIRED: Gemini CLI login is required. Log in to Gemini CLI, then rerun multi-ai-review." > /tmp/gemini-review-result.json
+        echo "Gemini CLI login is required; not falling back to Codex/default reviewer." >&2
+        exit 42
+        ;;
+      *)
+        echo "Gemini execution failed. If this is quota/capacity/timeout/empty_output, fallback may be used. See /tmp/gemini-review-result.json" > /tmp/gemini-review-result.json
+        ;;
+    esac
+    ;;
+  42)
+    echo "AUTH_REQUIRED: Gemini CLI login is required. Log in to Gemini CLI, then rerun multi-ai-review." > /tmp/gemini-review-result.json
+    echo "Gemini CLI login is required; not falling back to Codex/default reviewer." >&2
+    exit 42
+    ;;
+  *)
+    echo "Gemini preflight failed. If this is quota/capacity/timeout/empty_output, fallback may be used. See $GEMINI_PREFLIGHT_OUT" > /tmp/gemini-review-result.json
+    ;;
+esac
 fi
 ```
 
-`POLICY_DENIED_FILE` が空でない場合は Gemini / Codex CLI へ diff を渡さず、`skipped: policy_denied` と理由を統合コメントに記録して Claude-only fallback + local verification + CI で補完する。preflight または本実行が timeout / 認証プロンプト / 空出力 / 非0終了になった場合は、Gemini 失敗として Codex scout / independent reviewer へフォールバックする。
+`POLICY_DENIED_FILE` が空でない場合は Gemini / Codex CLI へ diff を渡さず、`skipped: policy_denied` と理由を統合コメントに記録して Claude-only fallback + local verification + CI で補完する。preflight または本実行が auth_prompt / login_required / not_logged_in / browser auth prompt の場合は、`AUTH_REQUIRED` としてユーザーに Gemini CLI ログインを促して停止し、Codex scout / independent reviewer へフォールバックしない。timeout / 空出力 / quota / capacity / rate limit / 非0終了は理由を記録し、必要なら Codex scout / independent reviewer へフォールバックしてよい。
 
 ### 3. Codex verifier
 Claude authored PR または外部生成パッチのときのみ実行する。
@@ -260,7 +281,7 @@ Claude は以下を行う。
 
 ### 7. エラーハンドリング
 - Gemini / Codex が失敗 → 1回リトライ
-- Gemini が headless 認証プロンプトで停止 → ブラウザを開かず停止し、Codex scout / independent reviewer で代替
+- Gemini が headless 認証プロンプト / login_required / not_logged_in で停止 → ブラウザを開かず停止し、代替 reviewer に進まず、ユーザーに Gemini CLI へのログインを促す
 - Codex の固定ロール subagent が `model is not supported` で失敗 → `agent_type` 未指定の default subagent で代替
 - 2回目も失敗 → Claude reviewer で補完
 - 最低2系統のレビューが成功すれば統合を続行する。欠落した系統と理由は PR コメントに記録する

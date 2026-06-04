@@ -1,6 +1,6 @@
 # グローバル Claude Code 設定
 
-> **External AI delegation policy (2026-05-11):** Gemini CLI / Codex CLI / `@codex review` / Claude CLI delegation は、`~/.codex/config.toml` の `[auto_review].policy` に定義された **External AI delegation exception** を満たす場合のみ実行する。ユーザーが trusted repository で multi-AI 協調を依頼した場合、source code は協調 context として共有可とし、同一の sanitized workspace context packet を使って情報の偏りを避ける。拒否された場合は設定を弱めず、理由を記録して Claude-only review + local verification + CI にフォールバックする。
+> **External AI delegation policy (2026-05-11):** Gemini CLI / Codex CLI / `@codex review` / Claude CLI delegation は、`~/.codex/config.toml` の `[auto_review].policy` に定義された **External AI delegation exception** を満たす場合のみ実行する。ユーザーが trusted repository で multi-AI 協調を依頼した場合、source code は協調 context として共有可とし、同一の sanitized workspace context packet を使って情報の偏りを避ける。拒否された場合は設定を弱めず、理由を記録して Claude-only review + local verification + CI にフォールバックする。ただし Gemini / Claude Code CLI の auth_prompt / login_required / not_logged_in / browser auth prompt は fallback せず、ユーザーに当該 CLI へのログインを促して停止する。quota / capacity / rate limit は fallback 可。
 
 ## 言語
 
@@ -85,7 +85,7 @@
 - Codex = orchestrator candidate / worker / verifier（実装・テスト・調査・CI/CD・レビュー反映）
 - Claude = foreground specialist / orchestrator candidate / integrator（UX・仕様・大きめの統合判断）
 - Gemini = policy-controlled scout / critic / optional worker（一貫性レビュー・計画の俯瞰チェック。read-only 固定ではなく local policy 優先）
-- 失敗時は1回リトライ → スキップして理由を記録し、別 agent / local verification で補完
+- quota / capacity / timeout 等の失敗時は1回リトライ → スキップして理由を記録し、別 agent / local verification で補完。auth_prompt / login_required / not_logged_in は fallback せず、ユーザーにログインを促して停止
 
 ## Structure-Behavior Design
 
