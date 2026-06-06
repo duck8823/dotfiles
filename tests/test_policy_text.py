@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+import os
+import subprocess
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def assert_contains(path: str, *needles: str) -> None:
+    text = (ROOT / path).read_text()
+    missing = [needle for needle in needles if needle not in text]
+    if missing:
+        raise AssertionError(f"{path} missing: {missing}")
+
+
+def assert_not_contains(path: str, *needles: str) -> None:
+    text = (ROOT / path).read_text()
+    present = [needle for needle in needles if needle in text]
+    if present:
+        raise AssertionError(f"{path} unexpectedly contains: {present}")
+
+
+def assert_general_dry_run_excludes_workspace_context() -> None:
+    topic = "dry-run general safety sentinel"
+    with tempfile.TemporaryDirectory(prefix="multi-ai-policy-test-") as tmp:
+        env = os.environ.copy()
+        env["MULTI_AI_DISABLED_ENGINES"] = ""
+        proc = subprocess.run(
+            [
+                str(ROOT / "scripts/multi-ai-research.sh"),
+                "--topic",
+                topic,
+                "--mode",
+                "general",
+                "--engines",
+                "claude,gemini",
+                "--out-dir",
+                tmp,
+                "--dry-run",
+            ],
+            cwd=ROOT,
+            env=env,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        if proc.returncode != 0:
+            raise AssertionError(
+                "general dry-run failed:\n"
+                f"stdout={proc.stdout}\n"
+                f"stderr={proc.stderr}"
+            )
+
+        status = (Path(tmp) / "status.md").read_text()
+        prompt = (Path(tmp) / "prompt.md").read_text()
+        gemini_prompt = (Path(tmp) / "prompt.gemini.md").read_text()
+
+    for required in (
+        "- mode_requested: general",
+        "- mode_effective: general",
+        "- dry_run: true",
+        "- engines_requested: claude,gemini",
+    ):
+        if required not in status:
+            raise AssertionError(f"status missing {required!r}:\n{status}")
+
+    for forbidden in ("- packet:", "- packet_sha256:"):
+        if forbidden in status:
+            raise AssertionError(f"general status should not include packet metadata: {forbidden}")
+
+    for candidate in (prompt, gemini_prompt):
+        if f"Research topic:\n{topic}" not in candidate:
+            raise AssertionError("general prompt did not include the requested topic")
+        for forbidden in (
+            "Reviewed context packet follows",
+            "# Workspace context packet",
+            "## Included source files",
+            "diff --git",
+            "codex/config.toml.template",
+            ".ai/spec/93-general-multi-ai-research-policy.md",
+            "scripts/multi-ai-research.sh",
+            "Path B: user-explicit read-only general web research",
+        ):
+            if forbidden in candidate:
+                raise AssertionError(f"general prompt leaked workspace context marker: {forbidden}")
+
+
+def main() -> None:
+    assert_contains(
+        "codex/config.toml.template",
+        "Path A: scoped repository / PR work",
+        "Work must be scoped to one ticket / one PR",
+        "Do not allow main/master direct push.",
+        "Do not allow broad arbitrary upload",
+        "Deny all other external upload or delegation requests.",
+    )
+    assert_contains(
+        "codex/config.toml.template",
+        "Path B: user-explicit read-only general web research",
+        "No local repository files, source code, workspace packet, shell history, credentials, tokens",
+        "Engines run headless in plan/read-only/scout mode",
+        "research scope, engines requested and engines run",
+        "classification for each engine",
+        "auth_prompt",
+        "see the Path B exit condition above",
+    )
+    assert_contains(
+        "codex/instructions.md",
+        "public/general Web 調査だけを行う場合",
+        "ローカルファイル・source code・workspace packet・shell history・credentials・tokens",
+        "research scope・engines requested/run",
+        "auth/browser login、file access、secret/private data、write action",
+    )
+    assert_contains(
+        "codex/skills/multi-ai-research/SKILL.md",
+        "user-explicit general Web 調査では local files / source / workspace packet",
+        "--mode general",
+        "dotfiles に反映する変更候補（該当する場合）",
+    )
+    assert_contains(
+        "claude/commands/multi-ai-research.md",
+        "public/general Web 調査では `--mode general` を使える",
+        "--mode general --engines claude,gemini,codex",
+        "general 調査中に repo/source context が必要になったら",
+    )
+    assert_contains(
+        "README.md",
+        "public/general Web 調査だけを行う場合",
+        "current user request、非機密の短い project summary、public URL、出力 schema",
+        "research scope・engines requested/run",
+    )
+    assert_not_contains(
+        "scripts/multi-ai-research.sh",
+        '"${model_args[@]}"',
+        '"${trust_args[@]}"',
+    )
+    assert_general_dry_run_excludes_workspace_context()
+    print("policy text test OK")
+
+
+if __name__ == "__main__":
+    main()

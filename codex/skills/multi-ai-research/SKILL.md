@@ -16,13 +16,14 @@ description: Claude / Gemini / Codex の調査協調を安全に回す。外部A
 1. **workspace context packet を共有する**
    - repository 内の調査では、secret / private data を除外した workspace packet を生成し、Claude / Gemini / Codex に同一 packet を渡す。
    - Gemini など `@...` を file reference と解釈する CLI では transport-escape により prompt bytes は異なる場合がある。監査は同一 `packet_sha256` と engine 別 prompt hash で行う。
-   - general は repo と無関係な外部動向調査だけに使う。
-   - packet は workspace packet に含まれない repo 外 artifact / 追加資料を明示的に渡すときに使う。
+   - general は repo と無関係な外部動向調査だけに使う。ユーザーが現在ターンで明示した場合に限り、current request、非機密 summary、public URL、出力 schema だけを渡す。
+   - packet は workspace packet に含まれない repo 外 artifact / 追加資料を明示的に渡すときに使う。private/local artifact は事前に redaction し、policy gate を満たすことを確認する。
 2. **失敗は成果物にする**
    - 失敗した AI、exit code、classification、stderr を status に残す。
    - 一部の engine だけ成功した場合も、成功分を採用し欠落理由を明記する。
 3. **policy deny を突破しない**
    - sandbox / approval reviewer / policy が拒否したら、設定を弱めず送信境界を狭める。
+   - user-explicit general Web 調査では local files / source / workspace packet / shell history / credentials / private data を送らない。repo/source context が必要になったら general を終了し、trusted repo + ticket/PR + sanitized packet の通常 gate に戻す。
    - local-only 調査、Traceary history、web 一次情報、Codex main の直接調査で補完する。
 
 ## 推奨コマンド
@@ -42,6 +43,15 @@ rtk proxy ~/.local/bin/multi-ai-research.sh \
 ```
 
 `~/.config/ai-agent-policy.env` または環境変数で `MULTI_AI_ENGINES` / `MULTI_AI_DISABLED_ENGINES` を設定している場合はそれを優先する。無効化された engine は `local_policy_disabled` として status に残す。
+
+ユーザーが現在ターンで明示した repo と無関係な public/general Web 調査だけを行う場合:
+
+```bash
+rtk proxy ~/.local/bin/multi-ai-research.sh \
+  --topic "<topic>" \
+  --mode general \
+  --engines claude,gemini,codex
+```
 
 repo 固有 context が必要な場合:
 
@@ -74,5 +84,5 @@ rtk proxy ~/.local/bin/multi-ai-research.sh \
 - Claude result / Gemini result / Codex result の採否
 - 失敗した系統の classification
 - 採用した知見の一次情報 URL
-- dotfiles に反映する変更候補
+- dotfiles に反映する変更候補（該当する場合）
 - 残リスク
