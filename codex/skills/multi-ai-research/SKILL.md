@@ -44,6 +44,15 @@ rtk proxy ~/.local/bin/multi-ai-research.sh \
 
 `~/.config/ai-agent-policy.env` または環境変数で `MULTI_AI_ENGINES` / `MULTI_AI_DISABLED_ENGINES` を設定している場合はそれを優先する。無効化された engine は `local_policy_disabled` として status に残す。
 
+ユーザーが現在ターンで明示した repo と無関係な public/general Web 調査だけを行う場合:
+
+```bash
+rtk proxy ~/.local/bin/multi-ai-research.sh \
+  --topic "<topic>" \
+  --mode general \
+  --engines claude,gemini,codex
+```
+
 repo 固有 context が必要な場合:
 
 ```bash

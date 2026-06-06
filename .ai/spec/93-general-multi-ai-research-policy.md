@@ -40,12 +40,14 @@
 | general exception is documented | policy template | grep policy text | user-explicit/read-only/public/audit/auth-stop が揃う | docs/test |
 | normal repo gate remains | policy template | inspect ticket/repo path | 1 ticket / 1 PR と secret 禁止が残る | docs/test |
 | guidance is synchronized | docs/skills | grep key phrases | README / Codex instructions / multi-ai research docs が同じ境界を示す | docs/test |
+| general dry-run excludes workspace context | `multi-ai-research.sh --mode general --dry-run` | inspect status/prompt artifacts | no packet metadata / workspace packet / repo diff / tracked source marker appears | behavior test |
 
 ## TDD plan
 
 | Behavior | Red | Green | Refactor target |
 |---|---|---|---|
 | policy text has narrow general path | `tests/test_policy_text.py` fails on missing phrase | config/instructions/docs updated | avoid duplicating contradictory wording |
+| general mode does not leak workspace context | `tests/test_policy_text.py` runs general dry-run and fails on packet/source markers | prompt/status contain only safety template and topic | keep runtime behavior test lightweight |
 | managed install still works | installer sync test | no regression | none |
 
 ## Risks / rollback

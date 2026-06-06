@@ -66,7 +66,7 @@ MULTI_AI_ALLOW_UNSAFE_RESEARCH_MODES=false
 
 この例外では送信できる context を current user request、非機密の短い project summary、public URL、出力 schema に限定する。ローカルファイル、source code、workspace packet、shell history、`.env*`、credentials、tokens、private keys、repo/home dump、production data、raw personal data は送らない。repo/source context が必要になった時点で例外を終了し、trusted repository + one ticket/one PR + sanitized workspace packet の通常 gate に戻す。
 
-実行後は engine、prompt hash/path、output path、classification、source URL、残リスクを記録する。auth prompt / browser login / file access / secrets / write action を要求された場合は fallback せず停止する。
+実行後は research scope、engines requested/run、prompt hash/path、output path、engine 別 classification、source URL、残リスクを記録する。auth prompt / browser login / file access / secrets / write action を要求された場合は fallback せず停止する。
 
 ## Traceary context resume
 

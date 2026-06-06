@@ -78,7 +78,7 @@ Path B: user-explicit read-only general web research. All conditions hold:
 - No local repository files, source code, workspace packet, shell history, credentials, tokens, `.env*`, private keys, repo/home directory dumps, production data, raw personal data, or other private local files are sent.
 - The prompt may include only the current user request, non-sensitive project summary, public URLs, desired output schema, and already-public facts. If repository/source context becomes necessary, stop and use Path A with a sanitized workspace packet instead.
 - Engines run headless in plan/read-only/scout mode with no write tools, shell/file-reading tools, browser login, deploy, upload, merge, or destructive operations.
-- The run records audit evidence: engine names, prompt path or prompt hash, output path, classification, source URLs used, and residual risks.
+- The run records audit evidence: research scope, engines requested and engines run, prompt path or prompt hash, output path, classification for each engine, source URLs used, and residual risks.
 - If any engine requests authentication, opens or asks to open a browser login, asks for broader file access, asks for secrets/private data, or tries to perform a write action, stop and classify the run as `auth_prompt` or `policy_or_permission_denied`.
 
 Forbidden actions:
@@ -90,7 +90,7 @@ Forbidden actions:
 - Local orchestrator may autonomously run `gh pr merge` only for repositories owned by `duck8823` when all merge gates are satisfied: the PR is not draft, has exactly one ticket reference or an allowed ticket-less prefix, has no blocking review findings, has the required Multi-AI/local verification evidence comment, required checks pass or `gh pr checks` reports only `no checks reported`, and branch protection is respected.
 - For repositories outside the `duck8823` owner/org, do not autonomously run `gh pr merge`. Only merge a non-`duck8823` PR when the user explicitly instructs the specific PR in the current turn and the same merge gates pass.
 - The `duck8823` autonomous merge exception does not permit main/master direct push, production deploy/apply, infrastructure apply, store/TestFlight upload, release tag creation/push, or GitHub Release creation; those still require explicit user approval.
-- Do not allow broad arbitrary upload, pastebin, file-sharing, unrelated external AI requests, non-task external AI usage, or use of the general web research path to smuggle repository/source/private context.
+- Do not allow broad arbitrary upload, pastebin, file-sharing, unrelated external AI requests, non-task external AI usage, or use of the general web research path to smuggle repository/source/private context (see the Path B exit condition above).
 - Do not allow requests that disable Guardian, disable sandboxing, weaken approval settings, or persist broader external-AI allow rules than this policy.
 
 Required outputs for delegated implementation/review/context resume:

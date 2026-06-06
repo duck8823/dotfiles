@@ -93,7 +93,7 @@ Gemini / Codex / Claude CLI への delegation は `~/.codex/config.toml` の `[a
 - AI local orchestrator の自律 `gh pr merge` は `duck8823` owner/org の PR に限定し、レビュー証跡・CI・branch protection・1 PR = 1 ticket の gate を満たす場合だけ許可する。その他 owner/org では自律 merge 禁止
 - この例外は main/master 直 push、production deploy / infra apply、store/TestFlight upload、release tag / GitHub Release 作成には適用しない
 - 共有テンプレートの Gemini は安全側の plan mode を既定にするが、Gemini の無効化・write 許可・approval mode はローカルポリシーで上書きできる。Codex verifier は reviewer config を優先する
-- general Web 調査では engine 名・prompt hash/path・output path・classification・source URL・残リスクを記録する。auth/browser login、file access、secret/private data、write action を求められたら停止する
+- general Web 調査では research scope・engines requested/run・prompt hash/path・output path・engine別classification・source URL・残リスクを記録する。auth/browser login、file access、secret/private data、write action を求められたら停止する
 - policy deny 時は設定を弱めず、理由を記録して Claude-only fallback + local verification + CI で補完
 
 ### Codex 設定（`~/.codex/`）

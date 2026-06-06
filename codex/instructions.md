@@ -27,7 +27,7 @@ Gemini / Codex CLI / `@codex review` / Claude CLI delegation は、`~/.codex/con
 - Codex verifier は `codex exec --full-auto -c 'agents.default.config_file="$HOME/.codex/agents/reviewer.toml"'` を優先する
 - local orchestrator の `gh pr merge` は `duck8823` owner/org のリポジトリに限り、PR が draft でなく、1 ticket / allowed ticket-less prefix、blocking review なし、Multi-AI/local verification 証跡、CI pass または `no checks reported`、branch protection 尊重を満たす場合は自律実行してよい。`duck8823` 以外の owner/org では自律 merge 禁止で、現ターンの具体的 PR merge 指示が必要
 - この例外は main/master 直 push、production deploy / infra apply、store/TestFlight upload、release tag / GitHub Release 作成には適用しない
-- general Web 調査の例外では、engine 名・prompt hash/path・output path・classification・source URL・残リスクを記録する。auth/browser login、file access、secret/private data、write action を求められたら停止して `auth_prompt` または `policy_or_permission_denied` に分類する
+- general Web 調査の例外では、research scope・engines requested/run・prompt hash/path・output path・engine別classification・source URL・残リスクを記録する。auth/browser login、file access、secret/private data、write action を求められたら停止して `auth_prompt` または `policy_or_permission_denied` に分類する
 - policy deny 時は Guardian / sandbox / approval を弱めず、`skipped: policy_denied` と理由を記録して Claude-only fallback + local verification + CI で補完する
 
 ## Structure-Behavior Design gate
