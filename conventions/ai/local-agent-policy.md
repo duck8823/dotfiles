@@ -60,6 +60,14 @@ MULTI_AI_ALLOW_UNSAFE_RESEARCH_MODES=false
 
 ただし、secret 除外、main 直 push 禁止、破壊的 remote 操作禁止、CI gate はローカルポリシーでも弱めない。
 
+## User-explicit general web research
+
+ユーザーが現在ターンで Claude / Gemini / Codex / multi-AI research を明示し、調査対象が public/general Web または公式一次情報だけで完結する場合は、repo / workspace packet を使わない read-only/headless 調査として扱える。
+
+この例外では送信できる context を current user request、非機密の短い project summary、public URL、出力 schema に限定する。ローカルファイル、source code、workspace packet、shell history、`.env*`、credentials、tokens、private keys、repo/home dump、production data、raw personal data は送らない。repo/source context が必要になった時点で例外を終了し、trusted repository + one ticket/one PR + sanitized workspace packet の通常 gate に戻す。
+
+実行後は engine、prompt hash/path、output path、classification、source URL、残リスクを記録する。auth prompt / browser login / file access / secrets / write action を要求された場合は fallback せず停止する。
+
 ## Traceary context resume
 
 手書き handoff を標準にしない。次の agent は Traceary / git / PR から復元する。

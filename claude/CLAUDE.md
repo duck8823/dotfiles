@@ -1,6 +1,6 @@
 # グローバル Claude Code 設定
 
-> **External AI delegation policy (2026-05-11):** Gemini CLI / Codex CLI / `@codex review` / Claude CLI delegation は、`~/.codex/config.toml` の `[auto_review].policy` に定義された **External AI delegation exception** を満たす場合のみ実行する。ユーザーが trusted repository で multi-AI 協調を依頼した場合、source code は協調 context として共有可とし、同一の sanitized workspace context packet を使って情報の偏りを避ける。拒否された場合は設定を弱めず、理由を記録して Claude-only review + local verification + CI にフォールバックする。
+> **External AI delegation policy (2026-06-06):** Gemini CLI / Codex CLI / `@codex review` / Claude CLI delegation は、`~/.codex/config.toml` の `[auto_review].policy` に定義された **External AI delegation exception** を満たす場合のみ実行する。ユーザーが trusted repository で multi-AI 協調を依頼した場合、source code は協調 context として共有可とし、同一の sanitized workspace context packet を使って情報の偏りを避ける。ユーザーが現在ターンで明示した public/general Web 調査だけは、local files / source / workspace packet / shell history / credentials / private data を送らない read-only/headless 調査として許可する。拒否された場合は設定を弱めず、理由を記録して Claude-only review + local verification + CI にフォールバックする。
 
 ## 言語
 

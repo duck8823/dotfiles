@@ -106,8 +106,8 @@ rtk proxy ./scripts/multi-ai-research.sh \
 
 - `auto`: git repository では `workspace`、それ以外では `general` として動く。
 - `workspace`: git status / diff / source files から sanitized packet を生成し、同じ packet hash を各 engine に渡す。engine 別 transport escape がある場合は prompt hash も併記する。
-- `general`: repo と無関係な外部動向調査だけに使う。
-- `packet`: workspace packet に含まれない repo 外 artifact / 追加資料を渡すときに使う。
+- `general`: repo と無関係な外部動向調査だけに使う。ユーザーが現在ターンで明示した場合に限り、current request、非機密 summary、public URL、出力 schema だけを渡す。local files / source / workspace packet / shell history / credentials / private data は送らない。
+- `packet`: workspace packet に含まれない repo 外 artifact / 追加資料を渡すときに使う。private/local artifact は先に redaction し、policy gate を満たすことを確認する。
 - `~/.config/ai-agent-policy.env` または `MULTI_AI_DISABLED_ENGINES` で無効化された engine は起動せず、`local_policy_disabled` として status に記録する。
 
 ## Traceary context resume
