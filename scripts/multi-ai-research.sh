@@ -667,21 +667,18 @@ run_gemini() {
   fi
   local gemini_cwd="$out_dir/gemini-cwd"
   mkdir -p "$gemini_cwd"
-  local trust_args=()
-  local model_args=()
-  case "$(printf '%s' "$gemini_skip_trust" | tr '[:upper:]' '[:lower:]')" in
-    true|1|yes|on) trust_args+=(--skip-trust) ;;
-  esac
-  if [ -n "$gemini_model" ]; then
-    model_args+=(--model "$gemini_model")
-  fi
   (
     cd "$gemini_cwd"
     export TERM=xterm-256color
     export NO_BROWSER=true
-    run_timeout gemini \
-      "${trust_args[@]}" \
-      "${model_args[@]}" \
+    set -- gemini
+    case "$(printf '%s' "$gemini_skip_trust" | tr '[:upper:]' '[:lower:]')" in
+      true|1|yes|on) set -- "$@" --skip-trust ;;
+    esac
+    if [ -n "$gemini_model" ]; then
+      set -- "$@" --model "$gemini_model"
+    fi
+    run_timeout "$@" \
       --approval-mode "$gemini_approval_mode" \
       -e none \
       --output-format text \
@@ -706,17 +703,16 @@ run_codex() {
   fi
   local codex_cwd="$out_dir/codex-cwd"
   mkdir -p "$codex_cwd"
-  local model_args=()
-  if [ -n "$codex_model" ]; then
-    model_args+=(--model "$codex_model")
-  fi
   (
     cd "$codex_cwd"
-    run_timeout codex exec \
+    set -- codex exec \
       --ephemeral \
       --skip-git-repo-check \
-      --sandbox "$codex_sandbox" \
-      "${model_args[@]}" \
+      --sandbox "$codex_sandbox"
+    if [ -n "$codex_model" ]; then
+      set -- "$@" --model "$codex_model"
+    fi
+    run_timeout "$@" \
       -c "model_reasoning_effort=\"${codex_reasoning_effort}\"" \
       -c 'model_reasoning_summary="none"' \
       -c "tool_output_token_limit=${tool_output_token_limit}" \
