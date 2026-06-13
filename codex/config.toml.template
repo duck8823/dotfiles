@@ -47,6 +47,13 @@ Path A: scoped repository / PR work. All conditions hold:
 
 - The working directory is a trusted repository or its git worktree.
 - Work must be scoped to one ticket / one PR. Do not combine multiple tickets into one task, branch, review request, or PR.
+- Default-allowed read-only mutual AI invocation (Claude / Gemini / Codex):
+  - Read-only mutual invocation of Claude, Gemini, and Codex on the current trusted repository is allowed by default. It does not require a per-turn explicit user request and does not require a ticket or PR reference, as long as the delegated task is strictly read-only repository/workspace research, design consultation, triage, or review planning with no delegated file writes, commits, pushes, PR creation, merge, deploy, upload, or destructive action.
+  - Any task that writes, commits, pushes, creates/merges a PR, deploys, applies infrastructure, uploads, or performs a destructive or remote-mutating action is NOT covered by this default and still requires Path A scoped one-ticket / one-PR work (or an allowed ticket-less prefix) and the forbidden-action list below.
+  - The scope must still be one concrete repository question or one coherent workstream in the current trusted repository. Do not combine unrelated repositories or unrelated initiatives.
+  - Share only the same sanitized workspace context packet or reviewed source/diff bundle needed for that question. Do not send `.env*`, credentials, tokens, private keys, shell history, unrelated home-directory files, unrelated repo dumps, raw personal data, or production data.
+  - Engines must run headless in plan/read-only/scout mode. If an engine requests authentication, broader file access, secrets/private data, write tools, browser login, deploy, upload, merge, or destructive operations, stop and classify the run as `auth_prompt` or `policy_or_permission_denied`.
+  - Required outputs use `ticket key: N/A (read-only repository consultation)` and include research scope, trusted repo path, context packet hash/path, engines requested/run, engine classifications, output paths, adopted recommendations, verification performed locally, and residual risks.
 - If an existing PR accidentally contains multiple tickets, do not close it; narrow the existing PR to one ticket and create separate PRs for the remaining tickets.
 - PR title/body must reference exactly one ticket. Use `Closes #123` for GitHub Issues or a single Jira-style key such as `[PROJ-123]`.
 - Ticket-less PR prefix exception:
@@ -70,6 +77,37 @@ Path A: scoped repository / PR work. All conditions hold:
 - Codex implementation must run only in a feature branch or dedicated worktree, and the prompt must explicitly name the ticket, allowed write scope, validation commands, and forbidden actions.
 - Codex review/verifier must use reviewer configuration when available: `codex exec --full-auto -c 'agents.default.config_file="$HOME/.codex/agents/reviewer.toml"'`
 - Claude CLI implementation/review is allowed under the same one-ticket scoped worktree constraints.
+
+Trusted repository structured-output regeneration and AI-reviewed artifact update exception (separate from the Path A read-only mutual invocation / consultation exception):
+
+In a trusted repository or git worktree, ticket/PR is not required for external-AI structured-output regeneration and AI-reviewed generated artifact updates when all of the following hold:
+
+- The task is limited to one coherent workstream in the current trusted repository.
+- Inputs sent to external AI are limited to version-controlled sample/reference files, prompts, schemas, dictionaries, generator/validator instructions, and sanitized context required for the generation or review.
+- The external AI may generate or review structured outputs / generated artifacts, but must not be delegated direct filesystem writes, commits, pushes, PR creation, merge, deploy, upload, infrastructure apply, destructive actions, browser login, or secret access.
+- The local orchestrator, not the external AI, writes any resulting files into the workspace.
+- Files committed to Git are limited to:
+  - version-controlled prompts, schemas, dictionaries, generator/validator code, docs; and
+  - final generated artifacts explicitly allowed by the repository AGENTS.md, such as `structured/*.csv.gz`.
+- Raw answers, packets, logs, reports, scratch notes, intermediate files, and work directories are not committed unless explicitly allowed by repository policy.
+- Local validation must be run before commit. Validation evidence must include the input paths, prompt/schema/context paths, generated output paths, engines used, validation commands, results, and residual risks.
+- If the generation output is intended to change product behavior, scoring behavior, or downstream decisions, it must be reviewed by at least one additional AI reviewer or an explicit local review step before commit.
+- The exception does not permit main/master direct push, release tag/GitHub Release creation, production deploy, infra apply, store/TestFlight upload, or autonomous merge outside the existing owner-scoped merge policy.
+- If any external AI requests broader file access, credentials, private keys, `.env*`, shell history, browser authentication, write tools, or remote-mutating actions, stop and classify as `auth_prompt` or `policy_or_permission_denied`.
+
+Required output fields for this exception:
+
+- ticket key: `N/A (structured-output regeneration)`
+- trusted repo path
+- workstream scope
+- input paths sent
+- prompt/schema/context paths sent
+- external engines requested/run
+- engine classifications
+- generated output paths
+- local validation commands and results
+- review evidence, if behavior-affecting
+- residual risks
 
 Path B: user-explicit read-only general web research. All conditions hold:
 
