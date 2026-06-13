@@ -47,6 +47,12 @@ Path A: scoped repository / PR work. All conditions hold:
 
 - The working directory is a trusted repository or its git worktree.
 - Work must be scoped to one ticket / one PR. Do not combine multiple tickets into one task, branch, review request, or PR.
+- Ticket/PR exception for user-explicit read-only repository consultation:
+  - If the user explicitly asks in the current turn for Claude, Gemini, Codex, or multi-AI collaboration on a trusted repository, and the delegated task is strictly read-only repository/workspace research, design consultation, triage, or review planning with no delegated file writes, commits, pushes, PR creation, merge, deploy, upload, or destructive action, a ticket or PR reference is not required.
+  - The scope must still be one concrete repository question or one coherent workstream in the current trusted repository. Do not combine unrelated repositories or unrelated initiatives.
+  - Share only the same sanitized workspace context packet or reviewed source/diff bundle needed for that question. Do not send `.env*`, credentials, tokens, private keys, shell history, unrelated home-directory files, unrelated repo dumps, raw personal data, or production data.
+  - Engines must run headless in plan/read-only/scout mode. If an engine requests authentication, broader file access, secrets/private data, write tools, browser login, deploy, upload, merge, or destructive operations, stop and classify the run as `auth_prompt` or `policy_or_permission_denied`.
+  - Required outputs use `ticket key: N/A (read-only repository consultation)` and include research scope, trusted repo path, context packet hash/path, engines requested/run, engine classifications, output paths, adopted recommendations, verification performed locally, and residual risks.
 - If an existing PR accidentally contains multiple tickets, do not close it; narrow the existing PR to one ticket and create separate PRs for the remaining tickets.
 - PR title/body must reference exactly one ticket. Use `Closes #123` for GitHub Issues or a single Jira-style key such as `[PROJ-123]`.
 - Ticket-less PR prefix exception:
