@@ -18,8 +18,10 @@
 Antigravity / legacy Gemini / Codex CLI / `@codex review` / Claude CLI delegation は、`~/.codex/config.toml` の `[auto_review].policy` にある **External AI delegation exception** を満たす場合のみ実行する。
 
 - 原則は trusted repository / git worktree 上で、1 ticket / 1 PR 単位に限定する
-- 例外として、ユーザーが現在ターンで明示的に Claude / Antigravity / Codex / multi-AI research を求め、かつ public/general Web 調査だけを行う場合は、ローカルファイル・source code・workspace packet・shell history・credentials・tokens・`.env*`・private data を一切送らない read-only/headless 調査として許可する。repo/source context が必要になったら、この例外を使わず scoped repository path に戻して sanitized workspace packet を作る
-- ユーザーが Claude / Antigravity / Codex の multi-AI 協調を依頼した trusted repository では、source code は協調 context として共有してよい。local / private repository であることだけを理由に secret 扱いしない
+- 例外として、ユーザーが現在ターンで明示的に Claude / Antigravity / Codex / legacy Gemini / multi-AI research を求め、かつ public/general Web 調査だけを行う場合は、ローカルファイル・source code・workspace packet・shell history・credentials・tokens・`.env*`・private data を一切送らない read-only/headless 調査として許可する。repo/source context が必要になったら、この例外を使わず scoped repository path に戻して sanitized workspace packet を作る
+- ユーザーが Claude / Antigravity / Codex / legacy Gemini の multi-AI 協調を依頼した trusted repository では、source code は協調 context として共有してよい。local / private repository であることだけを理由に secret 扱いしない
+- trusted repository での read-only / sandbox / plan の Claude / Antigravity / Codex / legacy Gemini 相互呼び出し（repository/workspace research・design consultation・triage・review planning）は default 許可で、per-turn の明示依頼や ticket/PR は不要。write/commit/push/PR 作成・merge/deploy/upload/destructive は default 対象外で、従来どおり 1 ticket / 1 PR scoped work（または許可された ticket-less prefix）に従う
+- structured-output regeneration / AI-reviewed generated artifact update も ticket/PR 不要だが、入力は version-controlled な sample/reference・prompt・schema・dictionary・generator/validator と sanitized context に限定し、外部AIには write/commit/push を委譲せず書き込みは local orchestrator が行う。commit 前 local validation 必須、behavior/scoring/downstream に影響する生成物は追加 AI reviewer または明示 local review 必須。raw answers/packets/logs/intermediate は repo policy 許可がない限り commit しない（詳細は `~/.codex/config.toml` の policy）
 - PR diff / local branch diff / workspace context packet / 関連ソース / テスト出力など、必要最小限だけを渡す
 - 同じ repo 質問を複数 AI に調査させる場合は、情報の偏りを避けるため同一の sanitized workspace context packet または同一の source/diff bundle を渡す
 - `.env`、credentials、tokens、private keys、shell history、無関係な repo / home directory dump を渡さない

@@ -62,6 +62,7 @@ agent 間の共有 artifact は「handoff」ではなく、再開可能な conte
 ## Git / PR guard policy
 
 - **1 PR = 1 ticket** を hard gate とする。GitHub Issue なら `Closes #123`、Jira 等なら `[PROJ-123]` のような ticket ID を PR title/body に1つだけ含める。
+- これは write / 実装委譲に対する hard gate であり、`~/.codex/config.toml` の `[auto_review].policy` が定める例外（ticket-less prefix `[MAINTENANCE]` / `[FIX]` / `[PROPOSAL]`、read-only mutual invocation / consultation、structured-output regeneration / AI-reviewed artifact update）では ticket 参照を省略できる。これらの例外でも write 系の実装委譲・main/master 直 push・merge・deploy・infra apply は緩めない。
 - 1 ticket の中では multiple commits を許可する。ただし各 commit は「何を・なぜ変えたか」を表す1関心事に分割する。
 - レビュー指摘で発生した変更も「レビュー対応」「address review feedback」などの commit message にしない。既存 commit に fixup / amend するか、変更内容を表す semantic message にする。
 - 1 PR に複数 ticket が混ざった場合は、既存 PR を閉じるのではなく対象 ticket に scope を戻し、残りの差分は別 branch / 別 PR へ分割する。
