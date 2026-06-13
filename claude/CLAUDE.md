@@ -1,6 +1,6 @@
 # グローバル Claude Code 設定
 
-> **External AI delegation policy (2026-06-06):** Gemini CLI / Codex CLI / `@codex review` / Claude CLI delegation は、`~/.codex/config.toml` の `[auto_review].policy` に定義された **External AI delegation exception** を満たす場合のみ実行する。ユーザーが trusted repository で multi-AI 協調を依頼した場合、source code は協調 context として共有可とし、同一の sanitized workspace context packet を使って情報の偏りを避ける。ユーザーが現在ターンで明示した public/general Web 調査だけは、local files / source / workspace packet / shell history / credentials / private data を送らない read-only/headless 調査として許可する。拒否された場合は設定を弱めず、理由を記録して Claude-only review + local verification + CI にフォールバックする。
+> **External AI delegation policy (2026-06-13):** Gemini CLI / Codex CLI / `@codex review` / Claude CLI delegation は、`~/.codex/config.toml` の `[auto_review].policy` に定義された **External AI delegation exception** を満たす場合のみ実行する。trusted repository での read-only/plan の Claude / Gemini / Codex 相互呼び出し（repository/workspace research・design consultation・triage・review planning）は **デフォルトで許可**する。per-turn の明示依頼や ticket/PR は不要とし、source code は同一の sanitized workspace context packet として共有して情報の偏りを避ける。一方で write / commit / push / PR 作成・merge / deploy / infra apply / upload / destructive 操作は従来どおり policy の制限下に置き、Path A の scoped one-ticket/one-PR work（または許可された ticket-less prefix）と forbidden-action list に従う。ユーザーが現在ターンで明示した public/general Web 調査だけは、local files / source / workspace packet / shell history / credentials / private data を送らない read-only/headless 調査として許可する。拒否された場合は設定を弱めず、理由を記録して Claude-only review + local verification + CI にフォールバックする。
 
 ## 言語
 
