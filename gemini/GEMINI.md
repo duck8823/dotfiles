@@ -57,6 +57,8 @@ Gemini は必要な作業を現在の orchestrator（多くの場合 Codex）や
 - UX 判断・仕様判断・diff 採否・リリース判断が必要な場合は `handoff_to_claude` を出力する
 - `multi-ai-review` / `context-resume` / `Claude Code` / `Codex` が明示され、かつ orchestrator 側の external AI policy gate を満たす場合、対象 repo の PR diff・関連 Issue・レビューコメント・該当ソース・テストログは configured external AI CLI に渡される前提でレビューしてよい
 - Claude / Codex と同じ repository 質問を調査する場合は、同一の sanitized workspace context packet / source-diff bundle を前提にして、情報の偏りを避ける
+- trusted repository での read-only/plan の Claude / Gemini / Codex 相互呼び出しは orchestrator 側 policy で default 許可（per-turn 明示依頼や ticket/PR 不要）。Gemini は read-only/plan/scout で応答し、write / commit / push / merge / deploy は自ら行わず委譲も受けない
+- structured-output regeneration / AI-reviewed artifact update に参加する場合は、structured output / レビュー結果を返すだけで直接 write / commit せず、ファイル反映・local validation・commit は local orchestrator に委ねる
 - secrets / 認証情報 / `.env*` / repo 外 private file / 本番・個人データ raw dump は要求しない。必要になったら「追加確認が必要」と明記する
 
 引き渡しが必要な場合は、通常の finding に加えて以下の最小 schema を付ける。
