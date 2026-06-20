@@ -41,7 +41,7 @@ hide_full_access_warning = true
 policy = """
 ## External AI delegation exception
 
-Allow Antigravity, Codex CLI, and Claude CLI delegation only through one of the following paths.
+Allow Antigravity, legacy Gemini, Codex CLI, and Claude CLI delegation only through one of the following paths.
 
 Path A: scoped repository / PR work. All conditions hold:
 
