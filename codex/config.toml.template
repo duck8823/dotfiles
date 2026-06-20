@@ -41,7 +41,7 @@ hide_full_access_warning = true
 policy = """
 ## External AI delegation exception
 
-Allow Gemini, Codex CLI, and Claude CLI delegation only through one of the following paths.
+Allow Antigravity, Codex CLI, and Claude CLI delegation only through one of the following paths.
 
 Path A: scoped repository / PR work. All conditions hold:
 
@@ -63,17 +63,17 @@ Path A: scoped repository / PR work. All conditions hold:
   - read-only repository / workspace research requested by the user
   - scoped implementation work on a feature branch or dedicated worktree
   - test / lint / CI verification
-- Repository source code in a trusted repository is allowed collaboration context when the user requests Claude/Gemini/Codex multi-AI work. Do not treat source code as secret by default solely because the repository is local or private.
+- Repository source code in a trusted repository is allowed collaboration context when the user requests Claude/Antigravity/Codex multi-AI work. Do not treat source code as secret by default solely because the repository is local or private.
 - The data sent is limited to the relevant ticket requirements, PR diff or local branch diff, workspace context packet, review instructions, source files needed for the scoped task, command output, test/lint output, and result files needed for that task.
 - When multiple external AI engines are asked to collaborate on the same repository question, send the same sanitized workspace context packet or the same reviewed source/diff bundle to each engine to avoid information asymmetry.
-- Gemini uses safe plan/scout mode by default in shared dotfiles templates, but Gemini disablement, approval mode, and write permission are controlled by local agent policy. If Gemini write is explicitly allowed, it must use the same one-ticket scoped branch/worktree constraints and forbidden-action list as any other external AI write task.
+- Antigravity uses safe sandbox/scout mode by default in shared dotfiles templates, but Antigravity disablement, model choice, sandbox, and write permission are controlled by local agent policy. If Antigravity write is explicitly allowed, it must use the same one-ticket scoped branch/worktree constraints and forbidden-action list as any other external AI write task.
 - Codex implementation must run only in a feature branch or dedicated worktree, and the prompt must explicitly name the ticket, allowed write scope, validation commands, and forbidden actions.
 - Codex review/verifier must use reviewer configuration when available: `codex exec --full-auto -c 'agents.default.config_file="$HOME/.codex/agents/reviewer.toml"'`
 - Claude CLI implementation/review is allowed under the same one-ticket scoped worktree constraints.
 
 Path B: user-explicit read-only general web research. All conditions hold:
 
-- The user explicitly asks in the current turn for Claude, Gemini, Codex, or multi-AI research.
+- The user explicitly asks in the current turn for Claude, Antigravity, Codex, or multi-AI research.
 - The task is public/general web research or official-source research, not repository/workspace/PR review and not implementation.
 - No local repository files, source code, workspace packet, shell history, credentials, tokens, `.env*`, private keys, repo/home directory dumps, production data, raw personal data, or other private local files are sent.
 - The prompt may include only the current user request, non-sensitive project summary, public URLs, desired output schema, and already-public facts. If repository/source context becomes necessary, stop and use Path A with a sanitized workspace packet instead.
@@ -86,7 +86,7 @@ Forbidden actions:
 - Do not send `.env` files, credentials, tokens, private keys, secret files, shell history, arbitrary home-directory files, unrelated repository dumps, or unrelated repo context.
 - Do not allow main/master direct push.
 - Do not use commit messages that describe review mechanics such as "review feedback", "review comments", or "レビュー指摘対応". Commit messages must describe what changed and why.
-- For delegated external-AI/Codex/Claude/Gemini implementation or review tasks, do not allow PR merge, production deploy/apply, infrastructure apply, or destructive remote operations.
+- For delegated external-AI/Codex/Claude/Antigravity implementation or review tasks, do not allow PR merge, production deploy/apply, infrastructure apply, or destructive remote operations.
 - Local orchestrator may autonomously run `gh pr merge` only for repositories owned by `duck8823` when all merge gates are satisfied: the PR is not draft, has exactly one ticket reference or an allowed ticket-less prefix, has no blocking review findings, has the required Multi-AI/local verification evidence comment, required checks pass or `gh pr checks` reports only `no checks reported`, and branch protection is respected.
 - For repositories outside the `duck8823` owner/org, do not autonomously run `gh pr merge`. Only merge a non-`duck8823` PR when the user explicitly instructs the specific PR in the current turn and the same merge gates pass.
 - The `duck8823` autonomous merge exception does not permit main/master direct push, production deploy/apply, infrastructure apply, store/TestFlight upload, release tag creation/push, or GitHub Release creation; those still require explicit user approval.

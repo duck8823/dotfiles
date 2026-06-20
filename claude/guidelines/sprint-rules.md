@@ -33,7 +33,7 @@
 ### 1. アーキテクチャ・一貫性セルフレビュー（3AI多重）
 
 スプリント全体の変更を俯瞰し、個別 PR レビューでは見えなかった問題を検出する。
-Architect ロールを Claude / Codex / Gemini の3AI並列で実行。
+Architect ロールを Claude / Codex / Antigravity の3AI並列で実行。
 Medium / High risk の Issue が含まれる場合は、Structure-Behavior drift（手続き化・責務配置・境界/IF・振る舞いテスト不足）も確認する。
 
 ```bash

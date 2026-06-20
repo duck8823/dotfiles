@@ -26,7 +26,7 @@
 - レビュー指摘で発生した変更も「レビュー対応」コミットにしない。可能なら該当する既存コミットへ fixup / amend し、難しい場合も `fix: validate PR ticket references` のように **何を・なぜ変えたか**を書く
 - **禁止**: 「レビュー指摘対応」「レビューコメント反映」「address review feedback」「fix review comments」などレビュー起点を示すコミットメッセージ
 - AI がコミットする場合は `Co-authored-by` トレーラーを付与する（Claude Code はデフォルトで付与される）
-- **コミットは実装を担ったエージェント / セッションが行う**。Codex / Claude / Gemini の worker が独立セッションで実装した場合、その worker が自分の変更を feature branch / worktree にコミットする。orchestrator は他セッションの実装を代理コミットしない（authorship を実装者に一致させ、orchestrator への誤帰属・コミットボトルネック化を避ける）
+- **コミットは実装を担ったエージェント / セッションが行う**。Codex / Claude / Antigravity の worker が独立セッションで実装した場合、その worker が自分の変更を feature branch / worktree にコミットする。orchestrator は他セッションの実装を代理コミットしない（authorship を実装者に一致させ、orchestrator への誤帰属・コミットボトルネック化を避ける）
   - worker と orchestrator が同一エージェント（solo セッション）の場合は、そのエージェントがコミットしてよい
   - in-session の ephemeral subagent（workflow / Task）が成果物を返すだけの場合は、それを統合した実装セッションがコミットしてよい。`Co-authored-by` には実際に実装したモデルを記す
 - ドラフト PR を使用。マージはスカッシュしない（`--merge`）
@@ -42,7 +42,7 @@ Claude Code の PreToolUse / PostToolUse hook が `--draft` 不付与・Multi-AI
 - `--fill` は commit message 由来の未検証本文が混入するため使わず、`--title` / `--body` / `--body-file` で ticket を明示する
 
 ### 2. レビュー
-- Multi-AI レビューコメント（Gemini / Codex / Claude の少なくとも 2 系統）を `gh pr comment` で投稿してから ready に移す
+- Multi-AI レビューコメント（Antigravity / Codex / Claude の少なくとも 2 系統）を `gh pr comment` で投稿してから ready に移す
 - レビュー対応は意味単位のコミットに折り込む。新しいコミットが必要な場合も、メッセージはレビュー起点ではなく変更内容を書く
 
 ### 3. Ready

@@ -9,7 +9,7 @@ The following files include guidance adapted from the `structure-behavior-design
 - `claude/skills/structure-behavior-design/SKILL.md`
 - `codex/agents/structure-reviewer.toml`
 - `claude/agents/structure-reviewer.md`
-- `gemini/agents/structure-reviewer.md`
+- `antigravity/skills/structure-reviewer/SKILL.md`
 
 Source repository: <https://github.com/theoden9014/ai-knowledge-base>  
 Source pack: `knowledge/structure-behavior-design`  
@@ -21,7 +21,7 @@ Changes made in this repository:
 
 - translated and condensed the workflow into Japanese
 - merged separate upstream skills/agents into dotfiles-oriented skill and reviewer agents
-- aligned the workflow with the dotfiles Claude foreground / Codex worker-verifier / Gemini read-only scout model
+- aligned the workflow with the dotfiles Claude foreground / Codex worker-verifier / Antigravity read-heavy scout model
 - added External AI delegation policy gate considerations
 - adjusted high-risk handling to prefer small Draft PRs / design notes / migration-safe steps rather than blocking autonomous progress indefinitely
 

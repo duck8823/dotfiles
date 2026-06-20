@@ -16,7 +16,7 @@ developer_instructions = """
 7. 境界/IF: consumer-oriented か、primitive parameter / boolean flag / infra DTO leakage がないか
 
 ## やらないこと
-- repo-wide の命名 drift や docs 更新漏れの俯瞰チェック（Gemini が担当）
+- repo-wide の命名 drift や docs 更新漏れの俯瞰チェック（Antigravity が担当）
 - 呼び出し元からのコールチェーン実証（Claude が担当）
 
 ## 期待する姿勢

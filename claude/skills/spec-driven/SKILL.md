@@ -40,7 +40,7 @@ codex exec --full-auto \
   - < /tmp/codex-spec.md 2>/tmp/codex-spec.err
 ```
 
-#### Gemini reviewer（CLI）— 既存パターン・影響範囲のスカウト
+#### Antigravity reviewer（CLI）— 既存パターン・影響範囲のスカウト
 ```bash
 ISSUE_JSON=$(gh issue view <番号> --json number,title,body)
 
@@ -52,9 +52,8 @@ cat > /tmp/gemini-spec-scout.md <<PROMPT
 ${ISSUE_JSON}
 PROMPT
 
-GEMINI_SYSTEM_MD=$HOME/.gemini/agents/reviewer.md \
   TERM=xterm-256color \
-  gemini --approval-mode plan -p ' ' -e none < /tmp/gemini-spec-scout.md > /tmp/gemini-spec-scout-result.json 2>&1
+  agy --print --sandbox < /tmp/gemini-spec-scout.md > /tmp/gemini-spec-scout-result.json 2>&1
 ```
 
 ### 3. 統合して .ai/spec 生成（Claude メインセッション）

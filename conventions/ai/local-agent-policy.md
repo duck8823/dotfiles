@@ -4,9 +4,9 @@
 
 ## 方針
 
-- Codex / Claude / Gemini は固定階層ではなく、現在の orchestrator と task scope に応じて協調する。
-- 共有 dotfiles は安全側のデフォルトを置くが、Gemini を常に read-only に固定したり、特定 agent の使用を強制したりしない。
-- ローカル環境で Gemini が不安定・禁止・quota 不足なら、Gemini を無効化して Codex / Claude / local verification にフォールバックする。
+- Codex / Claude / Antigravity は固定階層ではなく、現在の orchestrator と task scope に応じて協調する。
+- 共有 dotfiles は安全側のデフォルトを置くが、Antigravity を常に read-only に固定したり、特定 agent の使用を強制したりしない。
+- ローカル環境で Antigravity が不安定・禁止・quota 不足なら、Antigravity を無効化して Codex / Claude / local verification にフォールバックする。
 - `MULTI_AI_DISABLED_ENGINES=codex` は `multi-ai-research.sh` などの orchestrated engine selection では尊重するが、Claude hook では Codex 自体を全面ブロックしない。Codex は現在 orchestrator として使われることが多いが固定ではないため、write safety は agent 名ではなく branch / worktree gate で制御する。
 - write を許可する agent は、必ず dedicated branch / worktree、明示スコープ、禁止操作、検証コマンドを持つ。
 - policy によって agent を skip した場合は、失敗ではなく `skipped: local_policy_disabled` として記録する。
@@ -21,17 +21,18 @@
 MULTI_AI_ENGINES=claude,codex
 
 # 特定 engine を無効化。--engines で指定されても skip 記録にする
-MULTI_AI_DISABLED_ENGINES=gemini
+MULTI_AI_DISABLED_ENGINES=antigravity
 
-# Gemini の共有テンプレート既定。multi-ai-research は安全のため plan/read-only に強制する
-MULTI_AI_GEMINI_APPROVAL_MODE=plan
-MULTI_AI_GEMINI_SKIP_TRUST=true
+# Antigravity の共有テンプレート既定。multi-ai-research は安全のため sandbox に強制する
+MULTI_AI_ANTIGRAVITY_CLI=agy
+MULTI_AI_ANTIGRAVITY_SANDBOX=true
+MULTI_AI_ANTIGRAVITY_PRINT_TIMEOUT=600
 
-# Gemini write を試す場合は dedicated branch/worktree で明示する
-MULTI_AI_GEMINI_ALLOW_WRITE=false
+# Antigravity write を試す場合は dedicated branch/worktree で明示する
+MULTI_AI_ANTIGRAVITY_ALLOW_WRITE=false
 
-# 必要なときだけ Gemini model を固定。未設定なら CLI の routing/modelSteering に委ねる
-MULTI_AI_GEMINI_MODEL=
+# 必要なときだけ Antigravity model を固定。未設定なら CLI の routing に委ねる
+MULTI_AI_ANTIGRAVITY_MODEL=
 
 # Codex research/verifier の sandbox 既定
 MULTI_AI_CODEX_SANDBOX=read-only
@@ -53,7 +54,7 @@ MULTI_AI_ALLOW_UNSAFE_RESEARCH_MODES=false
 ## 優先順位
 
 1. 明示的なユーザー指示
-2. リポジトリの `AGENTS.md` / `CLAUDE.md` / `GEMINI.md`
+2. リポジトリの `AGENTS.md` / `CLAUDE.md` / Antigravity global instructions
 3. 実行時の環境変数
 4. `~/.config/ai-agent-policy.env`
 5. dotfiles の共有デフォルト
@@ -62,7 +63,7 @@ MULTI_AI_ALLOW_UNSAFE_RESEARCH_MODES=false
 
 ## User-explicit general web research
 
-ユーザーが現在ターンで Claude / Gemini / Codex / multi-AI research を明示し、調査対象が public/general Web または公式一次情報だけで完結する場合は、repo / workspace packet を使わない read-only/headless 調査として扱える。
+ユーザーが現在ターンで Claude / Antigravity / Codex / multi-AI research を明示し、調査対象が public/general Web または公式一次情報だけで完結する場合は、repo / workspace packet を使わない read-only/headless 調査として扱える。
 
 この例外では送信できる context を current user request、非機密の短い project summary、public URL、出力 schema に限定する。ローカルファイル、source code、workspace packet、shell history、`.env*`、credentials、tokens、private keys、repo/home dump、production data、raw personal data は送らない。repo/source context が必要になった時点で例外を終了し、trusted repository + one ticket/one PR + sanitized workspace packet の通常 gate に戻す。
 

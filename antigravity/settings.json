@@ -1,0 +1,11 @@
+{
+  "allowNonWorkspaceAccess": false,
+  "enableTerminalSandbox": true,
+  "toolPermission": "request-review",
+  "notifications": true,
+  "historySize": 2000,
+  "verbosity": "low",
+  "colorScheme": "dark",
+  "showTips": true,
+  "trustedWorkspaces": []
+}

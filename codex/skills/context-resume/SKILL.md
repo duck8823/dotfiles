@@ -1,6 +1,6 @@
 ---
 name: context-resume
-description: Traceary / git / PR / Issue から作業状態を復元し、手書き handoff に頼らず Codex が current orchestrator / worker として継続する。multi-AI workspace、再起動後、別 agent からの継続、Claude/Gemini/Codex の調査失敗後に使う。
+description: Traceary / git / PR / Issue から作業状態を復元し、手書き handoff に頼らず Codex が current orchestrator / worker として継続する。multi-AI workspace、再起動後、別 agent からの継続、Claude/Antigravity/Codex の調査失敗後に使う。
 ---
 
 # Context Resume
@@ -12,7 +12,7 @@ description: Traceary / git / PR / Issue から作業状態を復元し、手書
 ## 使う場面
 
 - セッション再起動後に前の作業を継続する
-- Claude / Gemini / Codex のどれかが途中で失敗・timeout・quota になった
+- Claude / Antigravity / Codex のどれかが途中で失敗・timeout・quota になった
 - multi-AI workspace で他 agent の変更やレビュー結果を引き継ぐ
 - ユーザーが「続き」「確認できる？」「本題に戻る」など、明示 handoff なしに再開を求めた
 
@@ -28,7 +28,7 @@ description: Traceary / git / PR / Issue から作業状態を復元し、手書
    - open PR / issue / review comments
 3. **Project instructions**
    - `AGENTS.md`
-   - `CLAUDE.md` / `GEMINI.md` / project docs
+   - `CLAUDE.md` / `AGENTS.md` / project docs
    - local agent policy（`~/.config/ai-agent-policy.env`、環境変数）
 4. **Validation state**
    - 直近の test / lint / typecheck 結果
@@ -39,7 +39,7 @@ description: Traceary / git / PR / Issue から作業状態を復元し、手書
 
 - 情報不足だけを理由に停止しない。安全に進められるなら Draft PR / design note / local verification へ進む。
 - 破壊的操作、secret 送信、repo 外 private file、production deploy は明示承認がない限り実行しない。
-- Gemini / Claude / Codex のどれかが local policy で無効なら、skip 理由を記録して残りの agent と local verification で補完する。
+- Antigravity / Claude / Codex のどれかが local policy で無効なら、skip 理由を記録して残りの agent と local verification で補完する。
 - 既存の他 agent の変更を revert しない。必要なら差分を分離して conflict を明示する。
 
 ## 出力フォーマット

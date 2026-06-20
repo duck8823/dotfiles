@@ -11,11 +11,11 @@ allowed-tools: ["Bash", "Read", "Edit", "Write", "Glob", "Grep", "Task"]
 
 ## ステップ0: External AI delegation policy gate
 
-Gemini / Codex / `@codex review` に PR diff・関連ソース・テスト出力を渡す前に、`~/.codex/config.toml` の `[auto_review].policy` を確認する。
+Antigravity / Codex / `@codex review` に PR diff・関連ソース・テスト出力を渡す前に、`~/.codex/config.toml` の `[auto_review].policy` を確認する。
 
 - trusted repository / git worktree 上で、1 ticket / 1 PR に限定されていること
 - `.env` / credentials / tokens / private keys / shell history / unrelated repo dump を含めないこと
-- Gemini は共有デフォルトでは `gemini --approval-mode plan -p ' ' -e none` で実行するが、無効化・approval mode・write 可否は local policy を優先する
+- Antigravity は共有デフォルトでは `agy --print --sandbox` で実行するが、無効化・approval mode・write 可否は local policy を優先する
 - Codex verifier は reviewer config を指定して実行すること
 - policy deny / local policy disabled の場合は設定を弱めず、該当 reviewer を `skipped: policy_denied` / `local_policy_disabled` として記録し、残りの reviewer + local verification + CI で補完すること
 
@@ -45,9 +45,9 @@ PR番号・タイトル・変更ファイルを把握する。
 |---|---|---|---|
 | Claude | policy scout / critic | Codex verifier | current orchestrator / Claude |
 | Codex | policy scout / critic | Claude or independent reviewer | current orchestrator |
-| 外部生成パッチ / Gemini由来 | Codex verifier | Claude reviewer | current orchestrator |
+| 外部生成パッチ / Antigravity由来 | Codex verifier | Claude reviewer | current orchestrator |
 
-- **Gemini**: repo-wide 一貫性、命名 drift、docs / config / l10n drift、diff 外影響
+- **Antigravity**: repo-wide 一貫性、命名 drift、docs / config / l10n drift、diff 外影響
 - **Codex**: セキュリティ、エッジケース、`test_command` / `analyze_command` 実行
 - **Claude**: 変更意図との整合、ユーザー影響、必要時の統合判断
 - **structure-reviewer**: Medium / High risk で、手続き化・責務配置・境界/IF・振る舞いテスト不足を確認
@@ -58,7 +58,7 @@ PR番号・タイトル・変更ファイルを把握する。
 
 **重要:** プロンプトは必ずファイルに書き出してから渡すこと。シェル引数への直接埋め込みは ARG_MAX 超過で失敗する。
 
-- **Gemini**: プロンプトファイルを stdin で渡す（`gemini < /tmp/prompt.md`）
+- **Antigravity**: プロンプトファイルを stdin で渡す（`agy --print --sandbox < /tmp/prompt.md`）
 - **Codex**: リポジトリ内で動作するため diff を埋め込まず最小プロンプトにし、`git diff` を自力実行させる
 
 ```bash
@@ -115,10 +115,10 @@ fi
 
 ## ステップ4: レビュー用プロンプトの生成
 
-### Gemini 用（policy-controlled scout / critic）
+### Antigravity 用（policy-controlled scout / critic）
 
 ```bash
-GEMINI_PROMPT_FILE="/tmp/${PROJECT}-pr${PR_NUMBER}-gemini-prompt.md"
+ANTIGRAVITY_PROMPT_FILE="/tmp/${PROJECT}-pr${PR_NUMBER}-antigravity-prompt.md"
 if [ -n "$POLICY_DENY_REASON" ]; then
   DIFF=""
 else
@@ -158,7 +158,7 @@ fi
   echo '```'
   echo ""
   echo "指摘は『ファイル名:行番号』形式で示し、最終判定を APPROVE または REQUEST_CHANGES で明示してください。"
-} > "$GEMINI_PROMPT_FILE"
+} > "$ANTIGRAVITY_PROMPT_FILE"
 ```
 
 ### Codex 用（verifier）
@@ -208,34 +208,34 @@ PROMPT_EOF
 
 ## ステップ5: ヘッドレスでレビュアー起動
 
-### Gemini preflight
+### Antigravity preflight
 
-Gemini は本実行前に短い prompt を `python3` の timeout 付きで実行し、認証待ち・ハング・空出力を先に検出する。
+Antigravity は本実行前に短い prompt を `python3` の timeout 付きで実行し、認証待ち・ハング・空出力を先に検出する。
 
 ```bash
-if command -v agent_policy_is_disabled >/dev/null 2>&1 && agent_policy_is_disabled gemini; then
-  GEMINI_AVAILABLE=false
-  GEMINI_SKIP_REASON="local_policy_disabled"
+if command -v agent_policy_is_disabled >/dev/null 2>&1 && agent_policy_is_disabled antigravity; then
+  ANTIGRAVITY_AVAILABLE=false
+  ANTIGRAVITY_SKIP_REASON="local_policy_disabled"
 elif [ -n "${POLICY_DENY_REASON:-}" ]; then
-  GEMINI_AVAILABLE=false
-  GEMINI_SKIP_REASON="${POLICY_DENY_REASON}"
+  ANTIGRAVITY_AVAILABLE=false
+  ANTIGRAVITY_SKIP_REASON="${POLICY_DENY_REASON}"
 else
-  GEMINI_AVAILABLE=true
-  GEMINI_SKIP_REASON=""
+  ANTIGRAVITY_AVAILABLE=true
+  ANTIGRAVITY_SKIP_REASON=""
 fi
-GEMINI_PREFLIGHT_OUT=/tmp/${PROJECT}-pr${PR_NUMBER}-gemini-preflight.md
-export GEMINI_PREFLIGHT_OUT
-if [ "$GEMINI_AVAILABLE" = true ]; then
+ANTIGRAVITY_PREFLIGHT_OUT=/tmp/${PROJECT}-pr${PR_NUMBER}-antigravity-preflight.md
+export ANTIGRAVITY_PREFLIGHT_OUT
+if [ "$ANTIGRAVITY_AVAILABLE" = true ]; then
 python3 - <<'PY'
 import os, subprocess, sys
 prompt = "read-only preflight。1行だけ返してください。"
 env = os.environ.copy()
-env["GEMINI_SYSTEM_MD"] = os.path.expanduser("~/.gemini/agents/reviewer.md")
+# Antigravity loads installed skills from ~/.gemini/antigravity-cli/skills; no Gemini-era system prompt env is set.
 env["TERM"] = "xterm-256color"
-out_path = os.environ["GEMINI_PREFLIGHT_OUT"]
+out_path = os.environ["ANTIGRAVITY_PREFLIGHT_OUT"]
 try:
     proc = subprocess.run(
-        ["gemini", "--approval-mode", os.environ.get("MULTI_AI_GEMINI_APPROVAL_MODE", "plan"), "-p", " ", "-e", "none"],
+        ["agy", "--print", "--sandbox"],
         input=prompt,
         text=True,
         capture_output=True,
@@ -255,30 +255,30 @@ if not text.strip() or proc.returncode != 0:
 PY
 case $? in
   0) ;;
-  42|124) GEMINI_AVAILABLE=false ;;
-  *) GEMINI_AVAILABLE=false ;;
+  42|124) ANTIGRAVITY_AVAILABLE=false ;;
+  *) ANTIGRAVITY_AVAILABLE=false ;;
 esac
 fi
 ```
 
-`GEMINI_AVAILABLE=false` の場合は Gemini 本実行を起動せず、理由を PR コメントに記録して Codex scout / independent reviewer にフォールバックする。
+`ANTIGRAVITY_AVAILABLE=false` の場合は Antigravity 本実行を起動せず、理由を PR コメントに記録して Codex scout / independent reviewer にフォールバックする。
 
-### Gemini CLI
+### Antigravity CLI
 
 ```bash
-if [ "$GEMINI_AVAILABLE" = true ]; then
-  GEMINI_REVIEW_OUT=/tmp/${PROJECT}-pr${PR_NUMBER}-gemini-review.md
-  export GEMINI_PROMPT_FILE GEMINI_REVIEW_OUT
+if [ "$ANTIGRAVITY_AVAILABLE" = true ]; then
+  ANTIGRAVITY_REVIEW_OUT=/tmp/${PROJECT}-pr${PR_NUMBER}-antigravity-review.md
+  export ANTIGRAVITY_PROMPT_FILE ANTIGRAVITY_REVIEW_OUT
   python3 - <<'PY'
 import os, subprocess, sys
-prompt = open(os.environ["GEMINI_PROMPT_FILE"]).read()
+prompt = open(os.environ["ANTIGRAVITY_PROMPT_FILE"]).read()
 env = os.environ.copy()
-env["GEMINI_SYSTEM_MD"] = os.path.expanduser("~/.gemini/agents/reviewer.md")
+# Antigravity loads installed skills from ~/.gemini/antigravity-cli/skills; no Gemini-era system prompt env is set.
 env["TERM"] = "xterm-256color"
-out_path = os.environ["GEMINI_REVIEW_OUT"]
+out_path = os.environ["ANTIGRAVITY_REVIEW_OUT"]
 try:
     proc = subprocess.run(
-        ["gemini", "--approval-mode", os.environ.get("MULTI_AI_GEMINI_APPROVAL_MODE", "plan"), "-p", " ", "-e", "none"],
+        ["agy", "--print", "--sandbox"],
         input=prompt,
         text=True,
         capture_output=True,
@@ -298,8 +298,8 @@ if not text.strip() or proc.returncode != 0:
 PY
   case $? in
     0) ;;
-    42|124) GEMINI_AVAILABLE=false ;;
-    *) GEMINI_AVAILABLE=false ;;
+    42|124) ANTIGRAVITY_AVAILABLE=false ;;
+    *) ANTIGRAVITY_AVAILABLE=false ;;
   esac
 fi
 ```
@@ -324,12 +324,12 @@ if [ "${CODEX_AVAILABLE:-false}" = true ] && [ -f "$CODEX_PROMPT_FILE" ]; then
 fi
 wait
 
-if [ "$GEMINI_AVAILABLE" = true ]; then
-  cat /tmp/${PROJECT}-pr${PR_NUMBER}-gemini-review.md
-elif [ -n "${GEMINI_SKIP_REASON:-}" ]; then
-  echo "Gemini skipped: ${GEMINI_SKIP_REASON}"
+if [ "$ANTIGRAVITY_AVAILABLE" = true ]; then
+  cat /tmp/${PROJECT}-pr${PR_NUMBER}-antigravity-review.md
+elif [ -n "${ANTIGRAVITY_SKIP_REASON:-}" ]; then
+  echo "Antigravity skipped: ${ANTIGRAVITY_SKIP_REASON}"
 else
-  echo "Gemini skipped; see $GEMINI_PREFLIGHT_OUT"
+  echo "Antigravity skipped; see $ANTIGRAVITY_PREFLIGHT_OUT"
 fi
 if [ "${CODEX_AVAILABLE:-false}" = true ] && [ -f "$CODEX_PROMPT_FILE" ]; then
   cat /tmp/${PROJECT}-pr${PR_NUMBER}-codex-review.md
@@ -340,12 +340,12 @@ fi
 
 ### ヘッドレスを使う理由
 - `codex exec`: TUI を起動せず TTY 不要
-- `gemini --approval-mode plan -p`: 共有デフォルトの scout 向けヘッドレス実行。local policy で無効化・上書き可
-- 対話モード（`codex` / `gemini`）を tmux で使わない
+- `agy --print --sandbox`: 共有デフォルトの scout 向けヘッドレス実行。local policy で無効化・上書き可
+- 対話モード（`codex` / `agy`）を tmux で使わない
 
 ### フォールバック
 - 空出力 or `EXIT_CODE != 0` は失敗とみなす
-- Gemini 出力に `Opening authentication page in your browser` / `Do you want to continue?` が出たら、ブラウザを開かずプロセスを止めて失敗扱いにする
+- Antigravity 出力に `Opening authentication page in your browser` / `Do you want to continue?` が出たら、ブラウザを開かずプロセスを止めて失敗扱いにする
 - Codex / Task の固定ロールが `model is not supported` で失敗したら、ロール未指定の default subagent で同じ依頼を再実行する
 - 1回だけリトライする
 - 2回目も失敗したら Claude reviewer / Task / Codex scout で補完する
@@ -369,7 +369,7 @@ cat >"$REVIEW_COMMENT" <<'EOF'
 ## 🤖 AI コードレビュー結果
 
 ### レビュアー
-- Gemini CLI: ✅ / ❌ / skipped: <reason>
+- Antigravity CLI: ✅ / ❌ / skipped: <reason>
 - Codex CLI or Claude reviewer: ✅ / ❌ / skipped: <reason>
 - Claude Code (final): ✅ / ❌
 

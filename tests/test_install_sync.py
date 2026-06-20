@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import hashlib
 import os
 import shutil
 import subprocess
@@ -60,8 +61,11 @@ def main() -> None:
         run_install(tmp_repo, tmp_home)
         assert (tmp_home / ".claude/settings.json").exists()
         assert (tmp_home / ".claude/settings.json.managed.sha256").exists()
-        assert (tmp_home / ".gemini/settings.json").exists()
-        assert (tmp_home / ".gemini/settings.json.managed.sha256").exists()
+        antigravity_settings = tmp_home / ".gemini/antigravity-cli/settings.json"
+        assert antigravity_settings.exists()
+        assert (tmp_home / ".gemini/antigravity-cli/settings.json.managed.sha256").exists()
+        assert (tmp_home / ".gemini/antigravity-cli/AGENTS.md").exists()
+        assert (tmp_home / ".gemini/antigravity-cli/skills/reviewer/SKILL.md").exists()
         assert (tmp_home / ".codex/config.toml").exists()
         assert (tmp_home / ".codex/config.toml.managed.sha256").exists()
         assert (tmp_home / ".local/lib/dotfiles/agent-policy.sh").exists()
@@ -83,6 +87,18 @@ def main() -> None:
         assert not (tmp_home / ".codex/skills/codex-handoff").exists()
 
         # 廃止済み managed ファイル/ディレクトリは次回 install で掃除する。
+        deprecated_gemini_md = tmp_home / ".gemini/GEMINI.md"
+        deprecated_gemini_md.parent.mkdir(parents=True, exist_ok=True)
+        deprecated_gemini_md.write_text("<!-- managed by duck8823/dotfiles -->\nlegacy gemini context\n")
+        deprecated_gemini_agents = tmp_home / ".gemini/agents"
+        deprecated_gemini_agents.mkdir(parents=True, exist_ok=True)
+        (deprecated_gemini_agents / "reviewer.md").write_text("<!-- managed by duck8823/dotfiles -->\nlegacy reviewer\n")
+        deprecated_gemini_settings = tmp_home / ".gemini/settings.json"
+        deprecated_gemini_settings.write_text("{\n  \"legacy\": true\n}\n")
+        (tmp_home / ".gemini/settings.json.managed.sha256").write_text(
+            hashlib.sha256(deprecated_gemini_settings.read_bytes()).hexdigest() + "\n"
+        )
+
         deprecated_command = tmp_home / ".claude/commands/handoff-to-codex.md"
         deprecated_command.write_text(
             "<!-- managed by duck8823/dotfiles -->\nlegacy command\n"
@@ -98,8 +114,14 @@ def main() -> None:
         log = run_install(tmp_repo, tmp_home)
         assert_contains(log, ".claude/commands/handoff-to-codex.md (deprecated managed file)")
         assert_contains(log, ".codex/skills/codex-handoff (deprecated managed directory)")
+        assert_contains(log, ".gemini/GEMINI.md (deprecated managed file)")
+        assert_contains(log, ".gemini/agents (deprecated managed directory)")
+        assert_contains(log, ".gemini/settings.json (deprecated managed file)")
         assert not deprecated_command.exists()
         assert not deprecated_skill.exists()
+        assert not deprecated_gemini_md.exists()
+        assert not deprecated_gemini_agents.exists()
+        assert not deprecated_gemini_settings.exists()
 
         # 廃止済みディレクトリでも local override / symlink が混ざる場合は削除しない。
         deprecated_skill.mkdir(parents=True)
@@ -137,41 +159,41 @@ def main() -> None:
         # 未編集時は keep / update で収まる
         log = run_install(tmp_repo, tmp_home)
         assert_contains(log, ".claude/settings.json (already up to date)")
-        assert_contains(log, ".gemini/settings.json (already up to date)")
+        assert_contains(log, ".gemini/antigravity-cli/settings.json (already up to date)")
         assert_contains(log, ".codex/config.toml (already up to date)")
 
         # 追跡済み symlink は regular file に移行する
-        gemini_settings = tmp_home / ".gemini/settings.json"
-        gemini_shadow = tmp_root / "gemini-settings-shadow.json"
-        gemini_shadow.write_text(gemini_settings.read_text())
-        gemini_settings.unlink()
-        os.symlink(gemini_shadow, gemini_settings)
+        antigravity_settings = tmp_home / ".gemini/antigravity-cli/settings.json"
+        antigravity_shadow = tmp_root / "antigravity-settings-shadow.json"
+        antigravity_shadow.write_text(antigravity_settings.read_text())
+        antigravity_settings.unlink()
+        os.symlink(antigravity_shadow, antigravity_settings)
         log = run_install(tmp_repo, tmp_home)
-        assert_contains(log, ".gemini/settings.json (migrated from symlink to copy)")
-        assert not gemini_settings.is_symlink()
+        assert_contains(log, ".gemini/antigravity-cli/settings.json (migrated from symlink to copy)")
+        assert not antigravity_settings.is_symlink()
 
         # ローカル編集のみなら保持
-        gemini_settings.write_text(
-            gemini_settings.read_text().replace(
-                '"enableNotifications": true',
-                '"enableNotifications": false',
+        antigravity_settings.write_text(
+            antigravity_settings.read_text().replace(
+                '"notifications": true',
+                '"notifications": false',
             )
         )
         log = run_install(tmp_repo, tmp_home)
-        assert_contains(log, ".gemini/settings.json (local edits preserved)")
-        assert not (tmp_home / ".gemini/settings.json.dotfiles-new").exists()
+        assert_contains(log, ".gemini/antigravity-cli/settings.json (local edits preserved)")
+        assert not (tmp_home / ".gemini/antigravity-cli/settings.json.dotfiles-new").exists()
 
         # copy mode で upstream 更新と衝突したら候補ファイル生成
-        repo_gemini_settings = tmp_repo / "gemini/settings.json"
-        repo_gemini_settings.write_text(
-            repo_gemini_settings.read_text().replace(
-                '"modelSteering": true',
-                '"modelSteering": false',
+        repo_antigravity_settings = tmp_repo / "antigravity/settings.json"
+        repo_antigravity_settings.write_text(
+            repo_antigravity_settings.read_text().replace(
+                '"showTips": true',
+                '"showTips": false',
             )
         )
         log = run_install(tmp_repo, tmp_home)
-        assert_contains(log, ".gemini/settings.json.dotfiles-new")
-        assert (tmp_home / ".gemini/settings.json.dotfiles-new").exists()
+        assert_contains(log, ".gemini/antigravity-cli/settings.json.dotfiles-new")
+        assert (tmp_home / ".gemini/antigravity-cli/settings.json.dotfiles-new").exists()
 
         # template mode でも upstream 更新と衝突したら候補ファイル生成
         codex_config = tmp_home / ".codex/config.toml"

@@ -19,22 +19,22 @@ description: 自律実行要求時に、1Issueではなく全体進行（複数I
 ## レビュー編成（Codexスキルの適用範囲）
 
 このスキルは **Codex が current orchestrator の自律運用** を対象とする。
-Orchestrator は固定 AI 名ではなく role であり、Claude / Gemini が担う運用定義は各ツール側に置く。
+Orchestrator は固定 AI 名ではなく role であり、Claude / Antigravity が担う運用定義は各ツール側に置く。
 
 - Codex が current orchestrator として進行する
 - PR作成後の多重レビューは `multi-ai-review` skill を使う
-- Gemini は local policy が許す場合に reviewer / scout として使う。無効化・quota・空出力の場合は、理由を記録し Claude reviewer / Codex scout / independent local verification で代替する。ただし login / 認証失敗（auth_prompt / ブラウザ認証プロンプト / 対話ログイン / "Opening authentication page in your browser" / "Do you want to continue?"）は別 engine へ暗黙に代替せず停止し、ユーザーに認証修正を依頼する
-- GitHub 上の `@claude @gemini multi-ai-review` メンションは使わず、ローカル実行結果を `gh pr comment` で集約する
+- Antigravity は local policy が許す場合に reviewer / scout として使う。無効化・quota・空出力の場合は、理由を記録し Claude reviewer / Codex scout / independent local verification で代替する。ただし login / 認証失敗（auth_prompt / ブラウザ認証プロンプト / 対話ログイン / "Opening authentication page in your browser" / "Do you want to continue?"）は別 engine へ暗黙に代替せず停止し、ユーザーに認証修正を依頼する
+- GitHub 上の `@claude @antigravity multi-ai-review` メンションは使わず、ローカル実行結果を `gh pr comment` で集約する
 - multi-ai-review 明示時は、policy gate を満たす場合に限り、PR diff・関連 Issue・レビューコメントを configured external AI CLI に渡す承認済みとして扱う（secrets・認証情報・repo外 private file は除く）
 - PR上 `@codex review` の指摘を解消して収束させる
 
 ### External AI delegation policy gate
 
-Gemini / Codex CLI / `@codex review` は、`~/.codex/config.toml` の `[auto_review].policy` にある **External AI delegation exception** を満たす場合に実行する。拒否された場合は設定を弱めず、理由を記録して Claude/Codex fallback + local verification + CI で補完する。
+Antigravity / Codex CLI / `@codex review` は、`~/.codex/config.toml` の `[auto_review].policy` にある **External AI delegation exception** を満たす場合に実行する。拒否された場合は設定を弱めず、理由を記録して Claude/Codex fallback + local verification + CI で補完する。
 
 - trusted repository / git worktree、1 ticket / 1 PR に限定
 - secret / `.env` / unrelated repo dump / home directory dump は送らない
-- Gemini は共有デフォルトでは plan mode。local policy で無効化・approval mode・write 可否を上書きできる
+- Antigravity は共有デフォルトでは plan mode。local policy で無効化・approval mode・write 可否を上書きできる
 - Codex verifier は reviewer config を優先
 
 ## レベル1: 全体ループ（複数Issue/PR）

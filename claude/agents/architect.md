@@ -18,7 +18,7 @@ tools: Read, Glob, Grep
 
 ## やらないこと（他 AI が担当）
 - 設計判断の妥当性評価（Codex が担当）
-- 全体俯瞰の命名一貫性（Gemini が担当）
+- 全体俯瞰の命名一貫性（Antigravity が担当）
 
 ## 手順
 1. プロジェクトの CLAUDE.md から「アーキテクチャ方針」を読む

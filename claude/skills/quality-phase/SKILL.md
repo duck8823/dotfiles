@@ -39,7 +39,7 @@ codex exec --full-auto \
 
 ### 3. Structure-Behavior drift レビュー
 
-Medium / High risk の Issue や大きめの refactor を含む場合、`~/.claude/agents/structure-reviewer.md` / `~/.codex/agents/structure-reviewer.toml` / `~/.gemini/agents/structure-reviewer.md` のいずれかを使い、以下を確認する。
+Medium / High risk の Issue や大きめの refactor を含む場合、`~/.claude/agents/structure-reviewer.md` / `~/.codex/agents/structure-reviewer.toml` / `~/.gemini/antigravity-cli/skills/structure-reviewer/SKILL.md` のいずれかを使い、以下を確認する。
 
 - handler / controller / usecase / service の肥大化
 - data-only model、primitive obsession、hidden side effect

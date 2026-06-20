@@ -50,7 +50,7 @@ def main() -> None:
                 "--mode",
                 "general",
                 "--engines",
-                "claude,gemini",
+                "claude,antigravity",
                 "--dry-run",
                 "--out-dir",
                 str(out_dir),
@@ -62,7 +62,7 @@ def main() -> None:
             },
         )
         status = (out_dir / "status.md").read_text()
-        assert "engines_effective: claude,gemini" in status
+        assert "engines_effective: claude,antigravity" in status
         assert "codex_reasoning_effort: medium" in status
         assert "tool_output_token_limit: 12000" in status
         assert "max_file_bytes: 25000" in status
@@ -88,7 +88,7 @@ def main() -> None:
 
         all_disabled_policy = write_policy(
             tmp_root / "all-disabled.env",
-            "MULTI_AI_DISABLED_ENGINES=claude,gemini\n",
+            "MULTI_AI_DISABLED_ENGINES=claude,antigravity\n",
         )
         out_dir = tmp_root / "all-disabled"
         result = run(
@@ -100,7 +100,7 @@ def main() -> None:
                 "--mode",
                 "general",
                 "--engines",
-                "claude,gemini",
+                "claude,antigravity",
                 "--out-dir",
                 str(out_dir),
             ],
@@ -112,7 +112,7 @@ def main() -> None:
 
         precedence_policy = write_policy(
             tmp_root / "precedence.env",
-            "MULTI_AI_DISABLED_ENGINES=gemini\n",
+            "MULTI_AI_DISABLED_ENGINES=antigravity\n",
         )
         out_dir = tmp_root / "precedence"
         run(
@@ -124,7 +124,7 @@ def main() -> None:
                 "--mode",
                 "general",
                 "--engines",
-                "gemini",
+                "antigravity",
                 "--dry-run",
                 "--out-dir",
                 str(out_dir),
@@ -134,7 +134,7 @@ def main() -> None:
                 "MULTI_AI_DISABLED_ENGINES": "",
             },
         )
-        assert "engines_effective: gemini" in (out_dir / "status.md").read_text()
+        assert "engines_effective: antigravity" in (out_dir / "status.md").read_text()
 
         budget_policy = write_policy(
             tmp_root / "budget.env",
@@ -144,7 +144,7 @@ def main() -> None:
                     "MULTI_AI_TOOL_OUTPUT_TOKEN_LIMIT=8000",
                     "MULTI_AI_MAX_FILE_BYTES=12345",
                     "MULTI_AI_MAX_TOTAL_BYTES=54321",
-                    "MULTI_AI_GEMINI_MODEL=gemini-test",
+                    "MULTI_AI_ANTIGRAVITY_MODEL=antigravity-test",
                     "MULTI_AI_CODEX_MODEL=gpt-test",
                 ]
             )
@@ -160,7 +160,7 @@ def main() -> None:
                 "--mode",
                 "general",
                 "--engines",
-                "codex,gemini",
+                "codex,antigravity",
                 "--dry-run",
                 "--out-dir",
                 str(out_dir),
@@ -172,7 +172,7 @@ def main() -> None:
         assert "tool_output_token_limit: 8000" in budget_status
         assert "max_file_bytes: 12345" in budget_status
         assert "max_total_bytes: 54321" in budget_status
-        assert "gemini_model: gemini-test" in budget_status
+        assert "antigravity_model: antigravity-test" in budget_status
         assert "codex_model: gpt-test" in budget_status
 
         workspace = tmp_root / "workspace-packet"
@@ -216,46 +216,46 @@ def main() -> None:
         assert plan.returncode == 0
 
         disabled_policy = write_policy(
-            tmp_root / "disabled-gemini.env",
-            "MULTI_AI_DISABLED_ENGINES=gemini\n",
+            tmp_root / "disabled-antigravity.env",
+            "MULTI_AI_DISABLED_ENGINES=antigravity\n",
         )
-        gemini_disabled = subprocess.run(
+        antigravity_disabled = subprocess.run(
             ["bash", str(hook)],
             cwd=tmp_root,
             env={**os.environ, "AI_AGENT_POLICY_FILE": str(disabled_policy)},
-            input='{"tool_input":{"command":"gemini --approval-mode=plan -p \' \'"}}\n',
+            input='{"tool_input":{"command":"agy --print --sandbox --prompt \' \'"}}\n',
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-        assert gemini_disabled.returncode == 2
-        assert "local agent policy" in gemini_disabled.stderr
+        assert antigravity_disabled.returncode == 2
+        assert "local agent policy" in antigravity_disabled.stderr
 
-        gemini_write = subprocess.run(
+        antigravity_write = subprocess.run(
             ["bash", str(hook)],
             cwd=tmp_root,
-            input='{"tool_input":{"command":"gemini --approval-mode yolo -p \' \'"}}\n',
+            input='{"tool_input":{"command":"agy --prompt \'edit files\'"}}\n',
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-        assert gemini_write.returncode == 2
-        assert "Gemini write" in gemini_write.stderr
+        assert antigravity_write.returncode == 2
+        assert "Antigravity write" in antigravity_write.stderr
 
         allow_write_policy = write_policy(
-            tmp_root / "allow-gemini-write.env",
-            "MULTI_AI_GEMINI_ALLOW_WRITE=true\n",
+            tmp_root / "allow-antigravity-write.env",
+            "MULTI_AI_ANTIGRAVITY_ALLOW_WRITE=true\n",
         )
-        gemini_write_allowed = subprocess.run(
+        antigravity_write_allowed = subprocess.run(
             ["bash", str(hook)],
             cwd=tmp_root,
             env={**os.environ, "AI_AGENT_POLICY_FILE": str(allow_write_policy)},
-            input='{"tool_input":{"command":"gemini --approval-mode yolo -p \' \'"}}\n',
+            input='{"tool_input":{"command":"agy --prompt \'edit files\'"}}\n',
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-        assert gemini_write_allowed.returncode == 0
+        assert antigravity_write_allowed.returncode == 0
 
         print("agent policy script test OK")
     finally:

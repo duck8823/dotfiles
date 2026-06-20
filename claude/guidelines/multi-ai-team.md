@@ -2,13 +2,13 @@
 
 ## コンセプト
 
-同じ役割を Claude / Codex / Gemini の3AIで多重化するが、**モデル比較ではなく運転モードとローカルポリシーで分担**する。Orchestrator は固定 AI 名ではなく role であり、現状は Codex が担うことが多いだけと扱う。
+同じ役割を Claude / Codex / Antigravity の3AIで多重化するが、**モデル比較ではなく運転モードとローカルポリシーで分担**する。Orchestrator は固定 AI 名ではなく role であり、現状は Codex が担うことが多いだけと扱う。
 
 - **Codex**: current orchestrator candidate / worker / verifier
 - **Claude**: foreground specialist / orchestrator candidate / integrator
 - **Gemini**: policy-controlled scout / critic / optional worker
 
-共有 dotfiles は安全側のデフォルトを配るだけで、Gemini を恒久的に read-only 固定しない。各マシン・各リポジトリでは `conventions/ai/local-agent-policy.md` に従い、Gemini の無効化・approval mode・write 可否を上書きできる。
+共有 dotfiles は安全側のデフォルトを配るだけで、Antigravity を恒久的に read-only 固定しない。各マシン・各リポジトリでは `conventions/ai/local-agent-policy.md` に従い、Antigravity の無効化・approval mode・write 可否を上書きできる。
 
 ## モデル世代と Dynamic Workflows（2026-05 更新）
 
@@ -35,7 +35,7 @@ multi-AI 協業は一方向の handoff ではなく、Traceary / git / PR / Issu
 
 - **Current orchestrator**: 全体進行、実装、検証、レビュー反映、PR コメント集約を担当する
 - **Claude specialist**: UX・仕様・大きめの統合判断、Claude Code 固有の作業、最終説明を担当する
-- **Gemini scout / worker**: repo-wide consistency、計画漏れ、diff 外影響、local policy が許す scoped task を担当する
+- **Antigravity scout / worker**: repo-wide consistency、計画漏れ、diff 外影響、local policy が許す scoped task を担当する
 - **Traceary**: 手書き引き継ぎの代替。session handoff / recent context / durable memory / command audit から resume packet を作る
 
 `multi-ai-review` / `context-resume` / `Claude Code` / `Gemini` / `Codex` が明示され、かつ `~/.codex/config.toml` の `[auto_review].policy` を満たす場合、対象リポジトリの PR diff・関連 Issue・レビューコメント・該当ソース・テストログは configured external AI CLI に渡してよい。secrets・認証情報・repo 外 private file・本番/個人データ raw dump は毎回追加確認または policy deny とする。
@@ -44,20 +44,20 @@ multi-AI 協業は一方向の handoff ではなく、Traceary / git / PR / Issu
 
 | タスクの形 | 標準担当 | 補助 |
 |---|---|---|
-| 自律的な Issue/PR 進行 | Current orchestrator（現状は Codex が多い） | Claude / Gemini / Codex |
-| scoped 実装・テスト追加・CI/CD・スクリプト | Codex | Gemini / Claude review |
+| 自律的な Issue/PR 進行 | Current orchestrator（現状は Codex が多い） | Claude / Antigravity / Codex |
+| scoped 実装・テスト追加・CI/CD・スクリプト | Codex | Antigravity / Claude review |
 | セキュリティ・エッジケース・再現確認 | Codex verifier | Claude reviewer |
-| コード調査・ドキュメント調査 | Codex | Gemini / Claude |
+| コード調査・ドキュメント調査 | Codex | Antigravity / Claude |
 | リポジトリ横断の一貫性・命名・波及影響調査 | Gemini または Codex scout | Claude / Codex integrator |
-| ユーザー体験を変える仕様判断 | Claude | Codex / Gemini が影響範囲確認 |
-| 複数レイヤー統合・大規模 refactor | Codex + Claude | Gemini scout |
+| ユーザー体験を変える仕様判断 | Claude | Codex / Antigravity が影響範囲確認 |
+| 複数レイヤー統合・大規模 refactor | Codex + Claude | Antigravity scout |
 | マイルストーン計画・Issue 分解 | Codex + Gemini | Claude が必要時に統合 |
 
 ### 原則
 
-1. **現在の orchestrator role を明示する** — 多くの作業では現状 Codex が主導するが、能力・可用性・local policy に応じて Claude / Gemini / Codex のいずれにも切り替えられる。
+1. **現在の orchestrator role を明示する** — 多くの作業では現状 Codex が主導するが、能力・可用性・local policy に応じて Claude / Antigravity / Codex のいずれにも切り替えられる。
 2. **agent の可否は local policy で決める** — Gemini 禁止環境では無理に起動せず `local_policy_disabled` として記録する。
-3. **write は branch / worktree gate を通す** — Gemini でも Claude でも Codex でも、write は main/master 直下で実行しない。
+3. **write は branch / worktree gate を通す** — Antigravity でも Claude でも Codex でも、write は main/master 直下で実行しない。
 4. **記録と代替（ただし認証は停止）** — quota / capacity / timeout / policy deny / disabled は理由を残し、別 agent / local verification / CI へ進む。**login / 認証失敗だけは fallback せず停止し、ユーザーに認証修正を促す**（暗黙の engine 代替は設定不備を隠す）。
 
 ## 開発フェーズ別の AI 活用
@@ -129,5 +129,5 @@ project/
 ├── .ai-logs/                    # 観測可能性ログ（.gitignore 対象）
 ├── AGENTS.md
 ├── CLAUDE.md
-└── GEMINI.md
+└── AGENTS.md
 ```

@@ -26,7 +26,7 @@ gh issue list --milestone "<milestone>" --state open --json number,title,body,la
 - コードベースを実読して Issue 間の依存・ファイル競合・Wave 構成を出す
 - フィジビリティ、技術リスク、実装分割、どの Issue を Codex worker に寄せやすいかを出す
 
-### Gemini planner
+### Antigravity planner
 - マイルストーン整合、優先度、スコープ過多、抜けている Issue を出す
 
 外部 CLI をヘッドレスで起動して結果を保存し、Claude メインセッションが統合する。
@@ -37,7 +37,7 @@ gh issue list --milestone "<milestone>" --state open --json number,title,body,la
 1. `gh issue view <number>` で詳細を確認
 2. 技術的な詳細説明があるか確認
 3. 不足している場合は具体的な技術仕様や受け入れ条件の追記を提案
-4. 影響範囲が曖昧なら Gemini / Codex の結果も参照して補足する
+4. 影響範囲が曖昧なら Antigravity / Codex の結果も参照して補足する
 
 ## ステップ4: スプリント構成
 
@@ -81,5 +81,5 @@ gh issue list --milestone "<milestone>" --state open --json number,title,body,la
 ## 注意事項
 
 - このセッションではコードを一切書かない・編集しない
-- Gemini は local policy に従う scout / critic として扱う。無効なら skip を記録する
+- Antigravity は local policy に従う scout / critic として扱う。無効なら skip を記録する
 - Codex は現状の orchestrator candidate / worker 観点の計画支援に使うが、このセッションで実装はしない
