@@ -115,13 +115,20 @@ AI knowledge の分類基準（rules / skills / agents / prompts / guidelines）
 Multi-AI の role / context resume schema / 共通化方針は
 `conventions/ai/multi-ai-agent-operations.md`、hook / Traceary / observability の点検基準は
 `conventions/ai/agent-hooks-observability.md`、token budget の共通方針は
-`conventions/ai/token-budget.md` を参照してください。
+`conventions/ai/token-budget.md`、branch / sandbox / review wait の手戻り削減は
+`conventions/ai/autonomous-preflight.md` を参照してください。
 
 Claude / Antigravity / Codex への headless 調査委譲は `scripts/multi-ai-research.sh`
 （install 後は `~/.local/bin/multi-ai-research.sh`）を使い、同一の workspace
 context packet を Claude / Antigravity / Codex に共有して情報の偏りを避けます。
 hooks / Traceary の状態確認は `scripts/audit-agent-observability.sh`
 （install 後は `~/.local/bin/audit-agent-observability.sh`）で監査 bundle を作ります。
+自律作業の開始前 preflight は `scripts/agent-work-preflight.sh`（install 後は
+`~/.local/bin/agent-work-preflight.sh`）、Codex config template 検証は
+`scripts/validate-codex-config-template.sh`（install 後は
+`~/.local/bin/validate-codex-config-template.sh`）、PR review fallback コメント生成は
+`scripts/render-pr-review-fallback-comment.sh`（install 後は
+`~/.local/bin/render-pr-review-fallback-comment.sh`）を使います。
 
 Codex で再開する場合は `codex/skills/context-resume` を使い、手書きの Claude→Codex 引き継ぎではなく、Traceary handoff / recent context / git status / PR / Issue から objective・scope・検証状態を復元します。同じ考え方を Claude / Antigravity 側の orchestration にも投影できるよう、正本は `conventions/ai/multi-ai-agent-operations.md` に置きます。
 

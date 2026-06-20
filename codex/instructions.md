@@ -63,6 +63,15 @@ High risk で判断不能な場合は破壊的変更を避け、Draft PR / desig
 - Traceary は `sessions --snapshot --json` や transcript full body を初手にしない。`traceary list --fields ... --limit N`、MCP `list_events` / `get_context` の `body_limit` 付き読み、`hooks print --client ...` を優先する。
 - 巨大 JSON / 長いログ / raw transcript は `/private/tmp` に保存し、回答・PR コメント・外部 AI reviewer には要約、path、必要なら sha256 だけ渡す。必要な抜粋でも secrets / token / private key / `.env*` は載せない。
 
+## 自律作業 preflight / 手戻り削減
+
+- 新規 branch / worktree 作成前に `scripts/agent-work-preflight.sh --repo <repo> --branch <candidate>`（dotfiles repo 外では install 後の `~/.local/bin/agent-work-preflight.sh`）で branch prefix collision と writable root を確認する。対象 repo が writable root 外なら、git write 系は最初から sandbox escalation を使う。
+- 複雑な `find` predicate、`-print0`、複数 `-o` 条件、`-exec`、raw diff 全量が必要な場合は `rtk /usr/bin/find ...` または `rtk proxy git diff ...` を使い、`rtk find` / 要約 diff で再試行しない。
+- `codex/config.toml.template` を触ったら `scripts/validate-codex-config-template.sh --repo <repo>`（repo 外では `~/.local/bin/validate-codex-config-template.sh`）で temp `CODEX_HOME`、`{{HOME}}` 展開、`instructions.md` コピー、TOML load を確認する。
+- `@codex review` の応答待ちは `CODEX_REVIEW_POLL_SECONDS=180` を既定にし、no response / timeout / environment unavailable は `scripts/render-pr-review-fallback-comment.sh`（repo 外では `~/.local/bin/render-pr-review-fallback-comment.sh`）のテンプレートで証跡化する。`auth_prompt` は fallback しない。
+- `gh pr checks` は PR head ごとに1回取得して final gate comment に残す。同じ head で繰り返し確認せず、head が変わったときだけ取り直す。
+- 最終報告には validation だけでなく `Process friction`（避けられた手戻り、実際に発生した再試行、follow-up の振り分け）を短く残す。
+
 ## 自律運用フロー（全体）
 
 ユーザーから自律実行要求があった場合、`autonomous-pr-flow` を**1Issue単位ではなく全体進行（複数Issue/PR）**に適用する。
