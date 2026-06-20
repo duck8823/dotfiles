@@ -176,6 +176,25 @@ if ! [[ "$tool_output_token_limit" =~ ^[1-9][0-9]*$ ]]; then
   echo "WARN: invalid MULTI_AI_TOOL_OUTPUT_TOKEN_LIMIT=${tool_output_token_limit}; falling back to 12000" >&2
   tool_output_token_limit=12000
 fi
+normalize_engine_csv() {
+  local input="$1"
+  local -a normalized=()
+  local engine
+  IFS=',' read -r -a requested_array <<< "$input"
+  for engine in "${requested_array[@]}"; do
+    engine="$(printf '%s' "$engine" | tr -d '[:space:]')"
+    [ -n "$engine" ] || continue
+    case "$engine" in
+      agy) engine="antigravity" ;;
+    esac
+    normalized+=("$engine")
+  done
+  local IFS=','
+  printf '%s' "${normalized[*]}"
+}
+
+engines="$(normalize_engine_csv "$engines")"
+
 if ! [[ "$antigravity_print_timeout" =~ ^[1-9][0-9]*$ ]]; then
   echo "WARN: invalid MULTI_AI_ANTIGRAVITY_PRINT_TIMEOUT=${antigravity_print_timeout}; falling back to ${timeout_seconds}" >&2
   antigravity_print_timeout="$timeout_seconds"

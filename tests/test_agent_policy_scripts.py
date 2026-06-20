@@ -68,6 +68,55 @@ def main() -> None:
         assert "max_file_bytes: 25000" in status
         assert "max_total_bytes: 600000" in status
 
+        alias_out_dir = tmp_root / "agy-alias-dry-run"
+        run(
+            [
+                "bash",
+                str(script),
+                "--topic",
+                "agy alias dry run",
+                "--mode",
+                "general",
+                "--engines",
+                "agy",
+                "--dry-run",
+                "--out-dir",
+                str(alias_out_dir),
+            ],
+            env={"HOME": str(tmp_root / "no-policy-home")},
+        )
+        alias_status = (alias_out_dir / "status.md").read_text()
+        assert "engines_requested: antigravity" in alias_status
+        assert "engines_effective: antigravity" in alias_status
+        assert "## antigravity" in alias_status
+        assert "## agy" not in alias_status
+
+        alias_disabled_policy = write_policy(
+            tmp_root / "agy-alias-disabled.env",
+            "MULTI_AI_DISABLED_ENGINES=antigravity\n",
+        )
+        alias_disabled_out = tmp_root / "agy-alias-disabled"
+        alias_disabled = run(
+            [
+                "bash",
+                str(script),
+                "--topic",
+                "agy alias disabled",
+                "--mode",
+                "general",
+                "--engines",
+                "agy",
+                "--out-dir",
+                str(alias_disabled_out),
+            ],
+            env={"AI_AGENT_POLICY_FILE": str(alias_disabled_policy)},
+            check=False,
+        )
+        assert alias_disabled.returncode == 75
+        alias_disabled_status = (alias_disabled_out / "status.md").read_text()
+        assert "engines_skipped_by_policy: antigravity" in alias_disabled_status
+        assert "classification: local_policy_disabled" in alias_disabled_status
+
         out_dir = tmp_root / "tool-not-found"
         run(
             [
