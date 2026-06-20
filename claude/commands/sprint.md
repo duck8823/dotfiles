@@ -29,11 +29,11 @@ gh issue list --state open --json number,title,labels,milestone
 指定された番号順に処理計画を表示し、ユーザーに確認を取る。
 **必ず `gh issue view <number>` でイシュー番号とタイトルをダブルチェックすること。**
 
-### 1-3. 全イシューの scout pass（Gemini + Codex 並列）
+### 1-3. 全イシューの scout pass（Antigravity + Codex 並列）
 
 イシューを確定した後、実装ループに入る前に全イシューの **2系統 scout** を実施する。
 
-- **Gemini**: repo-wide scout / critic
+- **Antigravity**: repo-wide scout / critic
   - 既存パターン、命名一貫性、diff 外影響、docs / config / l10n drift
 - **Codex**: worker / verifier 視点の scout
   - テスト戦略、セキュリティ、実装分割、validation plan、Structure-Behavior risk
@@ -158,10 +158,10 @@ ${CODEX_RESULT}
 ---
 **実装担当:** ${ROUTING[$ISSUE_NUMBER]:-claude}"
 
-  Q_GEMINI=$(echo "$ANTIGRAVITY_RESULT" | awk '/### 不明点・要確認事項/{f=1; next} f && /^### /{exit} f{print}' | grep -v 'なし' | head -10)
+  Q_ANTIGRAVITY=$(echo "$ANTIGRAVITY_RESULT" | awk '/### 不明点・要確認事項/{f=1; next} f && /^### /{exit} f{print}' | grep -v 'なし' | head -10)
   Q_CODEX=$(echo "$CODEX_RESULT" | awk '/### 不明点・要確認事項/{f=1; next} f && /^### /{exit} f{print}' | grep -v 'なし' | head -10)
   Q_COMBINED=$(printf "%s
-%s" "$Q_GEMINI" "$Q_CODEX" | sed '/^$/d' | head -10)
+%s" "$Q_ANTIGRAVITY" "$Q_CODEX" | sed '/^$/d' | head -10)
 
   [ -n "$Q_COMBINED" ] && QUESTIONS+="### Issue #${ISSUE_NUMBER}
 ${Q_COMBINED}

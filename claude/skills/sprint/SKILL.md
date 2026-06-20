@@ -42,7 +42,7 @@ gh issue view <番号>
 
 #### 5. Multi-AI レビュー
 `multi-ai-review` スキルを呼び出し:
-- Architect（Claude + Codex）+ Reviewer（Claude + Codex + Gemini）
+- Architect（Claude + Codex）+ Reviewer（Claude + Codex + Antigravity）
 - Claude Opus が結果を統合
 - CRITICAL → 修正 → 再レビュー
 

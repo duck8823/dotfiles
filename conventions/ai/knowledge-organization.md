@@ -7,15 +7,15 @@
 | Rules | `codex/rules/`, `claude/rules/`, global instructions | 常時守る制約・禁止事項・安全ゲート | main 直 push 禁止、policy gate、出力形式 |
 | Skills | `codex/skills/<name>/`, `claude/skills/<name>/` | 条件付きで呼び出す再利用 workflow | multi-ai-review、structure-behavior-design、issue-triage |
 | Agents | `codex/agents/`, `claude/agents/`, `antigravity/skills/` | 狭い責務を持つ worker / reviewer / scout | reviewer、architect、structure-reviewer |
-| Prompts / Commands | `claude/commands/`、将来の `codex/prompts/` / `gemini/commands/` | ユーザーが明示起動する orchestration entrypoint | sprint、review-and-merge、implement-issue |
+| Prompts / Commands | `claude/commands/`、将来の `codex/prompts/` / `antigravity/commands/` | ユーザーが明示起動する orchestration entrypoint | sprint、review-and-merge、implement-issue |
 | Guidelines / Conventions | `claude/guidelines/`, `conventions/` | 長めの参照資料・プロジェクト横断規約 | git workflow、言語別 architecture |
 
 ## 共通 source of truth
 
 - Multi-AI の role / schema / handoff 境界は `conventions/ai/multi-ai-agent-operations.md` を優先する。
-- Agent の有効/無効、Antigravity の approval mode / write 可否などのローカル差分は `conventions/ai/local-agent-policy.md` を優先する。
+- Agent の有効/無効、Antigravity の sandbox / write 可否などのローカル差分は `conventions/ai/local-agent-policy.md` を優先する。
 - Hook / observability / Traceary の点検基準は `conventions/ai/agent-hooks-observability.md` を優先する。
-- `claude/`, `codex/`, `gemini/` 配下の agent / skill / settings は、上記 convention を各ツール形式へ投影したものとして扱う。
+- `claude/`, `codex/`, `antigravity/` 配下の agent / skill / settings は、上記 convention を各ツール形式へ投影したものとして扱う。
 
 ## 配置判断
 

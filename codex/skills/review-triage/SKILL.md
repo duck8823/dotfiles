@@ -1,6 +1,6 @@
 ---
 name: review-triage
-description: レビュー指摘を MUST / SHOULD / NIT に分類し、再現手順、影響範囲、修正優先順、対応方針を整理するときに使う。Gemini 1st pass と Claude 最終レビューの接続にも使う。
+description: レビュー指摘を MUST / SHOULD / NIT に分類し、再現手順、影響範囲、修正優先順、対応方針を整理するときに使う。Antigravity 1st pass と Claude 最終レビューの接続にも使う。
 ---
 
 # Review Triage

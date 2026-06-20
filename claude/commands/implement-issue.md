@@ -19,7 +19,7 @@ allowed-tools: ["Bash", "Read", "Edit", "Write", "Glob", "Grep", "Task"]
 コードを書く前に、最低限以下を実施する。
 
 1. **Claude**: 関連ファイルを読んで既存パターンと制約を把握する
-2. **Gemini**: 既存パターン、命名一貫性、diff 外で修正が必要なファイル、docs / config / l10n 更新要否を洗う
+2. **Antigravity**: 既存パターン、命名一貫性、diff 外で修正が必要なファイル、docs / config / l10n 更新要否を洗う
 3. **Codex**: テスト戦略、エッジケース、セキュリティ観点、実装分割を洗う
 
 Antigravity は local policy に従う scout / critic / optional worker、Codex は現状の orchestrator candidate / scoped worker / verifier として使う。Orchestrator は固定 AI 名ではなく、task / local policy / 可用性 / 能力で選ぶ role として扱う。
@@ -40,7 +40,7 @@ Medium / High risk（新しい振る舞い・IF・複数ファイル変更、pub
 - セキュリティ修正やバリデーション追加
 - 既存パターンに沿った backend / infrastructure 変更
 
-### Gemini
+### Antigravity
 - 共有デフォルトでは scout / critic として設計とレビューに集中させる
 - local policy が明示的に許可した場合だけ scoped branch / worktree で write 可能
 - local policy で無効なら起動せず skip 理由を記録する

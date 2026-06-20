@@ -7,7 +7,7 @@
 
 - Orchestrator は固定された AI 名ではなく、現在の main session / task / local policy / 可用性 / 能力で選ぶ **role** とする。
 - 現在の実運用では Codex が primary orchestrator になることが多いが、それは現状の適性であって恒久的な希望状態ではない。Claude / Antigravity / Codex は同じ role / responsibility / resume schema で協調・代替できるようにする。
-- Antigravity を dotfiles で恒久的に read-only 固定しない。共有テンプレートは安全側の plan/scout を既定にするが、write 可否・無効化・approval mode はローカルポリシーを優先する。
+- Antigravity を dotfiles で恒久的に read-only 固定しない。共有テンプレートは安全側の sandbox 付き scout を既定にするが、write 可否・無効化・sandbox 設定はローカルポリシーを優先する。
 - 手書き handoff を標準にせず、Traceary / git / PR / Issue / workspace packet から context を復元する。
 - 実装は **実装したエージェント / セッションがコミットする**。orchestrator は採否判断・gate・統合を担うが、他セッションの実装を代理コミットしない（authorship を実装に一致させる）。同一エージェントが worker と orchestrator を兼ねる solo セッション、および成果物を返すだけの in-session ephemeral subagent はこの限りでない。
 
@@ -74,7 +74,7 @@ agent 間の共有 artifact は「handoff」ではなく、再開可能な conte
 2. **skill は workflow、agent は観点、hook は決定論的 gate**
    skill に恒久制約を埋め込まない。恒久制約は global instruction / rule / policy に置く。
 3. **ローカルポリシーを優先する**
-   `conventions/ai/local-agent-policy.md` を参照し、Gemini 無効化・approval mode・write 可否などをローカルで上書きできるようにする。
+   `conventions/ai/local-agent-policy.md` を参照し、Antigravity 無効化・sandbox・write 可否などをローカルで上書きできるようにする。
 4. **local subagent を優先し、remote agent は明確な境界がある場合だけ使う**
    同一ワークスペース内の並列調査は local subagent / worktree で十分。別サービス・別チーム・別 framework と連携する場合だけ A2A を検討する。
 5. **context resume では履歴を蒸留する**
@@ -96,7 +96,7 @@ agent 間の共有 artifact は「handoff」ではなく、再開可能な conte
 
 Claude / Antigravity / Codex の協調調査は `scripts/multi-ai-research.sh` を使う。install 後は `~/.local/bin/multi-ai-research.sh` から呼び出せる。
 git repository 内では、secret / private data を除外した同一 workspace context packet を Claude / Antigravity / Codex に共有する。
-Gemini など prompt 内 `@...` を file reference と解釈する CLI では、送信直前に `@` を `\u0040` として transport-escape する場合がある。この場合も source packet は同一で、監査は `packet_sha256` と engine 別 prompt hash の両方で行う。
+Antigravity / legacy Gemini など prompt 内 `@...` を file reference と解釈する CLI では、送信直前に `@` を `\u0040` として transport-escape する場合がある。この場合も source packet は同一で、監査は `packet_sha256` と engine 別 prompt hash の両方で行う。
 
 ```bash
 rtk proxy ./scripts/multi-ai-research.sh \

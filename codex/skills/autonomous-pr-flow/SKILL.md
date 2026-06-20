@@ -34,7 +34,7 @@ Antigravity / Codex CLI / `@codex review` は、`~/.codex/config.toml` の `[aut
 
 - trusted repository / git worktree、1 ticket / 1 PR に限定
 - secret / `.env` / unrelated repo dump / home directory dump は送らない
-- Antigravity は共有デフォルトでは plan mode。local policy で無効化・approval mode・write 可否を上書きできる
+- Antigravity は共有デフォルトでは sandbox 付き scout。local policy で無効化・sandbox・write 可否を上書きできる
 - Codex verifier は reviewer config を優先
 
 ## レベル1: 全体ループ（複数Issue/PR）

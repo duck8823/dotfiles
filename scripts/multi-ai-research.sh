@@ -629,7 +629,7 @@ classify_result() {
     echo "timeout"
     return
   fi
-  if grep -Eqi 'Opening authentication page|Do you want to continue|authentication page|not authenticated|Please log in|login required|OAuth|paste the code|sign in' "$file"; then
+  if grep -Eqi 'Opening authentication page|Do you want to continue|authentication page|not authenticated|Please log in|login required|not_logged_in|login_required|not signed in|sign in to continue|sign in to (Antigravity|Claude|Gemini|Codex)|OAuth[^[:cntrl:]]*(login|authentication|device)|paste[^[:cntrl:]]+code[^[:cntrl:]]+(login|authentication|browser)' "$file"; then
     echo "auth_prompt"
     return
   fi

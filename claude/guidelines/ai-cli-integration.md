@@ -57,7 +57,7 @@ export PUB_CACHE="$HOME/.pub-cache"
 - repo-wide scan、既存パターン比較、docs / config / l10n drift 検出に使う
 - 書き込み可否・無効化・sandbox / model は local policy を優先する
 - 書き込みをさせる場合は、明示的に許可した isolated branch / worktree に限定する
-- **自律レビュー中のブラウザ認証禁止**: headless 実行で `Opening authentication page in your browser` / `Do you want to continue?` が出たら、その場で Antigravity プロセスを停止する。これは login / 認証失敗なので **fallback せず、認証が必要な旨をユーザーに通知して再実行を促す**（別エンジンへ暗黙代替しない）
+- **自律レビュー中のブラウザ認証禁止**: headless 実行で `Opening authentication page` / `Do you want to continue?` / `not authenticated` / `login required` が出たら、その場で Antigravity プロセスを停止する。これは login / 認証失敗なので **fallback せず、認証が必要な旨をユーザーに通知して再実行を促す**（別エンジンへ暗黙代替しない）
 - **headless 事前確認**: multi-AI review 前に短い read-only prompt をタイムアウト付きで実行し、認証プロンプト・空出力・quota を先に検出する。`agy --version` だけでは認証可否の確認にならない
 - **1プロンプト1質問**: 複合的な質問（多項目チェック等）ではツールエラー後にリカバリできず空出力で終了する。質問は短く単一にして個別実行する
 - **クォータ枯渇のサイレント失敗**: 連続実行で `429 QUOTA_EXHAUSTED` が発生しても exit code 0 で終了し出力が空になる。出力ファイルが空の場合はクォータ枯渇を疑う
@@ -132,14 +132,14 @@ codex exec --full-auto \
   - < /tmp/codex-prompt.md 2>/tmp/codex.err | tee /tmp/codex-result.json
 ```
 
-### Antigravity 実験タスク
-Antigravity で例外的に書き込みを試す場合だけ、公式 worktree 機能を使う。
+### Antigravity scout タスク
+共有デフォルトでは、Antigravity は読み取り中心の scout として空の作業ディレクトリまたは専用 worktree から `--print --sandbox` で実行する。
 
 ```bash
 agy --print --sandbox --prompt "<task>"
 ```
 
-ただし write 可否は local policy と worktree gate を必ず通す。
+Antigravity で例外的に書き込みを試す場合は、`--print --sandbox` を read-only と同一視せず、dedicated branch / worktree と `MULTI_AI_ANTIGRAVITY_ALLOW_WRITE=true` の両方を使う。write 可否は local policy と worktree gate を必ず通す。
 
 ## 並列実行方式
 
@@ -207,7 +207,7 @@ wait $PID_CODEX $PID_ANTIGRAVITY
 |---|---|---|
 | **Codex タイムアウト** | 結果ファイルが空のまま 10分超過 | 1回リトライ → Claude が直接実行 |
 | **Antigravity タイムアウト** | 同上 | 1回リトライ → Codex scout で代替 |
-| **Antigravity headless 認証待ち / login 失敗** | 出力ファイルに `Opening authentication page in your browser` / `Do you want to continue?` | ブラウザを開かずプロセス停止 → **fallback せずユーザーに認証修正を依頼**（暗黙代替しない） |
+| **Antigravity headless 認証待ち / login 失敗** | 出力ファイルに `Opening authentication page` / `Do you want to continue?` / `not authenticated` / `login required` | ブラウザを開かずプロセス停止 → **fallback せずユーザーに認証修正を依頼**（暗黙代替しない） |
 | **Codex fixed-role model failure** | subagent エラーに `model is not supported` | `agent_type` 未指定の default subagent で再実行 → 失敗時はメインセッションで直接検証 |
 | **Codex capacity failure** | stderr ファイルに `rate_limit` / `capacity` | 30秒待ってリトライ → 当該 engine のみスキップし、代替 reviewer / local verification / CI で継続 |
 | **Antigravity capacity failure** | 出力ファイルに `429` / `RESOURCE_EXHAUSTED`、または exit 0 + 空出力 | 30秒待ってリトライ → 当該 engine のみスキップし、代替 reviewer / local verification で継続 |

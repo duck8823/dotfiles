@@ -147,7 +147,7 @@ fi
 
 ### 3. Antigravity/policy scout
 
-Antigravity は repo-wide consistency scout として使う。ブラウザ認証プロンプト（`Opening authentication page in your browser` / `Do you want to continue?` / 対話ログイン）が出た場合は **停止し、ブラウザを開かず、別 engine への暗黙の代替はせずユーザーに認証修正を依頼**する（設定不備を隠すため auth は fallback しない）。timeout / 空出力 / 非0終了は transient 失敗として扱い、記録 → 1回リトライ → 代替 reviewer / local verification / CI で継続する。
+Antigravity は repo-wide consistency scout として使う。ブラウザ認証プロンプト（`Opening authentication page` / `Do you want to continue?` / `not authenticated` / `login required` / 対話ログイン）が出た場合は **停止し、ブラウザを開かず、別 engine への暗黙の代替はせずユーザーに認証修正を依頼**する（設定不備を隠すため auth は fallback しない）。timeout / 空出力 / 非0終了は transient 失敗として扱い、記録 → 1回リトライ → 代替 reviewer / local verification / CI で継続する。
 
 ```bash
 ANTIGRAVITY_PROMPT_FILE="$WORK_DIR/antigravity-prompt.md"
@@ -228,7 +228,7 @@ except subprocess.TimeoutExpired as exc:
     open(out_path, "w").write(text)
     sys.exit(124)
 open(out_path, "w").write(text)
-if "Opening authentication page in your browser" in text or "Do you want to continue?" in text:
+if any(marker.lower() in text.lower() for marker in ["Opening authentication page", "Do you want to continue?", "authentication page", "not authenticated", "please log in", "login required", "not_logged_in", "login_required", "not signed in", "sign in to continue"]):
     sys.exit(42)
 if not text.strip() or proc.returncode != 0:
     sys.exit(proc.returncode or 1)
@@ -268,7 +268,7 @@ except subprocess.TimeoutExpired as exc:
     open(out_path, "w").write(text)
     sys.exit(124)
 open(out_path, "w").write(text)
-if "Opening authentication page in your browser" in text or "Do you want to continue?" in text:
+if any(marker.lower() in text.lower() for marker in ["Opening authentication page", "Do you want to continue?", "authentication page", "not authenticated", "please log in", "login required", "not_logged_in", "login_required", "not signed in", "sign in to continue"]):
     sys.exit(42)
 if not text.strip() or proc.returncode != 0:
     sys.exit(proc.returncode or 1)

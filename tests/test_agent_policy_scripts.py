@@ -86,6 +86,54 @@ def main() -> None:
         )
         assert "classification: tool_not_found" in (out_dir / "status.md").read_text()
 
+        fake_bin = tmp_root / "fake-bin"
+        fake_bin.mkdir()
+        fake_claude = fake_bin / "claude"
+        fake_claude.write_text("#!/usr/bin/env bash\necho 'Research note: users may sign in to apps, but this is not a CLI auth prompt.'\n")
+        fake_claude.chmod(0o755)
+        out_dir = tmp_root / "auth-false-positive"
+        run(
+            [
+                "bash",
+                str(script),
+                "--topic",
+                "auth wording",
+                "--mode",
+                "general",
+                "--engines",
+                "claude",
+                "--out-dir",
+                str(out_dir),
+            ],
+            env={
+                "PATH": f"{fake_bin}:/usr/bin:/bin",
+                "HOME": str(tmp_root / "no-policy-home"),
+            },
+        )
+        assert "classification: ok" in (out_dir / "status.md").read_text()
+
+        fake_claude.write_text("#!/usr/bin/env bash\necho 'Please log in to continue.'\n")
+        out_dir = tmp_root / "auth-required"
+        run(
+            [
+                "bash",
+                str(script),
+                "--topic",
+                "auth required",
+                "--mode",
+                "general",
+                "--engines",
+                "claude",
+                "--out-dir",
+                str(out_dir),
+            ],
+            env={
+                "PATH": f"{fake_bin}:/usr/bin:/bin",
+                "HOME": str(tmp_root / "no-policy-home"),
+            },
+        )
+        assert "classification: auth_prompt" in (out_dir / "status.md").read_text()
+
         all_disabled_policy = write_policy(
             tmp_root / "all-disabled.env",
             "MULTI_AI_DISABLED_ENGINES=claude,antigravity\n",
