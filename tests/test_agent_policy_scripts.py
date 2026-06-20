@@ -39,6 +39,9 @@ def main() -> None:
     tmp_root = Path(tempfile.mkdtemp(prefix="dotfiles-agent-policy-test-"))
     try:
         script = REPO_ROOT / "scripts/multi-ai-research.sh"
+        preflight = REPO_ROOT / "scripts/agent-work-preflight.sh"
+        validate_codex_config = REPO_ROOT / "scripts/validate-codex-config-template.sh"
+        review_fallback = REPO_ROOT / "scripts/render-pr-review-fallback-comment.sh"
         hook = REPO_ROOT / "claude/hooks/check-codex-worktree.sh"
 
         out_dir = tmp_root / "default-dry-run"
@@ -400,6 +403,109 @@ def main() -> None:
             stderr=subprocess.PIPE,
         )
         assert antigravity_write_allowed.returncode == 0
+
+        preflight_repo = tmp_root / "preflight-repo"
+        preflight_repo.mkdir()
+        run(["git", "init"], cwd=preflight_repo)
+        (preflight_repo / "README.md").write_text("preflight repo\n")
+        run(["git", "add", "README.md"], cwd=preflight_repo)
+        run(
+            [
+                "git",
+                "-c",
+                "user.email=test@example.com",
+                "-c",
+                "user.name=Test User",
+                "commit",
+                "-m",
+                "init",
+            ],
+            cwd=preflight_repo,
+        )
+        run(["git", "branch", "chore"], cwd=preflight_repo)
+        branch_collision = run(
+            [
+                "bash",
+                str(preflight),
+                "--repo",
+                str(preflight_repo),
+                "--branch",
+                "chore/foo",
+                "--writable-root",
+                str(tmp_root),
+            ],
+            check=False,
+        )
+        assert branch_collision.returncode == 2
+        assert "branch_status: prefix_collision" in branch_collision.stdout
+        assert "suggested_branch: chore-foo" in branch_collision.stdout
+
+        branch_exists = run(
+            [
+                "bash",
+                str(preflight),
+                "--repo",
+                str(preflight_repo),
+                "--branch",
+                "chore",
+                "--writable-root",
+                str(tmp_root),
+            ],
+            check=False,
+        )
+        assert branch_exists.returncode == 3
+        assert "branch_status: exists" in branch_exists.stdout
+        assert "suggested_branch: chore-2" in branch_exists.stdout
+
+        outside_writable_root = run(
+            [
+                "bash",
+                str(preflight),
+                "--repo",
+                str(preflight_repo),
+                "--branch",
+                "feature-token-guard",
+                "--writable-root",
+                str(tmp_root / "other-root"),
+            ],
+        )
+        assert "branch_status: available" in outside_writable_root.stdout
+        assert "git_write_requires_escalation: true" in outside_writable_root.stdout
+
+        codex_config_check = run(["bash", str(validate_codex_config), "--repo", str(REPO_ROOT)])
+        assert "toml: ok" in codex_config_check.stdout
+        assert "model_instructions_file: ok" in codex_config_check.stdout
+
+        auth_fallback = run(
+            [
+                "bash",
+                str(review_fallback),
+                "--pr",
+                "123",
+                "--head",
+                "abc123",
+                "--classification",
+                "auth_prompt",
+            ]
+        )
+        assert "classification: auth_prompt" in auth_fallback.stdout
+        assert "Do not fallback" in auth_fallback.stdout
+
+        no_response_fallback = run(
+            [
+                "bash",
+                str(review_fallback),
+                "--pr",
+                "123",
+                "--head",
+                "abc123",
+                "--classification",
+                "no_response",
+            ],
+            env={"CODEX_REVIEW_POLL_SECONDS": "12"},
+        )
+        assert "wait_seconds: 12" in no_response_fallback.stdout
+        assert "Proceed with local verification" in no_response_fallback.stdout
 
         print("agent policy script test OK")
     finally:

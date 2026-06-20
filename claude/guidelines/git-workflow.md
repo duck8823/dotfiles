@@ -10,6 +10,7 @@
 
 - ブランチ名にチケット番号は**不要**（PR タイトルに記載する）
 - コミットメッセージにもチケット番号は不要
+- branch 作成前に `scripts/agent-work-preflight.sh --repo <repo> --branch <candidate>`（dotfiles repo 外では install 後の `~/.local/bin/agent-work-preflight.sh`）を実行し、`prefix_collision` / `leaf_collision` を避ける。`chore` のような file branch が存在する場合、`chore/foo` は作れないため `chore-foo` など slash を避けた名前へ切り替える。
 
 ## PR タイトル
 
@@ -44,6 +45,7 @@ Claude Code の PreToolUse / PostToolUse hook が `--draft` 不付与・Multi-AI
 ### 2. レビュー
 - Multi-AI レビューコメント（Antigravity / Codex / Claude の少なくとも 2 系統）を `gh pr comment` で投稿してから ready に移す
 - レビュー対応は意味単位のコミットに折り込む。新しいコミットが必要な場合も、メッセージはレビュー起点ではなく変更内容を書く
+- `@codex review` の応答待ちは `CODEX_REVIEW_POLL_SECONDS`（既定 180 秒）を使い、no response / timeout / quota / environment unavailable は `scripts/render-pr-review-fallback-comment.sh`（repo 外では `~/.local/bin/render-pr-review-fallback-comment.sh`）で分類して証跡化する。`auth_prompt` は fallback せずユーザーに CLI 認証修正を依頼する。
 
 ### 3. Ready
 - `gh pr ready` の前に検証スタンプ（`analyze` / `test` 通過）が記録されている必要がある。記録がないと hook が警告する（詳細: `~/.claude/guidelines/harness-hooks.md`）
@@ -51,6 +53,7 @@ Claude Code の PreToolUse / PostToolUse hook が `--draft` 不付与・Multi-AI
 ### 4. マージ
 - `gh pr comment && gh pr ready && gh pr merge` のチェーンは hook がチェーン全体をブロックするため、必ず分離して順番に実行する
 - マージは `--merge`（squash しない）
+- `gh pr checks` は同一 head で繰り返し確認しない。最初の取得結果を final gate comment に残し、head が変わった場合だけ取り直す。`no checks reported` は CI 未設定/未報告であり failure ではない。
 - `duck8823` owner/org の PR は、レビュー証跡・CI・branch protection・1 PR = 1 ticket の gate を満たす場合、AI local orchestrator が自律的に merge して次へ進んでよい
 - `duck8823` 以外の owner/org では AI の自律 merge を禁止する。現ターンでユーザーが具体的 PR の merge を明示した場合だけ、同じ gate を満たしてから実行する
 

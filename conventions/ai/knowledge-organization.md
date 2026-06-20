@@ -15,6 +15,7 @@
 - Multi-AI の role / schema / handoff 境界は `conventions/ai/multi-ai-agent-operations.md` を優先する。
 - Agent の有効/無効、Antigravity の sandbox / write 可否などのローカル差分は `conventions/ai/local-agent-policy.md` を優先する。
 - Hook / observability / Traceary の点検基準は `conventions/ai/agent-hooks-observability.md` を優先する。
+- 自律作業の branch / sandbox / review wait / retry reduction は `conventions/ai/autonomous-preflight.md` を優先する。
 - `claude/`, `codex/`, `antigravity/` 配下の agent / skill / settings は、上記 convention を各ツール形式へ投影したものとして扱う。
 
 ## 配置判断

@@ -120,6 +120,28 @@ def main() -> None:
         "巨大 JSON / 長いログ / raw transcript は `/private/tmp` に保存",
     )
     assert_contains(
+        "codex/instructions.md",
+        "scripts/agent-work-preflight.sh --repo <repo> --branch <candidate>",
+        "~/.local/bin/agent-work-preflight.sh",
+        "rtk /usr/bin/find",
+        "scripts/validate-codex-config-template.sh --repo <repo>",
+        "~/.local/bin/validate-codex-config-template.sh",
+        "CODEX_REVIEW_POLL_SECONDS=180",
+        "~/.local/bin/render-pr-review-fallback-comment.sh",
+        "Process friction",
+    )
+    assert_contains(
+        "conventions/ai/autonomous-preflight.md",
+        "branch prefix collision",
+        "git_write_requires_escalation: true",
+        "rtk ~/.local/bin/agent-work-preflight.sh",
+        "rtk /usr/bin/find",
+        "validate-codex-config-template.sh",
+        "CODEX_REVIEW_POLL_SECONDS=180",
+        "gh pr checks` は PR head ごとに1回取得",
+        "Process friction",
+    )
+    assert_contains(
         "conventions/ai/token-budget.md",
         "`rtk` は shell stdout / stderr を削減できる",
         "Gmail / Traceary などの MCP connector が返す tool payload は別枠",
@@ -154,6 +176,9 @@ def main() -> None:
         "public/general Web 調査だけを行う場合",
         "current user request、非機密の短い project summary、public URL、出力 schema",
         "research scope・engines requested/run",
+        "~/.local/bin/agent-work-preflight.sh",
+        "~/.local/bin/validate-codex-config-template.sh",
+        "~/.local/bin/render-pr-review-fallback-comment.sh",
     )
     assert_not_contains(
         "scripts/multi-ai-research.sh",
