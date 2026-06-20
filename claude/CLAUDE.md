@@ -1,6 +1,6 @@
 # グローバル Claude Code 設定
 
-> **External AI delegation policy (2026-06-06):** Antigravity CLI / Codex CLI / `@codex review` / Claude CLI delegation は、`~/.codex/config.toml` の `[auto_review].policy` に定義された **External AI delegation exception** を満たす場合のみ実行する。ユーザーが trusted repository で multi-AI 協調を依頼した場合、source code は協調 context として共有可とし、同一の sanitized workspace context packet を使って情報の偏りを避ける。ユーザーが現在ターンで明示した public/general Web 調査だけは、local files / source / workspace packet / shell history / credentials / private data を送らない read-only/headless 調査として許可する。拒否された場合は設定を弱めず、理由を記録して Claude-only review + local verification + CI にフォールバックする。
+> **External AI delegation policy (2026-06-20):** Antigravity CLI / legacy Gemini / Codex CLI / `@codex review` / Claude CLI delegation は、`~/.codex/config.toml` の `[auto_review].policy` に定義された **External AI delegation exception** を満たす場合のみ実行する。ユーザーが trusted repository で multi-AI 協調を依頼した場合、source code は協調 context として共有可とし、同一の sanitized workspace context packet を使って情報の偏りを避ける。ユーザーが現在ターンで明示した public/general Web 調査だけは、local files / source / workspace packet / shell history / credentials / private data を送らない read-only/headless 調査として許可する。Path C（trusted creative / cross-agent 協調）は、現スレッドで依頼済みの 1 coherent workstream に限り、選定済み画像・PR diff・必要最小限の関連ソース等を共有可とするが、secrets / 未選別写真 / browser profile / direct write・commit・push・PR 作成・merge・deploy・upload の委譲は禁止する。拒否された場合は設定を弱めず、理由を記録して Claude-only review + local verification + CI にフォールバックする。
 
 ## 言語
 
