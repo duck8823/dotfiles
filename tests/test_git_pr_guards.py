@@ -36,8 +36,10 @@ def assert_blocked(result: subprocess.CompletedProcess[str], needle: str) -> Non
         raise AssertionError(f"expected {needle!r} in stderr\nstderr={result.stderr}")
 
 
-def make_fake_gh(bin_dir: Path, *, title: str, body: str) -> None:
+def make_fake_gh(bin_dir: Path, *, title: str, body: str, review_lines: list[str] | None = None) -> None:
     gh = bin_dir / "gh"
+    review_lines = review_lines or ["Antigravity: ok"]
+    review_args = ", ".join(repr(line) for line in ["🤖 AI コードレビュー結果", *review_lines])
     gh.write_text(
         f"""#!/usr/bin/env bash
 set -euo pipefail
@@ -50,7 +52,7 @@ if [ "$1" = "pr" ] && [ "$2" = "view" ]; then
   exit 0
 fi
 if [ "$1" = "api" ]; then
-  printf '%s\\n' "🤖 AI コードレビュー結果" "Gemini: ok" "Codex: ok"
+  printf '%s\\n' {review_args}
   exit 0
 fi
 echo "unexpected gh args: $*" >&2
@@ -181,6 +183,11 @@ def test_git_pr_guards() -> None:
 
         merge = run_hook("env FOO=1 gh --repo duck8823/dotfiles pr merge 52", env={"PATH": f"{fake_bin}:{os.environ['PATH']}"})
         assert merge.returncode == 0, merge.stderr
+
+        make_fake_gh(fake_bin, title="tighten guards", body="Closes #123", review_lines=["Claude: ok"])
+        claude_only_merge = run_hook("gh pr merge 52", env={"PATH": f"{fake_bin}:{os.environ['PATH']}"})
+        assert claude_only_merge.returncode == 0, claude_only_merge.stderr
+
 
         make_fake_gh(fake_bin, title="tighten guards", body="Closes #123\nCloses #124")
         ready_multiple = run_hook("gh pr ready", env={"PATH": f"{fake_bin}:{os.environ['PATH']}"})
