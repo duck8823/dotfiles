@@ -113,6 +113,31 @@ def main() -> None:
         "auth/browser login、file access、secret/private data、write action",
     )
     assert_contains(
+        "codex/instructions.md",
+        "MCP connector の tool payload は別枠で context に入る",
+        "Gmail / Traceary / GitHub connector-heavy な triage",
+        "limit` / `max_results` / `pageSize` / `body_limit",
+        "巨大 JSON / 長いログ / raw transcript は `/private/tmp` に保存",
+    )
+    assert_contains(
+        "conventions/ai/token-budget.md",
+        "`rtk` は shell stdout / stderr を削減できる",
+        "Gmail / Traceary などの MCP connector が返す tool payload は別枠",
+        "いきなり thread / message body を bulk read しない",
+        "`max_results` / `pageSize` 相当で 5〜10 件",
+        "metadata-only / minimal view",
+        "`traceary sessions --snapshot --json` は session metadata と latest event を含み巨大化しやすい",
+        "MCP Traceary tool を使う場合は、`list_events` / `get_context` / `search` の `body_limit`",
+    )
+    assert_contains(
+        "conventions/ai/agent-hooks-observability.md",
+        "Traceary read-surface / self-amplification guard",
+        "wide snapshot を初手にしない",
+        "`traceary sessions --snapshot --json` は最後の確認用",
+        "Traceary MCP の `list_events` / `get_context` / `search` は `body_limit` 付き",
+        "hook 重複、plugin version mismatch、MCP read surface",
+    )
+    assert_contains(
         "codex/skills/multi-ai-research/SKILL.md",
         "user-explicit general Web 調査では local files / source / workspace packet",
         "--mode general",

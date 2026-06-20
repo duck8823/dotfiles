@@ -58,6 +58,10 @@ High risk で判断不能な場合は破壊的変更を避け、Draft PR / desig
 - Codex subagent は 1 agent = 独立 context として token を消費する。既定 `agents.max_threads=4`, `max_depth=1` を超える fan-out は、明示的に必要な観点数と検証価値がある場合だけ使う。
 - `multi-ai-research.sh` の workspace packet は既定で 25KB/file・600KB total に制限する。大規模 repo では `--packet` で Issue/PR/diff/検証ログ中心の curated context を渡す。
 - Web search は既定 `cached` を優先し、最新性が必要な調査だけ live 相当の検索へ切り替える。
+- `rtk` は shell 出力の削減には効くが、MCP connector の tool payload は別枠で context に入る。Gmail / Traceary / GitHub connector-heavy な triage は、初手を search/list metadata に限定し、`limit` / `max_results` / `pageSize` / `body_limit` を小さくしてから必要な 1〜3 件だけ本文を読む。
+- Gmail はいきなり thread body / raw MIME / 添付を一括取得しない。件名・送信者・日時・snippet で候補を絞り、返信要否のある message だけ read する。
+- Traceary は `sessions --snapshot --json` や transcript full body を初手にしない。`traceary list --fields ... --limit N`、MCP `list_events` / `get_context` の `body_limit` 付き読み、`hooks print --client ...` を優先する。
+- 巨大 JSON / 長いログ / raw transcript は `/private/tmp` に保存し、回答・PR コメント・外部 AI reviewer には要約、path、必要なら sha256 だけ渡す。必要な抜粋でも secrets / token / private key / `.env*` は載せない。
 
 ## 自律運用フロー（全体）
 

@@ -33,6 +33,36 @@ rtk proxy /bin/zsh -lc 'python3 -m json.tool ~/.claude/settings.json >/dev/null 
 
 2026-06-20 の Traceary 0.21.3 smoke では、Antigravity CLI plugin / global hooks で `agy --print` の `PreInvocation` が `session_started` として記録できた。`run_command` を使う実行では `PostToolUse` の command audit も記録できる。一方、headless `agy --print` の最終 transcript / stop hook は同 smoke では観測できなかったため、`doctor pass` と `final transcript capture 済み` は同義にしない。追跡: duck8823/traceary#1235。global/plugin hooks が有効でも workspace `.agents/hooks.json` 不在 warning が出る診断ノイズは duck8823/traceary#1236 で追跡する。
 
+## Traceary read-surface / self-amplification guard
+
+Traceary は Codex の context resume に有効だが、診断対象が「現在の AI session / hook / transcript」そのものの場合、読み方を誤ると巨大 JSON と transcript が自己増幅して token を消費する。hook 診断では以下を既定にする。
+
+1. **wide snapshot を初手にしない**
+   `traceary sessions --snapshot --json` は最後の確認用に回す。まず `list` / `search` で session・client・event kind を絞る。
+
+   ```bash
+   rtk traceary list --fields ts,kind,session,client,agent,message --limit 20
+   rtk traceary list --client codex --fields ts,kind,session,source_hook,message --limit 20
+   rtk traceary search "version mismatch" --limit 10
+   ```
+
+2. **hook 設定と capture 実績を分けて読む**
+   hook config は `traceary hooks print --client <client>`、DB / plugin 診断は `traceary doctor --client <client>`、実イベントは `traceary list --client <client> --limit N` で確認する。`doctor pass` と transcript capture 成功を同一視しない。
+
+3. **raw JSON はファイルに逃がす**
+   どうしても `--json` が必要な場合は stdout に出さず、`/private/tmp` に保存してから `jq` / `python` で要約する。
+
+   ```bash
+   rtk traceary sessions --snapshot --json --limit 50 > /private/tmp/traceary-sessions.json
+   rtk jq '.sessions | length' /private/tmp/traceary-sessions.json
+   ```
+
+4. **MCP reads は body limit を維持する**
+   Traceary MCP の `list_events` / `get_context` / `search` は `body_limit` 付きで使う。`full_body=true` は、選んだ event id の最終確認だけにする。
+
+5. **issue 振り分けを先に決める**
+   hook 重複、plugin version mismatch、MCP read surface、Traceary DB schema / capture bug は `duck8823/traceary`。dotfiles の install / config / guidance / local policy は `duck8823/dotfiles`。個別 repo の `.agents` / CI / app-specific hook はその repo に切る。
+
 ## Claude / Antigravity / Codex 調査失敗 playbook
 
 `scripts/multi-ai-research.sh` は以下を標準分類する。

@@ -36,6 +36,46 @@
 - read-only research は `MULTI_AI_CODEX_REASONING_EFFORT=medium` を既定にする。implementation / security review / merge gate は必要に応じて high/xhigh へ上げる。
 - `web_search="cached"` を共有既定にし、最新性が必要な場合だけ live search を使う。
 
+## MCP connector / large tool output guidance
+
+`rtk` は shell stdout / stderr を削減できるが、Gmail / Traceary などの MCP connector が返す tool payload は別枠で context に入る。connector-heavy な調査では、品質 gate を下げずに **read scope・result count・body size・fan-out** を制御する。
+
+### 共通手順
+
+1. 初手は list / search / metadata だけにする。本文・添付・raw JSON の一括取得はしない。
+2. `limit` / `max_results` / `pageSize` / `body_limit` / fields 指定を使い、まず 5〜20 件に絞る。
+3. ID / 件名 / snippet / timestamp / sender / classification を表にして候補を選ぶ。
+4. full body / raw payload は選んだ 1〜3 件だけ読む。必要なら `/private/tmp` に保存し、回答・PR コメントには要約と path だけを書く。
+5. tool output が長くなる見込みなら、stdout や PR コメントに貼らず、`/private/tmp/<task>-raw.json` + `jq` / `python` の要約に分ける。
+6. 追加 AI reviewer / subagent へは raw connector output ではなく、選別済み要約・ID・必要最小限の抜粋だけ渡す。
+
+### Gmail triage
+
+- いきなり thread / message body を bulk read しない。まず Gmail search で query を絞り、件数上限は `max_results` / `pageSize` 相当で 5〜10 件から始める。
+- connector が metadata-only / minimal view（例: `view`, `messageFormat`）を持つ場合は、初手でそれを選ぶ。Codex Gmail connector のように search が message id 中心の場合は、ID を絞ってから必要な message だけ読む。
+- 初回 payload は、利用中の connector が返せる `id`, `threadId`, `from`, `subject`, `date`, `snippet`, label 程度に抑える。
+- 返信要否の判断は snippet で候補を分け、本文は返信候補・期限付き依頼・添付確認が必要な message だけ読む。
+- 添付・raw MIME・HTML body は、ユーザーが転送/添付確認を求めた場合など、必要性が明確なときだけ取得する。
+- inbox triage の結果は「urgent / needs reply / waiting / FYI」と根拠 message id を残し、本文全文は貼らない。
+
+### Traceary triage
+
+- `traceary sessions --snapshot --json` は session metadata と latest event を含み巨大化しやすい。初手は次のような narrow read にする。
+
+```bash
+rtk traceary list --fields ts,kind,session,client,agent,message --limit 20
+rtk traceary list --kind command_executed --fields ts,session,client,agent,exit_code,message --limit 20
+rtk traceary search "auth_prompt" --limit 10
+```
+
+- hook / plugin 状態は `doctor --json` 全量より、まず `hooks print --client <client>` と `doctor --client <client>` を client ごとに見る。
+- MCP Traceary tool を使う場合は、`list_events` / `get_context` / `search` の `body_limit` を既定値（または小さめ）にし、`full_body=true` は最後の確認だけにする。
+- Traceary 自身の診断では、現在の diagnostic session の transcript 全文を読ませると自己増幅する。session / workspace / time range を絞り、必要なら raw JSON を `/private/tmp/traceary-<task>.json` に保存して要約だけ context に載せる。
+- hook 重複・version mismatch・capture gap を見つけたら、修正先を分ける。
+  - Traceary 本体 / plugin / MCP read surface: `duck8823/traceary`
+  - dotfiles の install / guidance / config / local policy: `duck8823/dotfiles`
+  - 個別アプリ repo の hook 設定・CI・検証不足: そのアプリ repo
+
 ## Antigravity guidance
 
 - `~/.gemini/antigravity-cli/settings.json` は `enableTerminalSandbox=true`, `toolPermission=request-review`, `verbosity=low` を共有既定にする。
