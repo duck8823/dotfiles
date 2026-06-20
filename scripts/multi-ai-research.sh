@@ -876,6 +876,9 @@ if [ -z "$engines" ]; then
 fi
 
 IFS=',' read -r -a engine_array <<< "$engines"
+auth_required=false
+auth_required_engine=""
+auth_required_output=""
 for engine in "${engine_array[@]}"; do
   engine="$(printf '%s' "$engine" | tr -d '[:space:]')"
   [ -n "$engine" ] || continue
@@ -906,6 +909,19 @@ for engine in "${engine_array[@]}"; do
     echo "- classification: $classification"
     echo "- output: $result_file"
   } >> "$status_path"
+  if [ "$classification" = "auth_prompt" ]; then
+    auth_required=true
+    auth_required_engine="$engine"
+    auth_required_output="$result_file"
+    {
+      printf '\n## AUTH_REQUIRED\n'
+      echo "- engine: $auth_required_engine"
+      echo "- output: $auth_required_output"
+      echo "- fallback: not executed"
+      echo "- action: fix the ${auth_required_engine} CLI login/authentication state, then rerun this script"
+    } >> "$status_path"
+    break
+  fi
 done
 
 {
@@ -923,3 +939,7 @@ done
 } > "$summary_path"
 
 echo "$summary_path"
+if [ "$auth_required" = true ]; then
+  # EX_CONFIG(78): caller action is to fix CLI authentication before retrying.
+  exit 78
+fi
