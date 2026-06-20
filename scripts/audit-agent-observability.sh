@@ -14,7 +14,7 @@ Notes:
   - This script only reads local config and writes the audit bundle.
   - In sandboxed runtimes, Traceary SQLite access may fail; the failure is recorded
     instead of hidden.
-  - Traceary v0.21.2+ can print/install Antigravity hook config. This audit
+  - Traceary v0.21.3+ can print/install Antigravity hook config. This audit
     records doctor, hooks print, and CLI plugin status separately.
 USAGE
 }

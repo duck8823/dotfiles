@@ -6,7 +6,7 @@
 - 目的: dotfiles の Gemini CLI 前提を Antigravity CLI (`agy`) 前提へ移し、multi-AI 調査・監査・インストール・安全フックを新しい CLI 表面に合わせる。
 - 現状: Gemini CLI 用の `~/.gemini/settings.json`、`gemini/agents/*.md`、`gemini --approval-mode plan` 実行、Traceary Gemini hook 前提が複数箇所に残っている。
 - 期待する振る舞い: 共有既定は `claude,antigravity,codex` になり、Antigravity 設定は `~/.gemini/antigravity-cli/settings.json` に同期される。既存 Gemini 設定は managed なら掃除し、local override は保持する。
-- 非対象: Traceary 側の Antigravity hook/package 実装そのもの。Traceary 0.21.2 では hook 設定と plugin は利用可能だが、dotfiles は実装せず監査結果として扱う。
+- 非対象: Traceary 側の Antigravity hook/package 実装そのもの。Traceary 0.21.3 では hook 設定と plugin は利用可能だが、dotfiles は実装せず監査結果として扱う。headless `agy --print` の final transcript / stop capture は duck8823/traceary#1235、workspace hook warning は duck8823/traceary#1236 で追跡する。
 
 ### Conceptual model
 | Concept | State | Behavior | Constraint / Invariant |

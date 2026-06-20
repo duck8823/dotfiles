@@ -15,7 +15,7 @@
 | 対象 | dotfiles 管理 | Traceary / plugin 側 | 状態 |
 |---|---|---|---|
 | Claude Code lifecycle | `claude/settings.json.template` で cmux hook、Bash guard、verify stamp、Edit/Write lint-format、Stop self-review | Traceary Claude plugin | dotfiles template は Traceary hook を直接持たない。plugin / installed settings との merge 前提 |
-| Antigravity CLI | `antigravity/settings.json` を `~/.gemini/antigravity-cli/settings.json` に同期 | Traceary v0.21.2+ は `doctor --client antigravity` と `hooks print --client antigravity` に対応 | hook/plugin は利用可能。headless `agy --print` では start / run_command audit と final transcript coverage を分けて検証する |
+| Antigravity CLI | `antigravity/settings.json` を `~/.gemini/antigravity-cli/settings.json` に同期 | Traceary v0.21.3+ は `doctor --client antigravity` と `hooks print --client antigravity` に対応 | hook/plugin は利用可能。headless `agy --print` では start / run_command audit と final transcript coverage を分けて検証する |
 | Codex hooks | `codex/config.toml.template` と plugin 機能 | Traceary Codex plugin | plugin 管理。dotfiles に独自 hook script はない |
 | Local safety hooks | `claude/hooks/*.sh` | n/a | GitHub / push-ready / worktree / verify stamp は Claude Code で対応済み |
 
@@ -31,7 +31,7 @@ rtk proxy /bin/zsh -lc 'python3 -m json.tool ~/.claude/settings.json >/dev/null 
 
 ## Antigravity capture smoke notes
 
-2026-06-20 の Traceary 0.21.2 smoke では、Antigravity CLI plugin と workspace hooks は doctor 上 pass し、`agy --print` の `PreInvocation` は `session_started` として記録できた。`run_command` を使う実行では `PostToolUse` の command audit も記録できる。一方、headless `agy --print` の最終 transcript / stop hook は同 smoke では観測できなかったため、`doctor pass` と `final transcript capture 済み` は同義にしない。追跡: duck8823/traceary#1225。
+2026-06-20 の Traceary 0.21.3 smoke では、Antigravity CLI plugin / global hooks で `agy --print` の `PreInvocation` が `session_started` として記録できた。`run_command` を使う実行では `PostToolUse` の command audit も記録できる。一方、headless `agy --print` の最終 transcript / stop hook は同 smoke では観測できなかったため、`doctor pass` と `final transcript capture 済み` は同義にしない。追跡: duck8823/traceary#1235。global/plugin hooks が有効でも workspace `.agents/hooks.json` 不在 warning が出る診断ノイズは duck8823/traceary#1236 で追跡する。
 
 ## Claude / Antigravity / Codex 調査失敗 playbook
 
