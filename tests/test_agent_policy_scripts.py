@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -161,9 +162,13 @@ def main() -> None:
         )
         assert "classification: ok" in (out_dir / "status.md").read_text()
 
+        codex_marker = tmp_root / "codex-fallback-ran"
+        fake_codex = fake_bin / "codex"
+        fake_codex.write_text(f"#!/usr/bin/env bash\ntouch {shlex.quote(str(codex_marker))}\necho 'codex fallback ran'\n")
+        fake_codex.chmod(0o755)
         fake_claude.write_text("#!/usr/bin/env bash\necho 'Please log in to continue.'\n")
         out_dir = tmp_root / "auth-required"
-        run(
+        auth_required = run(
             [
                 "bash",
                 str(script),
@@ -172,7 +177,7 @@ def main() -> None:
                 "--mode",
                 "general",
                 "--engines",
-                "claude",
+                "claude,codex",
                 "--out-dir",
                 str(out_dir),
             ],
@@ -180,8 +185,50 @@ def main() -> None:
                 "PATH": f"{fake_bin}:/usr/bin:/bin",
                 "HOME": str(tmp_root / "no-policy-home"),
             },
+            check=False,
         )
-        assert "classification: auth_prompt" in (out_dir / "status.md").read_text()
+        assert auth_required.returncode == 78
+        auth_status = (out_dir / "status.md").read_text()
+        assert "classification: auth_prompt" in auth_status
+        assert "## AUTH_REQUIRED" in auth_status
+        assert "fallback: not executed" in auth_status
+        assert "## codex" not in auth_status
+        assert not codex_marker.exists()
+        assert not (out_dir / "codex.md").exists()
+
+        antigravity_marker = tmp_root / "codex-after-antigravity-auth-ran"
+        fake_codex.write_text(f"#!/usr/bin/env bash\ntouch {shlex.quote(str(antigravity_marker))}\necho 'codex fallback ran'\n")
+        fake_agy = fake_bin / "agy"
+        fake_agy.write_text("#!/usr/bin/env bash\necho 'Opening authentication page in your browser'\n")
+        fake_agy.chmod(0o755)
+        out_dir = tmp_root / "auth-required-antigravity"
+        antigravity_auth_required = run(
+            [
+                "bash",
+                str(script),
+                "--topic",
+                "antigravity auth required",
+                "--mode",
+                "general",
+                "--engines",
+                "antigravity,codex",
+                "--out-dir",
+                str(out_dir),
+            ],
+            env={
+                "PATH": f"{fake_bin}:/usr/bin:/bin",
+                "HOME": str(tmp_root / "no-policy-home"),
+            },
+            check=False,
+        )
+        assert antigravity_auth_required.returncode == 78
+        antigravity_auth_status = (out_dir / "status.md").read_text()
+        assert "## antigravity" in antigravity_auth_status
+        assert "classification: auth_prompt" in antigravity_auth_status
+        assert "fallback: not executed" in antigravity_auth_status
+        assert "## codex" not in antigravity_auth_status
+        assert not antigravity_marker.exists()
+        assert not (out_dir / "codex.md").exists()
 
         all_disabled_policy = write_policy(
             tmp_root / "all-disabled.env",
