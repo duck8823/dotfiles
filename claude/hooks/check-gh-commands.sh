@@ -628,7 +628,7 @@ shell_operators = {";", "&", "|", "&&", "||", ";;", "\n"}
 banned = [
     r"レビュー\s*(指摘|コメント|フィードバック)?\s*(対応|反映|修正|修正対応)",
     r"(指摘|コメント|フィードバック)\s*(対応|反映|修正)",
-    r"(codex|gemini|claude)\s*(review|レビュー)\s*(対応|反映|修正|fix|feedback|comments?|changes)",
+    r"(codex|gemini|antigravity|claude)\s*(review|レビュー)\s*(対応|反映|修正|fix|feedback|comments?|changes)",
     r"\b(review|reviewer)\s*(fix|feedback|comment|comments|changes)\b",
     r"\b(address|apply|fix|resolve|handle)[ -]?(review|reviewer)[ -]?(feedback|comments?|changes)\b",
     r"\bfix(?:es|ed)?\s+review\s+comments?\b",
@@ -1426,10 +1426,10 @@ case "$merge_status" in
                 validate_pr_ticket_or_exit "gh pr merge" "$pr_text"
 
                 review_body=$(gh_with_timeout api "repos/$repo/issues/$pr_number/comments" \
-                  --jq '.[] | select(((.body // "") | contains("🤖 AI コードレビュー結果")) and ((.body // "") | test("Gemini|Codex"))) | .body' 2>/dev/null || true)
+                  --jq '.[] | select(((.body // "") | contains("🤖 AI コードレビュー結果")) and ((.body // "") | test("Antigravity|Claude|Codex|Gemini"))) | .body' 2>/dev/null || true)
                 if [ -z "$review_body" ]; then
                     echo "🚫 [hook] PR #$pr_number にレビューコメント（🤖 AI コードレビュー結果）がありません。" >&2
-                    echo "   同一コメント内にレビュー marker と Gemini/Codex signature が必要です。" >&2
+                    echo "   同一コメント内にレビュー marker と Antigravity/Claude/Codex/Gemini のいずれかの signature が必要です。" >&2
                     exit 2
                 fi
                 ;;

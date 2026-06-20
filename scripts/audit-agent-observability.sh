@@ -5,7 +5,7 @@ usage() {
   cat <<'USAGE'
 audit-agent-observability.sh
 
-Collect Traceary / Claude / Gemini / Codex hook status into a local audit bundle.
+Collect Traceary / Claude / Antigravity / Codex hook status into a local audit bundle.
 
 Usage:
   audit-agent-observability.sh [--out-dir PATH]
@@ -14,6 +14,8 @@ Notes:
   - This script only reads local config and writes the audit bundle.
   - In sandboxed runtimes, Traceary SQLite access may fail; the failure is recorded
     instead of hidden.
+  - Traceary v0.21.3+ can print/install Antigravity hook config. This audit
+    records doctor, hooks print, and CLI plugin status separately.
 USAGE
 }
 
@@ -57,11 +59,21 @@ run_capture() {
   return 0
 }
 
+record_skip() {
+  local label="$1"
+  local stdout_file="$2"
+  local stderr_file="$3"
+  local message="$4"
+  printf '%s\n' "$message" > "$stdout_file"
+  : > "$stderr_file"
+  printf '%s\t%s\t%s\t%s\n' "$label" "0" "$stdout_file" "$stderr_file" >> "$out_dir/commands.tsv"
+}
+
 : > "$out_dir/commands.tsv"
 
 if command -v traceary >/dev/null 2>&1; then
   run_capture "traceary version" "$out_dir/traceary-version.txt" "$out_dir/traceary-version.err" traceary --version
-  for client in claude gemini codex; do
+  for client in claude gemini codex antigravity; do
     run_capture "traceary doctor $client" "$out_dir/traceary-doctor-$client.json" "$out_dir/traceary-doctor-$client.err" traceary doctor --client "$client" --json
     run_capture "traceary hooks $client" "$out_dir/traceary-hooks-$client.txt" "$out_dir/traceary-hooks-$client.err" traceary hooks print --client "$client"
   done
@@ -70,7 +82,15 @@ else
   printf '%s\t%s\t%s\t%s\n' "traceary version" "127" "$out_dir/traceary-version.txt" "$out_dir/traceary-version.err" >> "$out_dir/commands.tsv"
 fi
 
-for file in "$HOME/.claude/settings.json" "$HOME/.gemini/settings.json"; do
+if command -v agy >/dev/null 2>&1; then
+  run_capture "agy version" "$out_dir/agy-version.txt" "$out_dir/agy-version.err" agy --version
+  run_capture "agy plugin list" "$out_dir/agy-plugin-list.txt" "$out_dir/agy-plugin-list.err" agy plugin list
+else
+  echo "agy not found" > "$out_dir/agy-version.err"
+  printf '%s\t%s\t%s\t%s\n' "agy version" "127" "$out_dir/agy-version.txt" "$out_dir/agy-version.err" >> "$out_dir/commands.tsv"
+fi
+
+for file in "$HOME/.claude/settings.json" "$HOME/.gemini/antigravity-cli/settings.json"; do
   name="$(basename "$(dirname "$file")")-$(basename "$file")"
   if [ -f "$file" ]; then
     run_capture "json validate $file" "$out_dir/$name.validate.txt" "$out_dir/$name.validate.err" python3 -m json.tool "$file"
@@ -98,6 +118,7 @@ done
   echo
   echo "- exit 0: local config / hook status command succeeded."
   echo "- non-zero traceary doctor in sandbox is often SQLite / permission related; rerun outside sandbox before changing dotfiles."
+  echo "- Antigravity hook config is collected via traceary hooks print; doctor pass does not by itself prove final transcript coverage."
   echo "- memory activation warnings with 0 accepted memories are review items, not automatic failures."
 } > "$summary"
 

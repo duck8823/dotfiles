@@ -42,14 +42,14 @@ codex exec --full-auto \
   - < /tmp/codex-planner.md 2>/tmp/codex-planner.err
 ```
 
-#### Gemini planner（CLI）
+#### Antigravity planner（CLI）
 優先度・スコープ妥当性・抜け漏れを評価。
 
 ```bash
 ISSUES_JSON=$(gh issue list --milestone <current> --state open --json number,title,body,labels)
 MILESTONE_JSON=$(gh api repos/{owner}/{repo}/milestones --jq '.[] | select(.title=="<current>") | {title, description, due_on}')
 
-cat > /tmp/gemini-planner.md <<PROMPT
+cat > /tmp/antigravity-planner.md <<PROMPT
 以下の Issue 一覧のスプリント計画を評価してください。
 
 ## Issue 一覧
@@ -59,21 +59,20 @@ ${ISSUES_JSON}
 ${MILESTONE_JSON}
 PROMPT
 
-GEMINI_SYSTEM_MD=$HOME/.gemini/agents/planner.md \
   TERM=xterm-256color \
-  gemini --approval-mode plan -p ' ' -e none < /tmp/gemini-planner.md > /tmp/gemini-planner-result.json 2>&1
+  agy --print --sandbox < /tmp/antigravity-planner.md > /tmp/antigravity-planner-result.json 2>&1
 ```
 
 ### 3. 結果統合（Claude Opus メイン）
 
 2つの結果ファイルを読み込み統合:
 - Codex planner: Wave構成・ファイル影響範囲・フィジビリティ・リスク・工数見積（技術的根拠）
-- Gemini planner: 優先度・マイルストーン整合・漏れ検出（戦略的根拠）
+- Antigravity planner: 優先度・マイルストーン整合・漏れ検出（戦略的根拠）
 
 統合ルール:
 - Wave 構成は Codex の依存分析ベース
-- 各 Issue の順序は Codex のリスク + Gemini の優先度を加味
-- Gemini の「漏れ検出」で新 Issue 作成を提案
+- 各 Issue の順序は Codex のリスク + Antigravity の優先度を加味
+- Antigravity の「漏れ検出」で新 Issue 作成を提案
 - Codex の「過剰リスク」警告があれば Issue 分割を提案
 - Medium / High の Structure-Behavior risk は、実装前に `structure-behavior-design` の Design Note を必須にする
 

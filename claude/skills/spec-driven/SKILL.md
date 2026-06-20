@@ -40,11 +40,11 @@ codex exec --full-auto \
   - < /tmp/codex-spec.md 2>/tmp/codex-spec.err
 ```
 
-#### Gemini reviewer（CLI）— 既存パターン・影響範囲のスカウト
+#### Antigravity reviewer（CLI）— 既存パターン・影響範囲のスカウト
 ```bash
 ISSUE_JSON=$(gh issue view <番号> --json number,title,body)
 
-cat > /tmp/gemini-spec-scout.md <<PROMPT
+cat > /tmp/antigravity-spec-scout.md <<PROMPT
 以下の Issue の実装に先立ち、既存パターン・影響範囲を調査してください。
 参考にすべき既存実装、命名規約、diff 外で影響を受けるファイル、ドキュメント更新の要否を報告してください。
 
@@ -52,9 +52,8 @@ cat > /tmp/gemini-spec-scout.md <<PROMPT
 ${ISSUE_JSON}
 PROMPT
 
-GEMINI_SYSTEM_MD=$HOME/.gemini/agents/reviewer.md \
   TERM=xterm-256color \
-  gemini --approval-mode plan -p ' ' -e none < /tmp/gemini-spec-scout.md > /tmp/gemini-spec-scout-result.json 2>&1
+  agy --print --sandbox < /tmp/antigravity-spec-scout.md > /tmp/antigravity-spec-scout-result.json 2>&1
 ```
 
 ### 3. 統合して .ai/spec 生成（Claude メインセッション）
@@ -74,7 +73,7 @@ GEMINI_SYSTEM_MD=$HOME/.gemini/agents/reviewer.md \
 （Codex: ファイル単位の変更内容）
 
 ## 実装パターン
-（Gemini: 既存パターンの参照。「lib/xxx.dart の YYY と同じパターンで」）
+（Antigravity: 既存パターンの参照。「lib/xxx.dart の YYY と同じパターンで」）
 
 ## Structure-Behavior Design
 - risk: Low / Medium / High
@@ -92,7 +91,7 @@ GEMINI_SYSTEM_MD=$HOME/.gemini/agents/reviewer.md \
 
 ## 注意事項
 （Codex: セキュリティ考慮・エッジケース）
-（Gemini: ドキュメント更新・l10n 更新・diff外影響）
+（Antigravity: ドキュメント更新・l10n 更新・diff外影響）
 ```
 
 ### 4. 実装開始

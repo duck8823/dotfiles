@@ -9,7 +9,7 @@
       "Bash(claude -p:*)",
       "Bash(claude --print:*)",
       "Bash(codex exec:*)",
-      "Bash(gemini --approval-mode plan:*)",
+      "Bash(agy --print:*)",
       "Bash(ai-review --pr:*)",
       "Bash(gh pr comment:*)",
       "Bash(gh pr checks:*)",

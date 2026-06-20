@@ -19,10 +19,10 @@ allowed-tools: ["Bash", "Read", "Edit", "Write", "Glob", "Grep", "Task"]
 コードを書く前に、最低限以下を実施する。
 
 1. **Claude**: 関連ファイルを読んで既存パターンと制約を把握する
-2. **Gemini**: 既存パターン、命名一貫性、diff 外で修正が必要なファイル、docs / config / l10n 更新要否を洗う
+2. **Antigravity**: 既存パターン、命名一貫性、diff 外で修正が必要なファイル、docs / config / l10n 更新要否を洗う
 3. **Codex**: テスト戦略、エッジケース、セキュリティ観点、実装分割を洗う
 
-Gemini は local policy に従う scout / critic / optional worker、Codex は現状の orchestrator candidate / scoped worker / verifier として使う。Orchestrator は固定 AI 名ではなく、task / local policy / 可用性 / 能力で選ぶ role として扱う。
+Antigravity は local policy に従う scout / critic / optional worker、Codex は現状の orchestrator candidate / scoped worker / verifier として使う。Orchestrator は固定 AI 名ではなく、task / local policy / 可用性 / 能力で選ぶ role として扱う。
 
 Medium / High risk（新しい振る舞い・IF・複数ファイル変更、public API、DB、auth/authz、billing、migration、cross-module architecture）の場合は、ここで `structure-behavior-design` skill を適用し、要求・概念モデル・責務表・境界/IF・振る舞いテスト・TDD plan を `.ai/spec/<issue>.md` または PR description に残す。
 
@@ -40,7 +40,7 @@ Medium / High risk（新しい振る舞い・IF・複数ファイル変更、pub
 - セキュリティ修正やバリデーション追加
 - 既存パターンに沿った backend / infrastructure 変更
 
-### Gemini
+### Antigravity
 - 共有デフォルトでは scout / critic として設計とレビューに集中させる
 - local policy が明示的に許可した場合だけ scoped branch / worktree で write 可能
 - local policy で無効なら起動せず skip 理由を記録する
@@ -53,7 +53,7 @@ git pull origin main
 git checkout -b feature/<short-description>  # or fix/ or maintenance/（CLAUDE.md のブランチ命名規則に従う）
 ```
 
-Codex / Gemini / Claude のいずれに write させる場合も、isolated branch / worktree を前提にする。
+Codex / Antigravity / Claude のいずれに write させる場合も、isolated branch / worktree を前提にする。
 
 ## ステップ5: 実装
 
@@ -86,7 +86,7 @@ ANALYZE_CMD=$(grep 'analyze_command' CLAUDE.md 2>/dev/null | sed 's/.*`\([^`]*\)
 
 - テストがすべて通るまで修正を繰り返す
 - アナライザーの警告をすべて修正する
-- diff 外の更新漏れがないか Gemini scout 結果で再確認する
+- diff 外の更新漏れがないか Antigravity scout 結果で再確認する
 - Codex / 外部 agent 実装時も orchestrator がローカルで最終検証を再実行する
 
 ## ステップ7: コミット分割 & ドラフトPR作成

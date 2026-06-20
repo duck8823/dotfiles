@@ -186,7 +186,21 @@ is_managed_file() {
   local file="$1"
   [ -f "$file" ] || return 1
   [ -f "${file}.managed" ] && return 0
-  head -2 "$file" 2>/dev/null | grep -qF "$MANAGED_TAG"
+  if head -2 "$file" 2>/dev/null | grep -qF "$MANAGED_TAG"; then
+    return 0
+  fi
+
+  # settings / config files are managed with a hash sidecar. Treat them as
+  # removable managed files only when the local file still matches the tracked
+  # hash; preserve local edits during deprecated cleanup.
+  if [ -f "${file}.managed.sha256" ]; then
+    local current_hash tracked_hash
+    current_hash="$(sha256_file "$file" 2>/dev/null || true)"
+    tracked_hash="$(cat "${file}.managed.sha256" 2>/dev/null || true)"
+    [ -n "$current_hash" ] && [ "$current_hash" = "$tracked_hash" ] && return 0
+  fi
+
+  return 1
 }
 
 remove_deprecated_managed_file() {
@@ -449,26 +463,28 @@ sync_managed_settings \
   "template"
 
 # ============================================================
-# Gemini CLI
+# Antigravity CLI
 # ============================================================
 
 echo ""
-echo "[Gemini CLI]"
+echo "[Antigravity CLI]"
 
-copy_managed "$DOTFILES_DIR/gemini/GEMINI.md" "$HOME/.gemini/GEMINI.md"
+ANTIGRAVITY_CLI_DIR="$HOME/.gemini/antigravity-cli"
 
-# agents
-mkdir -p "$HOME/.gemini/agents"
-for f in "$DOTFILES_DIR/gemini/agents/"*.md; do
-  [ -f "$f" ] || continue
-  fname="$(basename "$f")"
-  copy_managed "$f" "$HOME/.gemini/agents/$fname"
+copy_managed "$DOTFILES_DIR/antigravity/AGENTS.md" "$ANTIGRAVITY_CLI_DIR/AGENTS.md"
+
+# skills: Antigravity CLI native skills
+mkdir -p "$ANTIGRAVITY_CLI_DIR/skills"
+for skill_dir in "$DOTFILES_DIR/antigravity/skills/"*/; do
+  [ -d "$skill_dir" ] || continue
+  skill_name="$(basename "$skill_dir")"
+  copy_managed_dir "$skill_dir" "$ANTIGRAVITY_CLI_DIR/skills/$skill_name"
 done
 
 # settings.json は差分追跡しつつ同期する
 sync_managed_settings \
-  "$DOTFILES_DIR/gemini/settings.json" \
-  "$HOME/.gemini/settings.json"
+  "$DOTFILES_DIR/antigravity/settings.json" \
+  "$ANTIGRAVITY_CLI_DIR/settings.json"
 
 # ============================================================
 # Codex CLI
@@ -514,6 +530,9 @@ echo "[Cleanup deprecated managed files]"
 
 remove_deprecated_managed_file "$HOME/.claude/commands/handoff-to-codex.md"
 remove_deprecated_managed_dir "$HOME/.codex/skills/codex-handoff"
+remove_deprecated_managed_file "$HOME/.gemini/GEMINI.md"
+remove_deprecated_managed_dir "$HOME/.gemini/agents"
+remove_deprecated_managed_file "$HOME/.gemini/settings.json"
 
 # ============================================================
 # cmux
@@ -567,7 +586,7 @@ echo " ローカル編集と dotfiles 更新が衝突した場合は *.dotfiles-
 echo ""
 echo " 例:"
 echo "    ~/.claude/settings.json.dotfiles-new"
-echo "    ~/.gemini/settings.json.dotfiles-new"
+echo "    ~/.gemini/antigravity-cli/settings.json.dotfiles-new"
 echo "    ~/.codex/config.toml.dotfiles-new"
 echo ""
 echo "================================================================"
@@ -595,7 +614,7 @@ cat << 'PROMPT'
   │
   │ ## AI レビュー設定
   │
-  │ ### Gemini レビュー用ソース収集
+  │ ### Antigravity レビュー用ソース収集
   │ - `source_dirs`: `src/ test/`
   │ - `source_extensions`: `ts js json`
   │ - `source_exclude`: `*.min.js`

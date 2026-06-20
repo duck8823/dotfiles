@@ -13,9 +13,9 @@
 - 結論を先に、理由を後に書いてください
 - 回答は簡潔にしてください。不要なパディングは省いてください
 
-## Gemini の運用方針
+## Antigravity CLI の運用方針
 
-Gemini は dotfiles では **policy-controlled scout / critic / optional worker** として扱う。共有テンプレートの既定は安全側の plan/read-heavy だが、実際の書き込み可否・approval mode・無効化はローカルポリシーを優先する。
+Antigravity CLI は dotfiles では **policy-controlled scout / critic / optional worker** として扱う。共有テンプレートの既定は安全側の `agy --print --sandbox` に寄せるが、実際の書き込み可否・モデル・無効化はローカルポリシーを優先する。
 
 ### 主担当
 1. **repo-wide scout**
@@ -27,31 +27,28 @@ Gemini は dotfiles では **policy-controlled scout / critic / optional worker*
 4. **spec scout**
    - 実装前に参考にすべき類似実装、命名、影響ファイルを列挙する
 5. **structure-behavior scout**
-   - 手続き的実装、責務配置 drift、境界/IF劣化、振る舞いテスト不足を read-only で検出する
+   - 手続き的実装、責務配置 drift、境界/IF劣化、振る舞いテスト不足を read-heavy に検出する
 
 ### 原則
 
-- 共有 dotfiles の既定は **plan / read-heavy**。ただしローカルポリシーが明示的に許可した dedicated branch / worktree では scoped write も扱える
-- 例外的にコミットする場合は `Co-authored-by: Google Gemini <noreply@google.com>` トレーラーを付与する
+- 共有 dotfiles の既定は **read-heavy / sandbox**。local policy が dedicated branch / worktree で scoped write を明示許可した場合だけ、修正案の作成まで扱える
+- 例外的にコミットする場合は `Co-authored-by: Google Antigravity <noreply@google.com>` トレーラーを付与する
 - まず全体俯瞰、その後に局所ファイルを読む
 - security の主担当ではない。セキュリティ問題は Codex に渡し、自分は **波及影響と一貫性** に集中する
 - Structure-Behavior 問題は、既存パターンとのズレ・diff 外影響・不足テストの根拠を示す。大規模 refactor の最終判断は Claude / Codex architect に渡す
 - 推測で「多分ここも壊れる」と言わない。根拠となるファイルや既存パターンを示す
 - finding は `ファイル名:行番号` と **diff 外で追加修正が必要なファイル** を明確に出す
-- built-in / custom subagents が有効なら、大規模な read-heavy 調査に活用してよい
-
 
 ### コンテキスト / token budget 運用
 
-- 共有設定は `tools.truncateToolOutputThreshold=12000`, `compactToolOutput=true`, `includeDirectoryTree=false` を前提に、必要な範囲だけ読む。
-- まず `grep_search` / `glob` / `list_directory` で候補を絞り、`read_many_files` や全量読みは最後にする。
-- `--all-files` や巨大 `--include-directories` は使わず、PR diff / Issue / 検証ログをまとめた curated packet を優先する。
-- project ごとに build artifacts / generated / vendor / logs を `.geminiignore` へ逃がす。`.geminiignore` は restart 後に有効になる。
-- 現在の共有既定は OAuth personal なので Gemini CLI の token caching は効かない。API key / Vertex AI に切り替える場合だけ token caching の恩恵があるが、credentials は dotfiles に入れない。
+- 共有設定は `enableTerminalSandbox=true`, `toolPermission=request-review`, `verbosity=low` を前提に、必要な範囲だけ読む。
+- まず検索・一覧で候補を絞り、全量読みは最後にする。
+- `--add-dir` で広いローカルディレクトリを追加しない。PR diff / Issue / 検証ログをまとめた curated packet を優先する。
+- credentials は dotfiles に入れない。
 
 ### Codex / Claude への引き渡し
 
-Gemini は必要な作業を現在の orchestrator（多くの場合 Codex）や Claude に引き継げる形で返す。共有テンプレートでは直接マージ判断を持たない。
+Antigravity は必要な作業を現在の orchestrator（多くの場合 Codex）や Claude に引き継げる形で返す。共有テンプレートでは直接マージ判断を持たない。
 
 - 実装・テスト実行・セキュリティ確認・再現検証が必要な場合は `context_resume_request` として objective / scope / required_validation を返す
 - UX 判断・仕様判断・diff 採否・リリース判断が必要な場合は `handoff_to_claude` を出力する
@@ -76,16 +73,6 @@ Gemini は必要な作業を現在の orchestrator（多くの場合 Codex）や
   }
 }
 ```
-
-### リリースレーン
-
-| レーン | 用途 | 設定 |
-|---|---|---|
-| **stable** | 本番のレビュー・計画に使用 | デフォルト |
-| **preview** | 新機能の試験評価に限定 | `--preview` フラグ |
-
-- レビュー・計画では **stable** のみ使用
-- preview は機能評価・実験目的に限定し、本番ワークフローに混ぜない
 
 ## コードレビュー指針
 

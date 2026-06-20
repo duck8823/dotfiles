@@ -34,7 +34,7 @@ def assert_general_dry_run_excludes_workspace_context() -> None:
                 "--mode",
                 "general",
                 "--engines",
-                "claude,gemini",
+                "claude,antigravity",
                 "--out-dir",
                 tmp,
                 "--dry-run",
@@ -54,13 +54,13 @@ def assert_general_dry_run_excludes_workspace_context() -> None:
 
         status = (Path(tmp) / "status.md").read_text()
         prompt = (Path(tmp) / "prompt.md").read_text()
-        gemini_prompt = (Path(tmp) / "prompt.gemini.md").read_text()
+        antigravity_prompt = (Path(tmp) / "prompt.antigravity.md").read_text()
 
     for required in (
         "- mode_requested: general",
         "- mode_effective: general",
         "- dry_run: true",
-        "- engines_requested: claude,gemini",
+        "- engines_requested: claude,antigravity",
     ):
         if required not in status:
             raise AssertionError(f"status missing {required!r}:\n{status}")
@@ -69,7 +69,7 @@ def assert_general_dry_run_excludes_workspace_context() -> None:
         if forbidden in status:
             raise AssertionError(f"general status should not include packet metadata: {forbidden}")
 
-    for candidate in (prompt, gemini_prompt):
+    for candidate in (prompt, antigravity_prompt):
         if f"Research topic:\n{topic}" not in candidate:
             raise AssertionError("general prompt did not include the requested topic")
         for forbidden in (
@@ -121,7 +121,7 @@ def main() -> None:
     assert_contains(
         "claude/commands/multi-ai-research.md",
         "public/general Web 調査では `--mode general` を使える",
-        "--mode general --engines claude,gemini,codex",
+        "--mode general --engines claude,antigravity,codex",
         "general 調査中に repo/source context が必要になったら",
     )
     assert_contains(

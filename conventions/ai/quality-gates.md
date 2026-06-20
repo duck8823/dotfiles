@@ -6,7 +6,7 @@
 
 ## 方針
 
-- Gate は Claude / Codex / Gemini などの AI 名ではなく、role / capability に対して定義する。
+- Gate は Claude / Codex / Antigravity などの AI 名ではなく、role / capability に対して定義する。
 - Hard block は決定論的に確認できる条件に限定する。LLM reviewer の主観的指摘だけで merge を永久停止しない。
 - 小変更を止めない。docs-only / typo / formatting / 既存パターンの単純横展開には軽量 lane を用意する。
 - High risk 変更は、実装前に ADR または同等の設計判断・rollback・検証方針を残す。ADR の適用条件と template は `conventions/ai/adr-guidance.md` を参照する。

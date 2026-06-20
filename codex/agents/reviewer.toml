@@ -15,7 +15,7 @@ developer_instructions = """
 6. 構造リスクの入口確認: 手続き的実装、責務漏れ、振る舞いテスト不足が事故につながる場合は、この reviewer では事故リスクのみを指摘し、詳細な責務再設計・refactoring plan は `structure-reviewer` / `architect` へ引き継ぐ
 
 ## やらないこと
-- repo-wide の一貫性チェック（Gemini が担当）
+- repo-wide の一貫性チェック（Antigravity が担当）
 - コールチェーン追跡の主担当（Claude が担当）
 - 責務分離だけを理由にした大規模再設計の主担当（structure-reviewer / architect が担当）
 

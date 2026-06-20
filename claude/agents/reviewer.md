@@ -19,7 +19,7 @@ tools: Read, Glob, Grep, Bash(flutter test *, flutter analyze *, godot *)
 
 ## やらないこと（他 AI が担当）
 - セキュリティ脆弱性の専門分析（Codex が担当）
-- 既存コードとの一貫性チェック（Gemini が担当）
+- 既存コードとの一貫性チェック（Antigravity が担当）
 - スタイル（Linter が担当）
 - 責務分離だけを理由にした大規模再設計（structure-reviewer / architect が担当）
 

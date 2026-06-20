@@ -14,22 +14,22 @@ description: policy-controlled scout・Codex verifier・Claude/Codex integrator 
 `conventions/ai/agent-hooks-observability.md` を source of truth とし、この skill は
 Claude 側の PR review orchestration だけを定義する。
 
-- **Gemini** は共有デフォルトでは scout / critic。read-only 固定ではなく local policy 優先
+- **Antigravity** は共有デフォルトでは scout / critic。read-only 固定ではなく local policy 優先
 - **Codex** は security / test verifier
 - **Claude** は統合判断とマージゲート
 - authored-by に応じて利益相反を避ける
 - ローカル CLI / subagent の失敗はプロセス停止理由を記録する。transient 失敗（quota / capacity / timeout）では全体を止めず代替 reviewer / local verification / CI で継続するが、login / 認証失敗（auth_prompt / ブラウザ認証プロンプト / 対話ログイン）では暗黙の代替をせず停止し、ユーザーに認証修正を促す
 - Medium / High risk の変更では `structure-reviewer` 観点（手続き化・責務配置・境界/IF・振る舞いテスト）を統合レビューに含める
-- Claude / Gemini / Codex の調査失敗は `multi-ai-research` command / `scripts/multi-ai-research.sh` の分類（`trust_failed` / `auth_prompt` / `quota_or_capacity` / `policy_or_permission_denied` / `prompt_file_reference_expansion` / `process_oom` / `timeout` / `command_failed` / `empty_output`）で記録する
+- Claude / Antigravity / Codex の調査失敗は `multi-ai-research` command / `scripts/multi-ai-research.sh` の分類（`trust_failed` / `auth_prompt` / `quota_or_capacity` / `policy_or_permission_denied` / `prompt_file_reference_expansion` / `process_oom` / `timeout` / `command_failed` / `empty_output`）で記録する
 
 ## External AI delegation policy gate
 
-Gemini / Codex / Claude CLI へ PR diff・local branch diff・関連ソースを渡す前に、`~/.codex/config.toml` の `[auto_review].policy` にある **External AI delegation exception** を満たすことを確認する。
+Antigravity / Codex / Claude CLI へ PR diff・local branch diff・関連ソースを渡す前に、`~/.codex/config.toml` の `[auto_review].policy` にある **External AI delegation exception** を満たすことを確認する。
 
 - 作業ディレクトリは trusted repository またはその git worktree に限定する
 - 1 ticket / 1 PR にスコープを限定し、複数チケットを1つの review request に束ねない
 - `.env`、credentials、tokens、private keys、secret files、shell history、無関係な repo / home directory dump を送らない
-- Gemini は共有デフォルトでは `NO_BROWSER=true gemini --skip-trust --approval-mode ${MULTI_AI_GEMINI_APPROVAL_MODE:-plan} ${GEMINI_REVIEW_MODEL:+-m $GEMINI_REVIEW_MODEL} -p ' ' -e none -o text` で使う。無効化・write 可否は local policy を優先する
+- Antigravity は共有デフォルトでは `agy --print --sandbox ${ANTIGRAVITY_REVIEW_MODEL:+--model $ANTIGRAVITY_REVIEW_MODEL}` で使う。無効化・write 可否は local policy を優先する
 - Codex verifier は `codex exec --full-auto -c 'agents.default.config_file="$HOME/.codex/agents/reviewer.toml"'` を優先する
 - policy / Guardian / sandbox の拒否が出た場合は設定を弱めず、`skipped: policy_denied` または具体的な拒否理由を記録して Claude-only fallback に進む
 
@@ -37,7 +37,7 @@ Gemini / Codex / Claude CLI へ PR diff・local branch diff・関連ソースを
 
 ## 外部AIへのデータ送信境界
 
-`multi-ai-review` が明示され、かつ上記 policy gate を満たす場合、PR diff・関連 Issue・レビューコメント・該当ソース・テストログ・repo 内 artifact を configured external AI CLI（Gemini / Codex / Claude Code / ai-review）に渡すことは承認済みとして扱う。毎回追加確認しない。
+`multi-ai-review` が明示され、かつ上記 policy gate を満たす場合、PR diff・関連 Issue・レビューコメント・該当ソース・テストログ・repo 内 artifact を configured external AI CLI（Antigravity / Codex / Claude Code / ai-review）に渡すことは承認済みとして扱う。毎回追加確認しない。
 
 追加確認または policy deny が必要なもの:
 
@@ -95,7 +95,7 @@ fi
 
 ### 2. Policy-controlled scout
 ```bash
-cat > /tmp/gemini-review.md <<PROMPT
+cat > /tmp/antigravity-review.md <<PROMPT
 以下の PR を local policy に従う scout / critic としてレビューしてください。共有デフォルトでは書き込み不要です。
 
 - 既存パターンとの整合性
@@ -112,30 +112,24 @@ cat > /tmp/gemini-review.md <<PROMPT
 $(cat "$DIFF_FILE")
 PROMPT
 
-GEMINI_PREFLIGHT_OUT=/tmp/gemini-review-preflight.md
-export GEMINI_PREFLIGHT_OUT
+ANTIGRAVITY_PREFLIGHT_OUT=/tmp/antigravity-review-preflight.md
+export ANTIGRAVITY_PREFLIGHT_OUT
 if [ -s "$POLICY_DENIED_FILE" ]; then
-  echo "skipped: policy_denied: $(cat "$POLICY_DENIED_FILE")" > /tmp/gemini-review-result.json
+  echo "skipped: policy_denied: $(cat "$POLICY_DENIED_FILE")" > /tmp/antigravity-review-result.json
 else
 python3 - <<'PY'
 import os, subprocess, sys
 prompt = "read-only preflight。1行だけ返してください。"
 env = os.environ.copy()
-env["GEMINI_SYSTEM_MD"] = os.path.expanduser("~/.gemini/agents/reviewer.md")
+# Antigravity loads installed skills from ~/.gemini/antigravity-cli/skills; no Gemini-era system prompt env is set.
 env["TERM"] = "xterm-256color"
 env["NO_BROWSER"] = "true"
-env["GEMINI_CLI_TRUST_WORKSPACE"] = "true"
 env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:" + env.get("PATH", "")
-out_path = os.environ["GEMINI_PREFLIGHT_OUT"]
-settings_path = os.path.join(os.path.dirname(out_path), "gemini-headless-system-settings.json")
-with open(settings_path, "w") as f:
-    f.write('{"hooksConfig":{"enabled":false},"tools":{"useRipgrep":false}}\n')
-env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"] = settings_path
+out_path = os.environ["ANTIGRAVITY_PREFLIGHT_OUT"]
 try:
-    cmd = ["gemini", "--skip-trust", "--approval-mode", "plan"]
-    if os.environ.get("GEMINI_REVIEW_MODEL"):
-        cmd += ["-m", os.environ["GEMINI_REVIEW_MODEL"]]
-    cmd += ["-p", " ", "-e", "none", "-o", "text"]
+    cmd = ["agy", "--print", "--sandbox"]
+    if os.environ.get("ANTIGRAVITY_REVIEW_MODEL"):
+        cmd += ["-m", os.environ["ANTIGRAVITY_REVIEW_MODEL"]]
     proc = subprocess.run(
         cmd,
         input=prompt,
@@ -147,10 +141,10 @@ try:
     text = (proc.stdout or "") + (proc.stderr or "")
 except subprocess.TimeoutExpired as exc:
     text = ((exc.stdout or "") if isinstance(exc.stdout, str) else "") + ((exc.stderr or "") if isinstance(exc.stderr, str) else "") + "\nTIMEOUT_AFTER=20\n"
-    open(os.environ["GEMINI_PREFLIGHT_OUT"], "w").write(text)
+    open(os.environ["ANTIGRAVITY_PREFLIGHT_OUT"], "w").write(text)
     sys.exit(124)
-open(os.environ["GEMINI_PREFLIGHT_OUT"], "w").write(text)
-if "Opening authentication page in your browser" in text or "Do you want to continue?" in text:
+open(os.environ["ANTIGRAVITY_PREFLIGHT_OUT"], "w").write(text)
+if any(marker.lower() in text.lower() for marker in ["Opening authentication page", "Do you want to continue?", "authentication page", "not authenticated", "please log in", "login required", "not_logged_in", "login_required", "not signed in", "sign in to continue"]):
     sys.exit(42)
 if not text.strip() or proc.returncode != 0:
     sys.exit(proc.returncode or 1)
@@ -159,22 +153,16 @@ PY
 if [ $? -eq 0 ]; then
   python3 - <<'PY'
 import os, subprocess, sys
-prompt = open("/tmp/gemini-review.md").read()
+prompt = open("/tmp/antigravity-review.md").read()
 env = os.environ.copy()
-env["GEMINI_SYSTEM_MD"] = os.path.expanduser("~/.gemini/agents/reviewer.md")
+# Antigravity loads installed skills from ~/.gemini/antigravity-cli/skills; no Gemini-era system prompt env is set.
 env["TERM"] = "xterm-256color"
 env["NO_BROWSER"] = "true"
-env["GEMINI_CLI_TRUST_WORKSPACE"] = "true"
 env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:" + env.get("PATH", "")
-settings_path = "/tmp/gemini-headless-system-settings.json"
-with open(settings_path, "w") as f:
-    f.write('{"hooksConfig":{"enabled":false},"tools":{"useRipgrep":false}}\n')
-env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"] = settings_path
 try:
-    cmd = ["gemini", "--skip-trust", "--approval-mode", "plan"]
-    if os.environ.get("GEMINI_REVIEW_MODEL"):
-        cmd += ["-m", os.environ["GEMINI_REVIEW_MODEL"]]
-    cmd += ["-p", " ", "-e", "none", "-o", "text"]
+    cmd = ["agy", "--print", "--sandbox"]
+    if os.environ.get("ANTIGRAVITY_REVIEW_MODEL"):
+        cmd += ["-m", os.environ["ANTIGRAVITY_REVIEW_MODEL"]]
     proc = subprocess.run(
         cmd,
         input=prompt,
@@ -186,21 +174,21 @@ try:
     text = (proc.stdout or "") + (proc.stderr or "") + f"\nEXIT_CODE={proc.returncode}\n"
 except subprocess.TimeoutExpired as exc:
     text = ((exc.stdout or "") if isinstance(exc.stdout, str) else "") + ((exc.stderr or "") if isinstance(exc.stderr, str) else "") + "\nTIMEOUT_AFTER=600\nKILLED=true\n"
-    open("/tmp/gemini-review-result.json", "w").write(text)
+    open("/tmp/antigravity-review-result.json", "w").write(text)
     sys.exit(124)
-open("/tmp/gemini-review-result.json", "w").write(text)
-if "Opening authentication page in your browser" in text or "Do you want to continue?" in text:
+open("/tmp/antigravity-review-result.json", "w").write(text)
+if any(marker.lower() in text.lower() for marker in ["Opening authentication page", "Do you want to continue?", "authentication page", "not authenticated", "please log in", "login required", "not_logged_in", "login_required", "not signed in", "sign in to continue"]):
     sys.exit(42)
 if not text.strip() or proc.returncode != 0:
     sys.exit(proc.returncode or 1)
 PY
 else
-  echo "Gemini preflight failed; fallback required. See $GEMINI_PREFLIGHT_OUT" > /tmp/gemini-review-result.json
+  echo "Antigravity preflight failed; fallback required. See $ANTIGRAVITY_PREFLIGHT_OUT" > /tmp/antigravity-review-result.json
 fi
 fi
 ```
 
-`POLICY_DENIED_FILE` が空でない場合は Gemini / Codex CLI へ diff を渡さず、`skipped: policy_denied` と理由を統合コメントに記録して Claude-only fallback + local verification + CI で補完する。preflight または本実行が timeout / 空出力 / 非0終了（login / 認証失敗を除く）になった場合は、Gemini 失敗として記録 → 1回リトライ → Codex scout / independent reviewer へフォールバックする。preflight または本実行が login / 認証失敗（auth_prompt / "Opening authentication page in your browser" / "Do you want to continue?" / 対話ログイン、exit 42）で停止した場合は、別 engine への暗黙の代替をせず処理を停止し、ユーザーに認証修正を依頼する（設定不備を隠さない）。
+`POLICY_DENIED_FILE` が空でない場合は Antigravity / Codex CLI へ diff を渡さず、`skipped: policy_denied` と理由を統合コメントに記録して Claude-only fallback + local verification + CI で補完する。preflight または本実行が timeout / 空出力 / 非0終了（login / 認証失敗を除く）になった場合は、Antigravity 失敗として記録 → 1回リトライ → Codex scout / independent reviewer へフォールバックする。preflight または本実行が login / 認証失敗（auth_prompt / "Opening authentication page" / "Do you want to continue?" / "not authenticated" / "login required" / 対話ログイン、exit 42）で停止した場合は、別 engine への暗黙の代替をせず処理を停止し、ユーザーに認証修正を依頼する（設定不備を隠さない）。
 
 ### 3. Codex verifier
 Claude authored PR または外部生成パッチのときのみ実行する。
@@ -231,7 +219,7 @@ fi
 
 ### 4. Claude 統合
 Claude は以下を行う。
-1. Gemini の repo-wide 指摘を確認
+1. Antigravity の repo-wide 指摘を確認
 2. Codex の実行証跡付き指摘を確認
 3. diff 全体を実読して採用 / 棄却を判断
 4. PR コメントに統合結果を投稿
@@ -241,7 +229,7 @@ Claude は以下を行う。
 ## Multi-AI Review Results
 
 ### レビュアー
-- Gemini/policy scout: ✅ / ❌
+- Antigravity/policy scout: ✅ / ❌
 - Codex verifier or Claude reviewer: ✅ / ❌
 - Integrator / Claude specialist: ✅ / ❌
 
@@ -262,8 +250,8 @@ Claude は以下を行う。
 - docs-only PR の標準検証は `git diff --check`、関連 grep、リポジトリ既存の軽量テスト（例: `python3 tests/test_install_sync.py`）、シェル構文チェックを優先する
 
 ### 7. エラーハンドリング
-- Gemini / Codex が transient 失敗（quota / capacity / timeout / 空出力 / 非0終了、login / 認証失敗を除く）→ 1回リトライ
-- Gemini が headless 認証プロンプト（login / 認証失敗）で停止 → ブラウザを開かず処理を停止し、別 engine への暗黙の代替をせずユーザーに認証修正を依頼する（設定不備を隠さないため fallback / リトライしない）
+- Antigravity / Codex が transient 失敗（quota / capacity / timeout / 空出力 / 非0終了、login / 認証失敗を除く）→ 1回リトライ
+- Antigravity が headless 認証プロンプト（login / 認証失敗）で停止 → ブラウザを開かず処理を停止し、別 engine への暗黙の代替をせずユーザーに認証修正を依頼する（設定不備を隠さないため fallback / リトライしない）
 - Codex の固定ロール subagent が `model is not supported` で失敗 → `agent_type` 未指定の default subagent で代替
 - 2回目も失敗 → Claude reviewer で補完
 - 最低2系統のレビューが成功すれば統合を続行する。欠落した系統と理由は PR コメントに記録する

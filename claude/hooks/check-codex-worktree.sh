@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Code PreToolUse hook: 外部 AI (Codex/Gemini) の write タスクが main worktree で実行されることを防止
+# Claude Code PreToolUse hook: 外部 AI (Codex/Antigravity/Gemini legacy) の write タスクが main worktree で実行されることを防止
 
 input=$(cat)
 command=$(echo "$input" | python3 -c "
@@ -7,7 +7,7 @@ import sys, json
 try:
     d = json.load(sys.stdin)
     print(d.get('tool_input', {}).get('command', ''))
-except:
+except Exception:
     print('')
 " 2>/dev/null || echo "")
 
@@ -32,10 +32,11 @@ source_agent_policy_lib() {
 source_agent_policy_lib
 agent_policy_load
 
-# codex exec または gemini コマンドかチェック
 is_codex_write=false
+is_antigravity_write=false
 is_gemini_write=false
 is_codex_command=false
+is_antigravity_command=false
 is_gemini_command=false
 
 # コマンド先頭が codex exec かチェック（空白バリエーション対応）
@@ -47,7 +48,16 @@ if echo "$command" | grep -qE '(^|[;&|])\s*codex\s+exec\b'; then
     fi
 fi
 
-# コマンド先頭が gemini で --approval-mode plan 以外（= write モード）をチェック
+# Antigravity (`agy`) は headless scout の `--print --sandbox` だけを read-heavy とみなし、それ以外は write-capable として扱う。
+if echo "$command" | grep -qE '(^|[;&|])\s*agy\b'; then
+    is_antigravity_command=true
+    if ! echo "$command" | grep -qE '(^|[[:space:]])--print([[:space:]]|$)' || \
+       ! echo "$command" | grep -qE '(^|[[:space:]])--sandbox([[:space:]]|$)'; then
+        is_antigravity_write=true
+    fi
+fi
+
+# legacy Gemini は明示 engine として残す。--approval-mode plan 以外を write モードとして扱う。
 if echo "$command" | grep -qE '(^|[;&|])\s*gemini\b'; then
     is_gemini_command=true
     if ! echo "$command" | grep -qE '\-\-approval-mode(=|[[:space:]])plan([[:space:]]|$)'; then
@@ -55,10 +65,25 @@ if echo "$command" | grep -qE '(^|[;&|])\s*gemini\b'; then
     fi
 fi
 
+if [ "$is_antigravity_command" = true ] && agent_policy_is_disabled "antigravity"; then
+    echo "🚫 [hook] Antigravity は local agent policy で無効化されています。" >&2
+    echo "   MULTI_AI_DISABLED_ENGINES から antigravity を外すか、Codex / Claude / local verification で代替してください。" >&2
+    exit 2
+fi
+
 if [ "$is_gemini_command" = true ] && agent_policy_is_disabled "gemini"; then
-    echo "🚫 [hook] Gemini は local agent policy で無効化されています。" >&2
+    echo "🚫 [hook] Gemini legacy engine は local agent policy で無効化されています。" >&2
     echo "   MULTI_AI_DISABLED_ENGINES から gemini を外すか、Codex / Claude / local verification で代替してください。" >&2
     exit 2
+fi
+
+if [ "$is_antigravity_write" = true ]; then
+    antigravity_allow_write="${MULTI_AI_ANTIGRAVITY_ALLOW_WRITE:-false}"
+    if [ "$antigravity_allow_write" != "true" ]; then
+        echo "🚫 [hook] Antigravity write は local agent policy で明示許可されていません。" >&2
+        echo "   書き込みを許可する場合は dedicated branch/worktree で MULTI_AI_ANTIGRAVITY_ALLOW_WRITE=true を設定してください。" >&2
+        exit 2
+    fi
 fi
 
 if [ "$is_gemini_write" = true ]; then
@@ -70,7 +95,7 @@ if [ "$is_gemini_write" = true ]; then
     fi
 fi
 
-if [ "$is_codex_write" = false ] && [ "$is_gemini_write" = false ]; then
+if [ "$is_codex_write" = false ] && [ "$is_antigravity_write" = false ] && [ "$is_gemini_write" = false ]; then
     exit 0
 fi
 
@@ -78,6 +103,7 @@ fi
 current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
 if [ "$current_branch" = "main" ] || [ "$current_branch" = "master" ]; then
     tool_name="Codex"
+    [ "$is_antigravity_write" = true ] && tool_name="Antigravity"
     [ "$is_gemini_write" = true ] && tool_name="Gemini"
 
     echo "🚫 [hook] ${tool_name} の write タスクを main ブランチで実行しないでください。" >&2
@@ -86,7 +112,7 @@ if [ "$current_branch" = "main" ] || [ "$current_branch" = "master" ]; then
     echo "" >&2
     echo "   例: git worktree add .codex-work/<task> -b <branch-name>" >&2
     echo "       cd .codex-work/<task>" >&2
-    echo "       codex exec / gemini ..." >&2
+    echo "       codex exec / agy ..." >&2
     exit 2
 fi
 

@@ -2,7 +2,7 @@
   "commands": [
     {
       "name": "Multi-AI Review",
-      "description": "Codex + Gemini の Architect/Reviewer を4ペイン並列実行",
+      "description": "Codex + Antigravity の Architect/Reviewer を4ペイン並列実行",
       "color": "purple",
       "restart": "recreate",
       "layout": {
@@ -45,7 +45,7 @@
                 "type": "pane",
                 "surfaces": [
                   {
-                    "name": "Gemini Architect",
+                    "name": "Antigravity Architect",
                     "type": "terminal"
                   }
                 ]
@@ -54,7 +54,7 @@
                 "type": "pane",
                 "surfaces": [
                   {
-                    "name": "Gemini Reviewer",
+                    "name": "Antigravity Reviewer",
                     "type": "terminal"
                   }
                 ]
@@ -66,7 +66,7 @@
     },
     {
       "name": "Multi-AI Plan",
-      "description": "Codex + Gemini の Planner を2ペイン並列実行",
+      "description": "Codex + Antigravity の Planner を2ペイン並列実行",
       "color": "blue",
       "restart": "recreate",
       "layout": {
@@ -88,7 +88,7 @@
             "type": "pane",
             "surfaces": [
               {
-                "name": "Gemini Planner",
+                "name": "Antigravity Planner",
                 "type": "terminal"
               }
             ]
@@ -98,7 +98,7 @@
     },
     {
       "name": "Multi-AI Spec",
-      "description": "Codex + Gemini の Spec Writer を2ペイン並列実行",
+      "description": "Codex + Antigravity の Spec Writer を2ペイン並列実行",
       "color": "green",
       "restart": "recreate",
       "layout": {
@@ -120,7 +120,7 @@
             "type": "pane",
             "surfaces": [
               {
-                "name": "Gemini Spec",
+                "name": "Antigravity Spec",
                 "type": "terminal"
               }
             ]

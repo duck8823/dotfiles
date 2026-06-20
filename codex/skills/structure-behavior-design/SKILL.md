@@ -94,7 +94,7 @@ Medium 以上では、production code を書く前に以下を短く残す。`.a
 
 - **Claude foreground**: 要求・UX・統合判断・最終設計 note の責任を持つ。
 - **Codex worker/verifier**: scoped 実装、TDD、検証コマンド、security / edge case、構造レビュー証跡を返す。
-- **Gemini scout**: 共有デフォルトでは read-heavy に既存パターン、命名 drift、diff 外影響、docs/config 更新漏れ、構造 drift を見る。write 可否は local policy を優先する。
+- **Antigravity scout**: 共有デフォルトでは read-heavy に既存パターン、命名 drift、diff 外影響、docs/config 更新漏れ、構造 drift を見る。write 可否は local policy を優先する。
 
 外部 AI に diff / source を渡すときは既存の External AI delegation policy gate を優先する。
 

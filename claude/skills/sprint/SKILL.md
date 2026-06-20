@@ -26,7 +26,7 @@ gh issue view <番号>
 
 #### 2. 仕様書生成（3AI多重）
 `spec-driven` スキルを呼び出し:
-- Claude / Codex / Gemini の spec-writer を並列起動
+- Claude / Codex / Antigravity の spec-writer を並列起動
 - 統合して `.ai/spec/<issue番号>.md` 生成
 
 #### 3. 実装
@@ -42,7 +42,7 @@ gh issue view <番号>
 
 #### 5. Multi-AI レビュー
 `multi-ai-review` スキルを呼び出し:
-- Architect（Claude + Codex）+ Reviewer（Claude + Codex + Gemini）
+- Architect（Claude + Codex）+ Reviewer（Claude + Codex + Antigravity）
 - Claude Opus が結果を統合
 - CRITICAL → 修正 → 再レビュー
 

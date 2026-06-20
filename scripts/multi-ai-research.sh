@@ -5,7 +5,7 @@ usage() {
   cat <<'USAGE'
 multi-ai-research.sh
 
-Run Claude / Gemini / Codex as safe headless research partners and write a status bundle.
+Run Claude / Antigravity / Codex as safe headless research partners and write a status bundle.
 
 Usage:
   multi-ai-research.sh --topic "research topic" [options]
@@ -15,7 +15,7 @@ Options:
   --topic TEXT              Research topic. Required unless --prompt-file is set.
   --prompt-file PATH        Prompt body to send.
   --packet PATH             Reviewed/sanitized context packet to append.
-  --engines LIST            Comma-separated engines: claude,gemini,codex (default: MULTI_AI_ENGINES or claude,gemini,codex)
+  --engines LIST            Comma-separated engines: claude,antigravity,codex (default: MULTI_AI_ENGINES or claude,antigravity,codex; gemini is legacy explicit-only)
   --out-dir PATH            Output directory (default: /private/tmp/multi-ai-research-<timestamp>)
   --mode MODE               auto|workspace|packet|general (default: auto)
   --workspace-root PATH     Workspace root for --mode workspace/auto (default: current directory)
@@ -36,6 +36,8 @@ Safety modes:
 Local policy:
   This script reads ~/.config/ai-agent-policy.env or AI_AGENT_POLICY_FILE when present.
   Supported keys: MULTI_AI_ENGINES, MULTI_AI_DISABLED_ENGINES,
+  MULTI_AI_ANTIGRAVITY_CLI, MULTI_AI_ANTIGRAVITY_SANDBOX,
+  MULTI_AI_ANTIGRAVITY_MODEL, MULTI_AI_ANTIGRAVITY_PRINT_TIMEOUT,
   MULTI_AI_GEMINI_APPROVAL_MODE, MULTI_AI_GEMINI_SKIP_TRUST,
   MULTI_AI_CODEX_SANDBOX, MULTI_AI_CODEX_MODEL, MULTI_AI_CODEX_REASONING_EFFORT,
   MULTI_AI_GEMINI_MODEL, MULTI_AI_TOOL_OUTPUT_TOKEN_LIMIT,
@@ -68,7 +70,7 @@ agent_policy_load
 topic=""
 prompt_file=""
 packet_file=""
-engines="${MULTI_AI_ENGINES:-claude,gemini,codex}"
+engines="${MULTI_AI_ENGINES:-claude,antigravity,codex}"
 mode="auto"
 dry_run=false
 timeout_seconds="${MULTI_AI_TIMEOUT_SECONDS:-600}"
@@ -79,6 +81,10 @@ source_extensions="md,markdown,sh,bash,zsh,toml,json,yml,yaml,go,py,ts,tsx,js,js
 max_file_bytes="${MULTI_AI_MAX_FILE_BYTES:-25000}"
 max_total_bytes="${MULTI_AI_MAX_TOTAL_BYTES:-600000}"
 disabled_engines="${MULTI_AI_DISABLED_ENGINES:-}"
+antigravity_cli="${MULTI_AI_ANTIGRAVITY_CLI:-agy}"
+antigravity_sandbox="${MULTI_AI_ANTIGRAVITY_SANDBOX:-true}"
+antigravity_model="${MULTI_AI_ANTIGRAVITY_MODEL:-}"
+antigravity_print_timeout="${MULTI_AI_ANTIGRAVITY_PRINT_TIMEOUT:-$timeout_seconds}"
 gemini_approval_mode="${MULTI_AI_GEMINI_APPROVAL_MODE:-plan}"
 gemini_skip_trust="${MULTI_AI_GEMINI_SKIP_TRUST:-true}"
 codex_sandbox="${MULTI_AI_CODEX_SANDBOX:-read-only}"
@@ -170,6 +176,29 @@ if ! [[ "$tool_output_token_limit" =~ ^[1-9][0-9]*$ ]]; then
   echo "WARN: invalid MULTI_AI_TOOL_OUTPUT_TOKEN_LIMIT=${tool_output_token_limit}; falling back to 12000" >&2
   tool_output_token_limit=12000
 fi
+normalize_engine_csv() {
+  local input="$1"
+  local -a normalized=()
+  local engine
+  IFS=',' read -r -a requested_array <<< "$input"
+  for engine in "${requested_array[@]}"; do
+    engine="$(printf '%s' "$engine" | tr -d '[:space:]')"
+    [ -n "$engine" ] || continue
+    case "$engine" in
+      agy) engine="antigravity" ;;
+    esac
+    normalized+=("$engine")
+  done
+  local IFS=','
+  printf '%s' "${normalized[*]}"
+}
+
+engines="$(normalize_engine_csv "$engines")"
+
+if ! [[ "$antigravity_print_timeout" =~ ^[1-9][0-9]*$ ]]; then
+  echo "WARN: invalid MULTI_AI_ANTIGRAVITY_PRINT_TIMEOUT=${antigravity_print_timeout}; falling back to ${timeout_seconds}" >&2
+  antigravity_print_timeout="$timeout_seconds"
+fi
 case "$codex_reasoning_effort" in
   minimal|low|medium|high|xhigh) ;;
   *)
@@ -180,8 +209,15 @@ esac
 
 unsafe_research_modes="${MULTI_AI_ALLOW_UNSAFE_RESEARCH_MODES:-false}"
 if [ "$unsafe_research_modes" != "true" ]; then
+  case "$(printf '%s' "$antigravity_sandbox" | tr '[:upper:]' '[:lower:]')" in
+    true|1|yes|on) ;;
+    *)
+      echo "WARN: multi-ai-research forces Antigravity sandbox on; set MULTI_AI_ALLOW_UNSAFE_RESEARCH_MODES=true only in a scoped worktree flow" >&2
+      antigravity_sandbox="true"
+      ;;
+  esac
   if [ "$gemini_approval_mode" != "plan" ]; then
-    echo "WARN: multi-ai-research forces Gemini approval mode to plan; set MULTI_AI_ALLOW_UNSAFE_RESEARCH_MODES=true only in a scoped worktree flow" >&2
+    echo "WARN: multi-ai-research forces legacy Gemini approval mode to plan; set MULTI_AI_ALLOW_UNSAFE_RESEARCH_MODES=true only in a scoped worktree flow" >&2
     gemini_approval_mode="plan"
   fi
   if [ "$codex_sandbox" != "read-only" ]; then
@@ -264,7 +300,7 @@ max_total_bytes = int(max_total_arg)
 allowed_ext = {x.strip().lower().lstrip(".") for x in extensions_arg.split(",") if x.strip()}
 always_names = {
     "readme", "readme.md", "license", "notice.md", "agents.md", "claude.md",
-    "gemini.md", "makefile", "dockerfile", "justfile", ".gitignore",
+    "antigravity.md", "gemini.md", "makefile", "dockerfile", "justfile", ".gitignore",
 }
 
 def run_git(args: list[str], check: bool = False) -> str:
@@ -509,6 +545,7 @@ elif [ "$mode_effective" = "packet" ] && [ -z "$packet_file" ]; then
 fi
 
 prompt_path="$out_dir/prompt.md"
+antigravity_prompt_path="$out_dir/prompt.antigravity.md"
 gemini_prompt_path="$out_dir/prompt.gemini.md"
 status_path="$out_dir/status.md"
 summary_path="$out_dir/summary.md"
@@ -545,15 +582,18 @@ PROMPT
   fi
 } > "$prompt_path"
 
-# Gemini CLI expands @file-style references before sending the prompt to the model.
-# Workspace packets frequently contain emails, git remotes, examples, and source snippets with "@".
-# Transport-escape @ for Gemini only so the reviewed packet is not interpreted as local file paths.
-# The original packet path and sha256 remain in status for cross-engine audit.
-python3 - "$prompt_path" "$gemini_prompt_path" <<'PY'
+# Gemini CLI and Antigravity may treat @file-style text specially before sending
+# the prompt to the model. Workspace packets frequently contain emails, git remotes,
+# examples, and source snippets with "@". Transport-escape @ for those engines so
+# the reviewed packet is not interpreted as local file paths. The original packet
+# path and sha256 remain in status for cross-engine audit.
+python3 - "$prompt_path" "$antigravity_prompt_path" "$gemini_prompt_path" <<'PY'
 from pathlib import Path
 import sys
 src = Path(sys.argv[1]).read_text()
-Path(sys.argv[2]).write_text(src.replace("@", r"\u0040"))
+escaped = src.replace("@", r"\u0040")
+for output in sys.argv[2:]:
+    Path(output).write_text(escaped)
 PY
 
 run_timeout() {
@@ -596,7 +636,7 @@ classify_result() {
     echo "prompt_file_reference_expansion"
     return
   fi
-  if grep -Eqi 'not running in a trusted directory|Gemini CLI is not running in a trusted directory|trust this directory in interactive mode|trusted folders/#headless' "$file"; then
+  if grep -Eqi 'not running in a trusted directory|Gemini CLI is not running in a trusted directory|Antigravity.*trusted|trust this directory in interactive mode|trusted folders/#headless' "$file"; then
     echo "trust_failed"
     return
   fi
@@ -608,7 +648,7 @@ classify_result() {
     echo "timeout"
     return
   fi
-  if grep -Eqi 'Opening authentication page|Do you want to continue|authentication page|not authenticated|Please log in|login required' "$file"; then
+  if grep -Eqi 'Opening authentication page|Do you want to continue|authentication page|not authenticated|Please log in|login required|not_logged_in|login_required|not signed in|sign in to continue|sign in to (Antigravity|Claude|Gemini|Codex)|OAuth[^[:cntrl:]]*(login|authentication|device)|paste[^[:cntrl:]]+code[^[:cntrl:]]+(login|authentication|browser)' "$file"; then
     echo "auth_prompt"
     return
   fi
@@ -620,7 +660,7 @@ classify_result() {
     echo "policy_or_permission_denied"
     return
   fi
-  if grep -Eqi '(^|[^[:alnum:]_])(claude|gemini|codex)_not_found([^[:alnum:]_]|$)' "$file"; then
+  if grep -Eqi '(^|[^[:alnum:]_])(claude|antigravity|agy|gemini|codex)_not_found([^[:alnum:]_]|$)' "$file"; then
     echo "tool_not_found"
     return
   fi
@@ -647,6 +687,39 @@ run_claude() {
       --disallowedTools "Read,Glob,Grep,Bash,Edit,MultiEdit,Write,NotebookRead,NotebookEdit" \
       --no-session-persistence \
       --output-format text < "$prompt_path"
+  ) >"$out" 2>"$err" || {
+    local code=$?
+    {
+      echo "EXIT_CODE=$code"
+      cat "$err"
+    } >> "$out"
+    return "$code"
+  }
+  cat "$err" >> "$out"
+}
+
+
+run_antigravity() {
+  local out="$out_dir/antigravity.md"
+  local err="$out_dir/antigravity.err"
+  if ! command -v "$antigravity_cli" >/dev/null 2>&1; then
+    printf 'EXIT_CODE=127\nantigravity_not_found\n' > "$out"
+    return 127
+  fi
+  local antigravity_cwd="$out_dir/antigravity-cwd"
+  mkdir -p "$antigravity_cwd"
+  (
+    cd "$antigravity_cwd"
+    export TERM=xterm-256color
+    export NO_BROWSER=true
+    set -- "$antigravity_cli" --print --print-timeout "$antigravity_print_timeout"
+    case "$(printf '%s' "$antigravity_sandbox" | tr '[:upper:]' '[:lower:]')" in
+      true|1|yes|on) set -- "$@" --sandbox ;;
+    esac
+    if [ -n "$antigravity_model" ]; then
+      set -- "$@" --model "$antigravity_model"
+    fi
+    run_timeout "$@" < "$antigravity_prompt_path"
   ) >"$out" 2>"$err" || {
     local code=$?
     {
@@ -742,7 +815,11 @@ engines="$(agent_policy_csv_filter_disabled "$engines_requested")"
   echo "- engines_effective: ${engines:-'(none)'}"
   echo "- engines_skipped_by_policy: ${engines_skipped_by_policy:-'(none)'}"
   echo "- policy_file: ${AI_AGENT_POLICY_FILE:-${HOME:-}/.config/ai-agent-policy.env}"
-  echo "- gemini_approval_mode: $gemini_approval_mode"
+  echo "- antigravity_cli: $antigravity_cli"
+  echo "- antigravity_sandbox: $antigravity_sandbox"
+  echo "- antigravity_model: ${antigravity_model:-'(default routing)'}"
+  echo "- antigravity_print_timeout: $antigravity_print_timeout"
+  echo "- gemini_approval_mode: $gemini_approval_mode (legacy explicit-only)"
   echo "- gemini_skip_trust: $gemini_skip_trust"
   echo "- gemini_model: ${gemini_model:-'(default routing)'}"
   echo "- codex_sandbox: $codex_sandbox"
@@ -754,6 +831,8 @@ engines="$(agent_policy_csv_filter_disabled "$engines_requested")"
   echo "- claude_permission_mode: $claude_permission_mode"
   echo "- prompt: $prompt_path"
   echo "- prompt_sha256: $(sha256_file "$prompt_path")"
+  echo "- antigravity_prompt: $antigravity_prompt_path"
+  echo "- antigravity_prompt_sha256: $(sha256_file "$antigravity_prompt_path")"
   echo "- gemini_prompt: $gemini_prompt_path"
   echo "- gemini_prompt_sha256: $(sha256_file "$gemini_prompt_path")"
   if [ -n "$packet_file" ]; then
@@ -808,6 +887,7 @@ for engine in "${engine_array[@]}"; do
   set +e
   case "$engine" in
     claude) run_claude ;;
+    antigravity|agy) run_antigravity ;;
     gemini) run_gemini ;;
     codex) run_codex ;;
     *)
