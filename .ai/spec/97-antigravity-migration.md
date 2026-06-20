@@ -6,7 +6,7 @@
 - 目的: dotfiles の Gemini CLI 前提を Antigravity CLI (`agy`) 前提へ移し、multi-AI 調査・監査・インストール・安全フックを新しい CLI 表面に合わせる。
 - 現状: Gemini CLI 用の `~/.gemini/settings.json`、`gemini/agents/*.md`、`gemini --approval-mode plan` 実行、Traceary Gemini hook 前提が複数箇所に残っている。
 - 期待する振る舞い: 共有既定は `claude,antigravity,codex` になり、Antigravity 設定は `~/.gemini/antigravity-cli/settings.json` に同期される。既存 Gemini 設定は managed なら掃除し、local override は保持する。
-- 非対象: Traceary 側の Antigravity hook/package 実装そのもの。v0.21.0 の doctor 警告どおり、公開 hook contract がない間はキャプチャ未対応として扱う。
+- 非対象: Traceary 側の Antigravity hook/package 実装そのもの。Traceary 0.21.2 では hook 設定と plugin は利用可能だが、dotfiles は実装せず監査結果として扱う。
 
 ### Conceptual model
 | Concept | State | Behavior | Constraint / Invariant |
@@ -14,7 +14,7 @@
 | Antigravity engine | `agy` CLI, headless print | sanitized prompt を stdin で受け、結果を bundle に保存する | repo 直接読みに戻さず、packet sha256 で監査する |
 | Legacy Gemini | 明示指定時だけ使う旧 engine | 既存の失敗分類・skip を維持する | default engine にはしない |
 | Managed settings | managed hash 追跡 | unedited は自動更新/廃止掃除、edited は保持 | local override を破壊しない |
-| Traceary Antigravity diagnostic | doctor-only | `traceary doctor --client antigravity` を監査する | `hooks print --client antigravity` は呼ばない |
+| Traceary Antigravity hook observability | doctor + hooks print + plugin list | `traceary doctor --client antigravity` と `traceary hooks print --client antigravity` を監査する | headless `agy --print` の final transcript coverage は別 smoke で確認する |
 
 ### Responsibility assignment
 | Responsibility | Owner | Reason to change | Not owner / reason |
@@ -30,7 +30,7 @@
 | `--engines claude,antigravity,codex` | Claude/Codex commands, user | `agy --print --sandbox` の呼び出し詳細 | `classification` と exit code を status に残す |
 | `~/.gemini/antigravity-cli/settings.json` | Antigravity CLI | managed hash / candidate file | local edit 衝突時は `.dotfiles-new` |
 | `MULTI_AI_ANTIGRAVITY_*` | local policy | allowlist parser | 未許可 key は無視 |
-| Traceary antigravity doctor | audit script | hook unsupported detail | doctor warn は evidence として保存 |
+| Traceary antigravity doctor/hooks | audit script | hook support と capture coverage の差分 | doctor warn / hooks print / plugin list を evidence として保存 |
 
 ### Behavior tests
 | Behavior | Given | When | Then | Level |
@@ -39,7 +39,7 @@
 | Antigravity settings sync | clean HOME | install.sh | `~/.gemini/antigravity-cli/settings.json` と hash が作られる | install test |
 | legacy cleanup safety | old managed Gemini files | install.sh | managed 旧ファイルは消え、local override は保持 | install test |
 | main branch write gate | `agy` write command | hook | `MULTI_AI_ANTIGRAVITY_ALLOW_WRITE` なしなら block | hook test |
-| audit diagnostic | traceary installed | audit script | antigravity doctor を保存し hooks print は skip | shell/smoke |
+| audit diagnostic | traceary installed | audit script | antigravity doctor と hooks print を保存する | shell/smoke |
 
 ### TDD plan
 | Behavior | Red | Green | Refactor target |

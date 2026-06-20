@@ -14,8 +14,8 @@ Notes:
   - This script only reads local config and writes the audit bundle.
   - In sandboxed runtimes, Traceary SQLite access may fail; the failure is recorded
     instead of hidden.
-  - Traceary v0.21 can diagnose Antigravity capability, but Antigravity hooks are
-    not queried because there is no supported hooks print surface yet.
+  - Traceary v0.21.2+ can print/install Antigravity hook config. This audit
+    records doctor, hooks print, and CLI plugin status separately.
 USAGE
 }
 
@@ -75,11 +75,7 @@ if command -v traceary >/dev/null 2>&1; then
   run_capture "traceary version" "$out_dir/traceary-version.txt" "$out_dir/traceary-version.err" traceary --version
   for client in claude gemini codex antigravity; do
     run_capture "traceary doctor $client" "$out_dir/traceary-doctor-$client.json" "$out_dir/traceary-doctor-$client.err" traceary doctor --client "$client" --json
-    if [ "$client" = "antigravity" ]; then
-      record_skip "traceary hooks $client" "$out_dir/traceary-hooks-$client.txt" "$out_dir/traceary-hooks-$client.err" "skipped: Traceary currently exposes Antigravity capability via doctor; hooks print is intentionally unsupported until a public Antigravity hook contract exists."
-    else
-      run_capture "traceary hooks $client" "$out_dir/traceary-hooks-$client.txt" "$out_dir/traceary-hooks-$client.err" traceary hooks print --client "$client"
-    fi
+    run_capture "traceary hooks $client" "$out_dir/traceary-hooks-$client.txt" "$out_dir/traceary-hooks-$client.err" traceary hooks print --client "$client"
   done
 else
   echo "traceary not found" > "$out_dir/traceary-version.err"
@@ -122,7 +118,7 @@ done
   echo
   echo "- exit 0: local config / hook status command succeeded."
   echo "- non-zero traceary doctor in sandbox is often SQLite / permission related; rerun outside sandbox before changing dotfiles."
-  echo "- Antigravity hooks are reported through doctor only until Traceary and Antigravity have a public hook contract."
+  echo "- Antigravity hook config is collected via traceary hooks print; doctor pass does not by itself prove final transcript coverage."
   echo "- memory activation warnings with 0 accepted memories are review items, not automatic failures."
 } > "$summary"
 
