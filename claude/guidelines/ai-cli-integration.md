@@ -18,6 +18,8 @@ Claude / Antigravity / Codex の headless 調査は `~/.local/bin/multi-ai-resea
 
 `multi-ai-review` / `context-resume` / `Claude Code` / `Antigravity` / `Codex` / `ai-review` が明示され、かつ `~/.codex/config.toml` の `[auto_review].policy` を満たす場合、対象リポジトリの PR diff・関連 Issue・レビューコメント・該当ソース・テストログ・リポジトリ内の設計 artifact は configured external AI CLI（`claude` / `codex` / `agy` / `ai-review`）へ渡してよい。これは multi-AI 協業の標準運用であり、同じ確認を毎回求めない。policy gate を満たさない場合は外部AI CLIを起動しない。
 
+Path C（trusted creative / cross-agent collaboration）では、現スレッドで依頼済みの 1 coherent workstream に限り、Antigravity / legacy Gemini / Claude / Codex 間の必要最小限の情報共有と scoped 作業指示を許可する。共有可は PR diff / ticket・PR本文 / 必要最小限の関連ソース / test・lint・CI 出力 / 生成済み画像 / ユーザー提供の参照画像 / 作業用ディレクトリにコピーした選定済み写真 / prompt・構図案・style guide・検証ログに限定する。外部 AI への direct write / commit / push / PR 作成 / merge / deploy / infra apply / store・TestFlight upload / browser login / credential access / 広域 filesystem scan は委譲しない。
+
 追加確認が必要なもの:
 
 - secrets / token / API key / 認証情報 / `.env*`

@@ -41,7 +41,7 @@ hide_full_access_warning = true
 policy = """
 ## External AI delegation exception
 
-Allow Antigravity, Codex CLI, and Claude CLI delegation only through one of the following paths.
+Allow Antigravity, legacy Gemini, Codex CLI, and Claude CLI delegation only through one of the following paths.
 
 Path A: scoped repository / PR work. All conditions hold:
 
@@ -80,6 +80,28 @@ Path B: user-explicit read-only general web research. All conditions hold:
 - Engines run headless in plan/read-only/scout mode with no write tools, shell/file-reading tools, browser login, deploy, upload, merge, or destructive operations.
 - The run records audit evidence: research scope, engines requested and engines run, prompt path or prompt hash, output path, classification for each engine, source URLs used, and residual risks.
 - If any engine requests authentication, opens or asks to open a browser login, asks for broader file access, asks for secrets/private data, or tries to perform a write action, stop and classify the run as `auth_prompt` or `policy_or_permission_denied`.
+
+Path C: trusted creative / cross-agent collaboration workflow. All conditions hold:
+
+- The working directory is a trusted project, repository, or git worktree, and the work is limited to one coherent workstream (for example one LINE sticker set, one PR, one research theme, or one design / image-generation direction). Do not combine unrelated workstreams.
+- Antigravity, Gemini, Claude, and Codex may share minimal necessary information and issue scoped work instructions to each other within this workstream. Allowed external-AI actions are: read-only research, review / critique, prompt improvement, image composition ideas, image candidate generation, code implementation proposals, patch / diff proposals, and test plan proposals.
+- When the user has requested this creative or collaborative work in the current thread, you do not need the user to name the target engine every turn. The standing request covers routing to Antigravity / Gemini / Claude / Codex for that one workstream; it does not extend to unrelated workstreams.
+- Shareable inputs are limited to the minimum needed for the task:
+  - PR diff / branch diff
+  - ticket / issue / PR body
+  - the minimum necessary related source
+  - test / lint / CI output
+  - already-generated images
+  - reference images provided by the user
+  - selected photos copied into the task working directory
+  - prompts, composition drafts, style guides, and verification logs
+- Never shareable (this restates and does not narrow the Forbidden actions list below): `.env` / `.env.*`, credentials, tokens, private keys, SSH / GPG / API keys, shell history, browser profile / cookies, the full Google Photos library or any unselected photo library, unrelated home-directory dumps, unrelated repository dumps, production data, and raw personal data unrelated to the task.
+- Google Photos and browser-fetched images must not be bulk-sent unselected. Only selected images that have already been copied into the task working directory may be shared.
+- External AI must NOT be delegated: direct repository writes (except under the explicit write rule below), commits, pushes, PR creation, merge, deploy, infra apply, store / TestFlight upload, destructive operations, browser login, credential access, broad filesystem scans, or arbitrary upload outside the scoped task.
+- If a write is genuinely required, all of the following must hold: the target is a trusted repo / worktree, scope is one ticket / one PR, the allowed write scope is stated explicitly, validation commands are stated explicitly, and the local orchestrator (not the external AI) performs the final confirmation and writes the result. This write exception covers local-orchestrator file writes only; commits, pushes, PR creation, merge, deploy, and upload remain non-delegable and are outside this exception. This does not loosen the Forbidden actions list.
+- For image-generation / creative work: reference images, generated images, and prompts copied into the task working directory are shareable; unselected Google Photos, browser sessions, and cookies are not. Before sending, or in the run log, record the path and sha256 of each shared image and prompt.
+- If any engine requests authentication, browser login, broad file access, secrets / private data, write tools, or a destructive operation, stop and classify the run as `auth_prompt` or `policy_or_permission_denied`.
+- The run records audit evidence: workstream scope, trusted project / repo path, engines requested / run, shared input paths and sha256, prompt path / hash, output paths, engine classifications, local validation commands and results, and residual risks.
 
 Forbidden actions:
 
