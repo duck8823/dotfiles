@@ -48,7 +48,9 @@ if echo "$command" | grep -qE '(^|[;&|])\s*codex\s+exec\b'; then
     fi
 fi
 
-# Antigravity (`agy`) は headless scout の `--print --sandbox` だけを read-heavy とみなし、それ以外は write-capable として扱う。
+# Antigravity (`agy`) は raw shell command では headless scout の `--print --sandbox` だけを read-heavy とみなし、それ以外は write-capable として扱う。
+# sandbox が auth を隠す場合の no-sandbox authenticated transport retry は、
+# `multi-ai-research.sh` / review runner が empty cwd・NO_BROWSER・no --add-dir・同一 prompt で内部実行し、status に記録する。
 if echo "$command" | grep -qE '(^|[;&|])\s*agy\b'; then
     is_antigravity_command=true
     if ! echo "$command" | grep -qE '(^|[[:space:]])--print([[:space:]]|$)' || \

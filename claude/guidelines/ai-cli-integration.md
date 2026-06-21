@@ -29,6 +29,18 @@ Path C（trusted creative / cross-agent collaboration）では、現スレッド
 
 agent 間で context を共有する場合は、Traceary / git / PR / Issue から resume packet に蒸留し、上記の境界を明記する。secrets を貼り付けない。repo 外 artifact を渡す必要がある場合は、その path と目的を明示して人間確認を取る。
 
+## 認証済み transport surface と sandbox の分離
+
+外部 AI CLI は、**host 側の既存認証を使える surface で起動**し、渡すデータと tool 権限を別途絞る。CLI sandbox を「認証情報を隠す境界」として使うと、ログイン済みでも `not authenticated` / browser login prompt になることがある。
+
+- 認証 surface: `claude` / `agy` / `codex` / `gemini` が通常の `HOME` / keychain / `CODEX_HOME` を読めること。
+- データ境界: sanitized packet / PR bundle / prompt file だけを stdin で渡すこと。`.env*`、credentials、tokens、shell history、repo 外 private file は渡さない。
+- tool 境界: empty cwd、`NO_BROWSER=true`、`--add-dir` 禁止、Claude `--permission-mode plan` + file tools disallow、Codex `--sandbox read-only`、Gemini `--approval-mode plan`、Antigravity sandbox-first。
+- Antigravity sandbox が認証状態だけを隠して `auth_prompt` になった場合は、同じ engine / 同じ prompt / empty cwd / `NO_BROWSER=true` / no `--add-dir` で **1回だけ** `authenticated_transport_without_cli_sandbox` retry を行ってよい。成功・失敗の両 attempt を status / PR コメントに残す。
+- retry 後も `auth_prompt` なら停止し、ブラウザ login を自動実行せず、別 engine へ暗黙 fallback しない。
+
+この retry は read-only research / scout / review planning の transport 例外であり、write / commit / push / PR 作成 / merge / deploy / upload を許可しない。
+
 ## キャッシュ・作業ディレクトリの env 強制
 
 Codex / Antigravity / Claude サブエージェントを起動する前に、ビルドキャッシュ系 env を `$HOME` 配下に固定して export する。AI ツールが `$PWD/.cache` `$PWD/.gocache` `$PWD/.gopath` 等を勝手に作って ENOSPC を引き起こす事象を防ぐため。
@@ -49,7 +61,7 @@ export PUB_CACHE="$HOME/.pub-cache"
 | ツール | 目的 | コマンド例 | 補足 |
 |--------|------|-----------|------|
 | Codex | review / plan / worker | `codex exec --full-auto - < <prompt> \| tee <file>` | `-c 'agents.default.config_file=...'` で役割付与 |
-| Antigravity | scout / review / planning / optional scoped worker | `agy --print --sandbox < <prompt> 2>&1 \| tee <output>` | skills は `~/.gemini/antigravity-cli/skills/` に置く。write 可否は local policy 優先 |
+| Antigravity | scout / review / planning / optional scoped worker | `agy --print --sandbox < <prompt> 2>&1 \| tee <output>` | sandbox-first。auth_prompt が sandbox 起因なら同一 engine を empty cwd / NO_BROWSER / no --add-dir で 1 回だけ authenticated transport retry。write 可否は local policy 優先 |
 | Claude Code | design / implementation delegation | `claude -p < /tmp/claude-worker.md \| tee <output>` | `claude --print` も同じ headless 用途で使う |
 
 ## 運用ルール
@@ -60,6 +72,7 @@ export PUB_CACHE="$HOME/.pub-cache"
 - 書き込み可否・無効化・sandbox / model は local policy を優先する
 - 書き込みをさせる場合は、明示的に許可した isolated branch / worktree に限定する
 - **自律レビュー中のブラウザ認証禁止**: headless 実行で `Opening authentication page` / `Do you want to continue?` / `not authenticated` / `login required` が出たら、その場で Antigravity プロセスを停止する。これは login / 認証失敗なので **fallback せず、認証が必要な旨をユーザーに通知して再実行を促す**（別エンジンへ暗黙代替しない）
+- **sandbox 起因の認証失敗は同一 engine retry**: `--sandbox` が host CLI の認証状態だけを隠している疑いがある場合は、`MULTI_AI_ANTIGRAVITY_AUTH_RETRY_WITHOUT_SANDBOX=true` の範囲で、同じ prompt を空の per-run cwd から `NO_BROWSER=true`・追加 directory なし・`--sandbox` なしで 1 回だけ再実行する。retry でも auth prompt なら停止する
 - **headless 事前確認**: multi-AI review 前に短い read-only prompt をタイムアウト付きで実行し、認証プロンプト・空出力・quota を先に検出する。`agy --version` だけでは認証可否の確認にならない
 - **1プロンプト1質問**: 複合的な質問（多項目チェック等）ではツールエラー後にリカバリできず空出力で終了する。質問は短く単一にして個別実行する
 - **クォータ枯渇のサイレント失敗**: 連続実行で `429 QUOTA_EXHAUSTED` が発生しても exit code 0 で終了し出力が空になる。出力ファイルが空の場合はクォータ枯渇を疑う

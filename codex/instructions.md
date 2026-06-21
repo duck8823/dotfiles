@@ -25,7 +25,8 @@ Antigravity / legacy Gemini / Codex CLI / `@codex review` / Claude CLI delegatio
 - PR diff / local branch diff / workspace context packet / 関連ソース / テスト出力など、必要最小限だけを渡す
 - 同じ repo 質問を複数 AI に調査させる場合は、情報の偏りを避けるため同一の sanitized workspace context packet または同一の source/diff bundle を渡す
 - `.env`、credentials、tokens、private keys、shell history、無関係な repo / home directory dump を渡さない
-- Antigravity は共有テンプレートでは sandbox 付き scout を既定にするが、無効化・sandbox・write 可否はローカルポリシーで上書きできる。write を許可する場合も dedicated branch / worktree と明示スコープを必須にする
+- 外部 AI CLI は host 側の既存認証（CLI login / keychain / `CODEX_HOME` 等）を使える surface で起動し、データ境界は sanitized packet・empty cwd・NO_BROWSER・no broad `--add-dir`・read-only/plan/scout 権限で作る。sandbox は auth 境界ではなく tool/data 境界として扱い、prompt / packet に credentials を入れない
+- Antigravity は共有テンプレートでは sandbox-first scout を既定にする。`--sandbox` が host CLI の認証状態だけを隠して `auth_prompt` になった場合は、同一 engine / 同一 prompt / empty cwd / NO_BROWSER / no `--add-dir` / no `--sandbox` の `authenticated_transport_without_cli_sandbox` retry を 1 回だけ許可し、両 attempt を記録する。retry でも auth なら fallback せず停止する。無効化・sandbox・auth retry・write 可否はローカルポリシーで上書きできる。write を許可する場合も dedicated branch / worktree と明示スコープを必須にする
 - Codex verifier は `codex exec --full-auto -c 'agents.default.config_file="$HOME/.codex/agents/reviewer.toml"'` を優先する
 - local orchestrator の `gh pr merge` は `duck8823` owner/org のリポジトリに限り、PR が draft でなく、1 ticket / allowed ticket-less prefix、blocking review なし、Multi-AI/local verification 証跡、CI pass または `no checks reported`、branch protection 尊重を満たす場合は自律実行してよい。`duck8823` 以外の owner/org では自律 merge 禁止で、現ターンの具体的 PR merge 指示が必要
 - この例外は main/master 直 push、production deploy / infra apply、store/TestFlight upload、release tag / GitHub Release 作成には適用しない

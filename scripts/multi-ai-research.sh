@@ -37,6 +37,7 @@ Local policy:
   This script reads ~/.config/ai-agent-policy.env or AI_AGENT_POLICY_FILE when present.
   Supported keys: MULTI_AI_ENGINES, MULTI_AI_DISABLED_ENGINES,
   MULTI_AI_ANTIGRAVITY_CLI, MULTI_AI_ANTIGRAVITY_SANDBOX,
+  MULTI_AI_ANTIGRAVITY_AUTH_RETRY_WITHOUT_SANDBOX,
   MULTI_AI_ANTIGRAVITY_MODEL, MULTI_AI_ANTIGRAVITY_PRINT_TIMEOUT,
   MULTI_AI_GEMINI_APPROVAL_MODE, MULTI_AI_GEMINI_SKIP_TRUST,
   MULTI_AI_CODEX_SANDBOX, MULTI_AI_CODEX_MODEL, MULTI_AI_CODEX_REASONING_EFFORT,
@@ -83,6 +84,7 @@ max_total_bytes="${MULTI_AI_MAX_TOTAL_BYTES:-600000}"
 disabled_engines="${MULTI_AI_DISABLED_ENGINES:-}"
 antigravity_cli="${MULTI_AI_ANTIGRAVITY_CLI:-agy}"
 antigravity_sandbox="${MULTI_AI_ANTIGRAVITY_SANDBOX:-true}"
+antigravity_auth_retry_without_sandbox="${MULTI_AI_ANTIGRAVITY_AUTH_RETRY_WITHOUT_SANDBOX:-true}"
 antigravity_model="${MULTI_AI_ANTIGRAVITY_MODEL:-}"
 antigravity_print_timeout="${MULTI_AI_ANTIGRAVITY_PRINT_TIMEOUT:-$timeout_seconds}"
 gemini_approval_mode="${MULTI_AI_GEMINI_APPROVAL_MODE:-plan}"
@@ -191,6 +193,13 @@ normalize_engine_csv() {
   done
   local IFS=','
   printf '%s' "${normalized[*]}"
+}
+
+is_truthy() {
+  case "$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')" in
+    true|1|yes|on) return 0 ;;
+  esac
+  return 1
 }
 
 engines="$(normalize_engine_csv "$engines")"
@@ -558,6 +567,7 @@ Safety boundary:
 - Do not read local files, repositories, shell history, credentials, tokens, `.env*`, or private user data.
 - Do not ask for secrets or raw personal / production data.
 - If local repository context is needed but not provided in this prompt, say exactly what sanitized packet is needed.
+- Treat this prompt and any reviewed context packet as the only allowed task context even when the CLI transport is using the host-authenticated login state.
 - Prefer official / primary sources. Mark uncertain or secondary-source-only claims.
 - Return concise Japanese output with: conclusion, evidence/source URLs, recommended actions, uncertainty.
 - Transport note: some engine prompts may escape `@` as `\u0040` to prevent CLI file-reference expansion.
@@ -680,6 +690,7 @@ run_claude() {
   fi
   (
     cd /private/tmp
+    export NO_BROWSER=true
     run_timeout claude \
       --print \
       --permission-mode "$claude_permission_mode" \
@@ -700,6 +711,7 @@ run_claude() {
 
 
 run_antigravity() {
+  local use_sandbox="${1:-$antigravity_sandbox}"
   local out="$out_dir/antigravity.md"
   local err="$out_dir/antigravity.err"
   if ! command -v "$antigravity_cli" >/dev/null 2>&1; then
@@ -713,9 +725,9 @@ run_antigravity() {
     export TERM=xterm-256color
     export NO_BROWSER=true
     set -- "$antigravity_cli" --print --print-timeout "$antigravity_print_timeout"
-    case "$(printf '%s' "$antigravity_sandbox" | tr '[:upper:]' '[:lower:]')" in
-      true|1|yes|on) set -- "$@" --sandbox ;;
-    esac
+    if is_truthy "$use_sandbox"; then
+      set -- "$@" --sandbox
+    fi
     if [ -n "$antigravity_model" ]; then
       set -- "$@" --model "$antigravity_model"
     fi
@@ -817,6 +829,7 @@ engines="$(agent_policy_csv_filter_disabled "$engines_requested")"
   echo "- policy_file: ${AI_AGENT_POLICY_FILE:-${HOME:-}/.config/ai-agent-policy.env}"
   echo "- antigravity_cli: $antigravity_cli"
   echo "- antigravity_sandbox: $antigravity_sandbox"
+  echo "- antigravity_auth_retry_without_sandbox: $antigravity_auth_retry_without_sandbox"
   echo "- antigravity_model: ${antigravity_model:-'(default routing)'}"
   echo "- antigravity_print_timeout: $antigravity_print_timeout"
   echo "- gemini_approval_mode: $gemini_approval_mode (legacy explicit-only)"
@@ -903,11 +916,40 @@ for engine in "${engine_array[@]}"; do
   set -e
   result_file="$out_dir/$engine.md"
   classification="$(classify_result "$result_file")"
+  retry_initial_output=""
+  retry_initial_err=""
+  retry_mode=""
+  if [ "$engine" = "antigravity" ] && \
+     [ "$classification" = "auth_prompt" ] && \
+     is_truthy "$antigravity_auth_retry_without_sandbox" && \
+     is_truthy "$antigravity_sandbox"; then
+    # Some CLI sandboxes hide the host-authenticated Antigravity state. This is
+    # not a fallback to another engine: retry the same prompt once from the same
+    # empty per-run cwd, with NO_BROWSER=true and without --add-dir, but without
+    # the CLI sandbox flag so the host CLI can see its existing login.
+    retry_initial_output="$out_dir/antigravity.sandbox-auth-prompt.md"
+    retry_initial_err="$out_dir/antigravity.sandbox-auth-prompt.err"
+    mv "$result_file" "$retry_initial_output"
+    [ -f "$out_dir/antigravity.err" ] && mv "$out_dir/antigravity.err" "$retry_initial_err"
+    retry_mode="authenticated_transport_without_cli_sandbox"
+    set +e
+    run_antigravity false
+    code=$?
+    set -e
+    result_file="$out_dir/antigravity.md"
+    classification="$(classify_result "$result_file")"
+  fi
   {
     printf '\n## %s\n' "$engine"
     echo "- exit_code: $code"
     echo "- classification: $classification"
     echo "- output: $result_file"
+    if [ -n "$retry_mode" ]; then
+      echo "- auth_retry: $retry_mode"
+      echo "- initial_classification: auth_prompt"
+      echo "- initial_output: $retry_initial_output"
+      echo "- initial_stderr: $retry_initial_err"
+    fi
   } >> "$status_path"
   if [ "$classification" = "auth_prompt" ]; then
     auth_required=true
@@ -935,6 +977,11 @@ done
     printf '\n---\n\n## %s result\n\n' "$engine"
     cat "$result_file"
     echo
+    if [ "$engine" = "antigravity" ] && [ -f "$out_dir/antigravity.sandbox-auth-prompt.md" ]; then
+      printf '\n---\n\n## antigravity initial sandbox auth-prompt result\n\n'
+      cat "$out_dir/antigravity.sandbox-auth-prompt.md"
+      echo
+    fi
   done
 } > "$summary_path"
 

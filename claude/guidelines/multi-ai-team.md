@@ -8,7 +8,7 @@
 - **Claude**: foreground specialist / orchestrator candidate / integrator
 - **Antigravity**: policy-controlled scout / critic / optional worker
 
-共有 dotfiles は安全側のデフォルトを配るだけで、Antigravity を恒久的に read-only 固定しない。各マシン・各リポジトリでは `conventions/ai/local-agent-policy.md` に従い、Antigravity の無効化・sandbox・write 可否を上書きできる。
+共有 dotfiles は安全側のデフォルトを配るだけで、Antigravity を恒久的に read-only 固定しない。各マシン・各リポジトリでは `conventions/ai/local-agent-policy.md` に従い、Antigravity の無効化・sandbox・auth retry・write 可否を上書きできる。sandbox は auth 境界ではなく tool/data 境界なので、sandbox が host CLI の認証状態だけを隠す場合は同一 engine の authenticated transport retry を 1 回だけ許可する。
 
 ## モデル世代と Dynamic Workflows（2026-05 更新）
 

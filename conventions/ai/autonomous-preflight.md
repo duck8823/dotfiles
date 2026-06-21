@@ -90,7 +90,7 @@ dotfiles repo 外から使う場合は install 後の `rtk ~/.local/bin/validate
 - 分類:
   - `no_response`, `timeout`, `quota_or_capacity`, `empty_output`, `environment_unavailable`: local verification + 別 reviewer の証跡で補完可能。
   - `policy_or_permission_denied`, `local_policy_disabled`: policy を弱めず、欠落理由を記録して補完可能。
-  - `auth_prompt`: fallback 禁止。ブラウザ認証を開かず、ユーザーに CLI 認証修正を依頼する。
+  - `auth_prompt`: Antigravity sandbox が auth だけを隠す場合は同一 engine authenticated transport retry を 1 回だけ記録する。retry でも auth / 他 engine の auth は fallback 禁止。ブラウザ認証を開かず、ユーザーに CLI 認証修正を依頼する。
 
 コメントは helper で作る。
 

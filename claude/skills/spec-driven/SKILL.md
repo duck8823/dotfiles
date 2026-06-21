@@ -52,8 +52,11 @@ cat > /tmp/antigravity-spec-scout.md <<PROMPT
 ${ISSUE_JSON}
 PROMPT
 
+  RUNNER=$(command -v multi-ai-research.sh || printf '%s/.local/bin/multi-ai-research.sh' "$HOME")
   TERM=xterm-256color \
-  agy --print --sandbox < /tmp/antigravity-spec-scout.md > /tmp/antigravity-spec-scout-result.json 2>&1
+  "$RUNNER" --prompt-file /tmp/antigravity-spec-scout.md --mode packet --packet /tmp/antigravity-spec-scout.md --engines antigravity \
+    --out-dir /tmp/antigravity-spec-scout-bundle \
+    > /tmp/antigravity-spec-scout-result.json 2>&1
 ```
 
 ### 3. 統合して .ai/spec 生成（Claude メインセッション）
