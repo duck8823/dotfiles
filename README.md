@@ -100,17 +100,18 @@ Antigravity / legacy Gemini / Codex / Claude CLI への delegation は `~/.codex
 - general Web 調査では research scope・engines requested/run・prompt hash/path・output path・engine別classification・source URL・残リスクを記録する。auth/browser login、file access、secret/private data、write action を求められたら停止する
 - policy deny 時は設定を弱めず、理由を記録して Claude-only fallback + local verification + CI で補完
 
-### Local read-only BigQuery sandbox escalation
+### Local read-only external API sandbox escalation
 
-Codex local orchestrator が `bq` で BigQuery を確認する作業は、外部 AI delegation ではありません。ただし sandbox 内では `~/.config/gcloud` の credential cache に書けず失敗するため、次の条件を満たす場合だけ sandbox 外実行を許可します。
+Codex local orchestrator が外部 API / SaaS / data service を参照して AI 管理フローの証跡を集める作業は、外部 AI delegation ではありません。ただし provider CLI / SDK は sandbox 内で host 側の credential cache に触れず失敗することがあるため、次の条件を満たす場合だけ sandbox 外実行を許可します。
 
-- ユーザーが現在のターン、または同一スレッドの継続指示で BigQuery / BQ / `bq` による確認を明示している
-- 許可するコマンドは `bq query` / `bq show` / `bq ls` の read-only 用途だけ
-- `bq query` は原則 `SELECT` / `WITH ... SELECT` / `INFORMATION_SCHEMA` 等の読み取りに限定し、DDL / DML / export / load / copy / delete / table 作成変更を行わない
-- host の `~/.config/gcloud` credential / access-token cache は SDK の認証キャッシュとして read/update され得るが、credential / token / cookie / secret は表示・コピー・要約・commit・外部送信しない
-- production dataset では dry-run または `--maximum_bytes_billed`、集計・metadata・小さな `LIMIT` を優先し、生の個人情報、device token、endpoint ID、email、uid 一覧、秘密情報は取得しない
-- 認証 login / browser login / `gcloud auth login` が必要になった場合は停止してユーザーに依頼する
-- 報告には対象 project / dataset / table、実行した command class、最小化方針、結果要約、残リスクを残す
+- ユーザーが現在のターン、または同一スレッドの継続指示で、具体的な API / provider / resource の確認を明示している
+- 許可する操作は read-only の `get` / `list` / `show` / `describe` / `search` / `query` / metadata 参照に相当するものだけ
+- query 言語を使う場合は原則 `SELECT` / `WITH ... SELECT` / metadata 参照に限定し、DDL / DML / mutation / export / import / upload / deploy / 作成変更削除を行わない
+- host の credential / access-token cache は SDK の認証キャッシュとして read/update され得るが、credential / token / cookie / secret は表示・コピー・要約・commit・外部送信しない
+- production data では dry-run / cost cap / rate limit / 集計・metadata・小さな `LIMIT` を優先し、生の個人情報、device token、endpoint ID、email、uid 一覧、秘密情報は取得しない
+- 認証 login / browser login / 対話認証 / 広域 file access が必要になった場合は停止してユーザーに依頼する
+- 外部 AI reviewer へ渡せるのは sanitized summary だけで、raw API response / production row / credential / token / secret は渡さない
+- 報告には対象 provider / API / resource、実行した command class、sandbox 外 escalation、最小化方針、結果要約、外部 AI 共有の有無、残リスクを残す
 
 ### Codex 設定（`~/.codex/`）
 

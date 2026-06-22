@@ -33,17 +33,18 @@ Antigravity / legacy Gemini / Codex CLI / `@codex review` / Claude CLI delegatio
 - trusted creative / cross-agent 協調（Path C）: trusted project / repo / worktree 内の 1 coherent workstream（例: 1 つの LINE スタンプセット、1 PR、1 調査テーマ、1 デザイン/画像生成方向性）に限り、antigravity / gemini / claude / codex 間で必要最小限の情報共有と scoped 作業指示を許可する。ユーザーが現スレッドでその workstream を依頼済みなら、その workstream 内ではエンジン名を毎回明示しなくてよい。共有可は PR diff / ticket・PR本文 / 必要最小限の関連ソース / test・lint・CI 出力 / 生成済み画像 / ユーザー提供の参照画像 / 作業用ディレクトリにコピーした選定済み写真 / プロンプト・構図案・スタイルガイド・検証ログ。共有不可は `.env*` / credentials / tokens / private keys / SSH・GPG・API keys / shell history / browser profile・Cookie / Google Photos 全体や未選別の写真ライブラリ / 無関係な home・repo dump / production data / 無関係な個人データ。Google Photos やブラウザ取得画像は未選別の一括送信禁止で、作業用ディレクトリにコピー済みの選定画像のみ送ってよい。外部 AI への direct write / commit / push / PR 作成 / merge / deploy / infra apply / store・TestFlight upload / browser login / credential access / 広域 filesystem scan は委譲しない。write が必要なら trusted repo・worktree・1 ticket/1 PR・明示 write scope・validation commands を満たし、local orchestrator が最終確認して書き込む（本 write 例外は local orchestrator のファイル書き込みのみが対象で、commit / push / PR 作成 / merge / deploy / upload は例外に含めず委譲不可のまま）。送信前/ログに各画像・プロンプトの path と sha256 を記録し、workstream scope・trusted path・engines・shared input paths と sha256・prompt path/hash・output paths・engine classifications・local validation・残リスクを残す
 - policy deny 時は Guardian / sandbox / approval を弱めず、`skipped: policy_denied` と理由を記録して Claude-only fallback + local verification + CI で補完する
 
-## Local read-only BigQuery sandbox escalation
+## Local read-only external API sandbox escalation
 
-Codex local orchestrator がユーザーの明示指示で BigQuery / BQ / `bq` を確認する作業は外部 AI delegation ではないが、sandbox 内では `~/.config/gcloud` credential cache に書けず失敗し得るため、次の条件を満たす場合だけ sandbox 外実行を許可する。
+Codex local orchestrator がユーザーの明示指示で外部 API / SaaS / data service を参照し、AI 管理フローの判断材料や検証証跡を集める作業は外部 AI delegation ではない。ただし provider CLI / SDK は sandbox 内で host 側の credential cache に触れず失敗し得るため、次の条件を満たす場合だけ sandbox 外実行を許可する。
 
-- 現在ターンまたは同一スレッドの継続指示で、ユーザーが BigQuery / BQ / `bq` による確認を明示している
-- 許可する command class は `bq query` / `bq show` / `bq ls` の read-only 用途だけ
-- `bq query` は `SELECT` / `WITH ... SELECT` / `INFORMATION_SCHEMA` 等の読み取りに限定し、DDL / DML / `EXPORT DATA` / `LOAD DATA` / table 作成変更削除を行わない
-- host の `~/.config/gcloud` credential / access-token cache は SDK の認証キャッシュとして read/update され得るが、credential / token / cookie / secret は表示・コピー・要約・commit・外部送信しない
-- production dataset では dry-run または `--maximum_bytes_billed`、集計・metadata・小さな `LIMIT` を優先し、生の個人情報、device token、endpoint ID、email、uid 一覧、秘密情報は取得しない
-- `gcloud auth login` / browser login / 対話認証が必要になったら停止してユーザーに依頼する
-- 報告には project / dataset / table、実行した command class と sandbox 外 escalation、最小化方針、結果要約、残リスクを残す
+- 現在ターンまたは同一スレッドの継続指示で、ユーザーが具体的な API / provider / resource の確認を明示している
+- 許可する command / request class は read-only の `get` / `list` / `show` / `describe` / `search` / `query` / metadata 参照に相当するものだけ
+- query 言語は `SELECT` / `WITH ... SELECT` / metadata・aggregate 参照等に限定し、DDL / DML / mutation / `EXPORT DATA` / `LOAD DATA` / create / update / delete / deploy / upload を行わない
+- host の credential / access-token cache は SDK の認証キャッシュとして read/update され得るが、credential / token / cookie / secret は表示・コピー・要約・commit・外部送信しない
+- production data では dry-run / cost cap / rate limit / 集計・metadata・小さな `LIMIT` を優先し、生の個人情報、device token、endpoint ID、email、uid 一覧、秘密情報は取得しない
+- auth login / browser login / 対話認証 / 広域 file access が必要になったら停止してユーザーに依頼する
+- 外部 AI reviewer へ渡せるのは sanitized summary だけで、raw API response / production row / credential / token / secret は渡さない
+- 報告には provider / API / resource、実行した command/request class と sandbox 外 escalation、最小化方針、結果要約、外部 AI 共有の有無、残リスクを残す
 
 ## Structure-Behavior Design gate
 
