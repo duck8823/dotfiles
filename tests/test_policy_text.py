@@ -106,11 +106,28 @@ def main() -> None:
         "see the Path B exit condition above",
     )
     assert_contains(
+        "codex/config.toml.template",
+        "Local orchestrator read-only BigQuery sandbox escalation exception",
+        "not external AI delegation",
+        "read-only `bq query`, `bq show`, or `bq ls`",
+        "`~/.config/gcloud` credential databases",
+        "Credentials, tokens, cookies, and secrets must never be printed",
+        "project/dataset/table inspected",
+    )
+    assert_contains(
         "codex/instructions.md",
         "public/general Web 調査だけを行う場合",
         "ローカルファイル・source code・workspace packet・shell history・credentials・tokens",
         "research scope・engines requested/run",
         "auth/browser login、file access、secret/private data、write action",
+    )
+    assert_contains(
+        "codex/instructions.md",
+        "Local read-only BigQuery sandbox escalation",
+        "BigQuery / BQ / `bq` による確認を明示",
+        "`bq query` / `bq show` / `bq ls`",
+        "`~/.config/gcloud` credential / access-token cache",
+        "project / dataset / table",
     )
     assert_contains(
         "codex/instructions.md",
@@ -176,6 +193,8 @@ def main() -> None:
         "public/general Web 調査だけを行う場合",
         "current user request、非機密の短い project summary、public URL、出力 schema",
         "research scope・engines requested/run",
+        "Local read-only BigQuery sandbox escalation",
+        "`bq query` / `bq show` / `bq ls`",
         "~/.local/bin/agent-work-preflight.sh",
         "~/.local/bin/validate-codex-config-template.sh",
         "~/.local/bin/render-pr-review-fallback-comment.sh",
