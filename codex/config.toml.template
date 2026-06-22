@@ -141,6 +141,19 @@ Path C: trusted creative / cross-agent collaboration workflow. All conditions ho
 - If any engine requests authentication, browser login, broad file access, secrets / private data, write tools, or a destructive operation, stop and classify the run as `auth_prompt` or `policy_or_permission_denied`.
 - The run records audit evidence: workstream scope, trusted project / repo path, engines requested / run, shared input paths and sha256, prompt path / hash, output paths, engine classifications, local validation commands and results, and residual risks.
 
+Local orchestrator read-only BigQuery sandbox escalation exception (not external AI delegation):
+
+This exception allows the current Codex local orchestrator to run BigQuery inspection commands outside the filesystem sandbox only when all of the following hold:
+
+- The user explicitly requested BigQuery / BQ / `bq` inspection in the current turn or as a standing instruction in the same active thread.
+- The command class is limited to read-only `bq query`, `bq show`, or `bq ls`.
+- `bq query` is limited to read-only `SELECT`, `WITH ... SELECT`, `INFORMATION_SCHEMA`, or equivalent metadata/aggregate inspection. It must not execute DDL, DML, `EXPORT DATA`, `LOAD DATA`, table creation/modification/deletion, copy, extract, or delete operations.
+- The purpose is to answer the user's concrete question with minimized data. Prefer aggregate counts, ratios, metadata, dry-run, `--maximum_bytes_billed`, and small `LIMIT`s for production datasets.
+- Do not read or print raw personal data, production row dumps, device tokens, endpoint IDs, email addresses, raw uid lists, secrets, tokens, private keys, decrypted secret values, or credentials unless the user explicitly requests that exact sensitive read and the question cannot be answered with aggregates/metadata.
+- The Google Cloud SDK may read/update host `~/.config/gcloud` credential databases, access-token caches, and logs solely as authentication/cache side effects of the approved read-only `bq` command. Credentials, tokens, cookies, and secrets must never be printed, copied, summarized, committed, uploaded, or sent to external AI.
+- If `gcloud auth login`, browser login, interactive authentication, broader filesystem access, write/mutation, deploy, upload, or destructive operations are required, stop and classify as `auth_prompt` or `policy_or_permission_denied`.
+- Required output fields: project/dataset/table inspected, command class and sandbox escalation, minimization controls used, result summary, and residual risks.
+
 Forbidden actions:
 
 - Do not send `.env` files, credentials, tokens, private keys, secret files, shell history, arbitrary home-directory files, unrelated repository dumps, or unrelated repo context.
