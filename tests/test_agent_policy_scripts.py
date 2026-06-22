@@ -324,8 +324,11 @@ def main() -> None:
         assert "antigravity_auth_retry_without_sandbox: true" in budget_status
 
         antigravity_retry_marker = tmp_root / "codex-after-antigravity-auth-retry-ran"
+        antigravity_retry_log = tmp_root / "antigravity-auth-retry.log"
+        out_dir = tmp_root / "auth-retry-antigravity"
         fake_agy.write_text(
             "#!/usr/bin/env bash\n"
+            f"printf 'PWD=%s ARGS=%s NO_BROWSER=%s\\n' \"$PWD\" \"$*\" \"${{NO_BROWSER:-}}\" >> {shlex.quote(str(antigravity_retry_log))}\n"
             "case \" $* \" in\n"
             "  *' --sandbox '*) echo 'not authenticated in sandbox'; exit 42 ;;\n"
             "  *) echo 'antigravity host-auth retry ok'; exit 0 ;;\n"
@@ -334,7 +337,6 @@ def main() -> None:
         fake_codex.write_text(f"#!/usr/bin/env bash\ntouch {shlex.quote(str(antigravity_retry_marker))}\necho 'codex after retry ran'\n")
         fake_agy.chmod(0o755)
         fake_codex.chmod(0o755)
-        out_dir = tmp_root / "auth-retry-antigravity"
         run(
             [
                 "bash",
@@ -361,6 +363,12 @@ def main() -> None:
         assert (out_dir / "antigravity.sandbox-auth-prompt.md").exists()
         assert antigravity_retry_marker.exists()
         assert (out_dir / "codex.md").exists()
+        retry_invocations = antigravity_retry_log.read_text().splitlines()
+        assert len(retry_invocations) == 2
+        assert all(str(out_dir / "antigravity-cwd") in line for line in retry_invocations)
+        assert "--sandbox" in retry_invocations[0]
+        assert "--sandbox" not in retry_invocations[1]
+        assert all("NO_BROWSER=true" in line for line in retry_invocations)
 
         retry_disabled_policy = write_policy(
             tmp_root / "antigravity-auth-retry-disabled.env",
@@ -393,6 +401,40 @@ def main() -> None:
         assert "classification: auth_prompt" in retry_disabled_status
         assert "auth_retry: authenticated_transport_without_cli_sandbox" not in retry_disabled_status
         assert not retry_disabled_marker.exists()
+        assert not (out_dir / "codex.md").exists()
+
+        still_auth_marker = tmp_root / "codex-after-still-auth-retry-ran"
+        fake_agy.write_text("#!/usr/bin/env bash\necho 'still not authenticated'; exit 42\n")
+        fake_codex.write_text(f"#!/usr/bin/env bash\ntouch {shlex.quote(str(still_auth_marker))}\necho 'codex should not run after auth retry failure'\n")
+        fake_agy.chmod(0o755)
+        fake_codex.chmod(0o755)
+        out_dir = tmp_root / "auth-retry-antigravity-still-auth"
+        still_auth = run(
+            [
+                "bash",
+                str(script),
+                "--topic",
+                "antigravity sandbox auth retry still auth",
+                "--mode",
+                "general",
+                "--engines",
+                "antigravity,codex",
+                "--out-dir",
+                str(out_dir),
+            ],
+            env={
+                "PATH": f"{fake_bin}:/usr/bin:/bin",
+                "HOME": str(tmp_root / "no-policy-home"),
+            },
+            check=False,
+        )
+        assert still_auth.returncode == 78
+        still_auth_status = (out_dir / "status.md").read_text()
+        assert "classification: auth_prompt" in still_auth_status
+        assert "auth_retry: authenticated_transport_without_cli_sandbox" in still_auth_status
+        assert "initial_classification: auth_prompt" in still_auth_status
+        assert (out_dir / "antigravity.sandbox-auth-prompt.md").exists()
+        assert not still_auth_marker.exists()
         assert not (out_dir / "codex.md").exists()
 
         workspace = tmp_root / "workspace-packet"

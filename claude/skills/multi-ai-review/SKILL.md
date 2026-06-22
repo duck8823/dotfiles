@@ -137,6 +137,7 @@ try:
         capture_output=True,
         timeout=20,
         env=env,
+        cwd=os.environ.get("ANTIGRAVITY_CWD", "/tmp"),
     )
     text = (proc.stdout or "") + (proc.stderr or "")
 except subprocess.TimeoutExpired as exc:
@@ -170,6 +171,7 @@ try:
         capture_output=True,
         timeout=600,
         env=env,
+        cwd=os.environ.get("ANTIGRAVITY_CWD", "/tmp"),
     )
     text = (proc.stdout or "") + (proc.stderr or "") + f"\nEXIT_CODE={proc.returncode}\n"
 except subprocess.TimeoutExpired as exc:
@@ -188,7 +190,7 @@ fi
 fi
 ```
 
-`POLICY_DENIED_FILE` が空でない場合は Antigravity / Codex CLI へ diff を渡さず、`skipped: policy_denied` と理由を統合コメントに記録して Claude-only fallback + local verification + CI で補完する。preflight または本実行が timeout / 空出力 / 非0終了（login / 認証失敗を除く）になった場合は、Antigravity 失敗として記録 → 1回リトライ → Codex scout / independent reviewer へフォールバックする。preflight または本実行が login / 認証失敗（auth_prompt / "Opening authentication page" / "Do you want to continue?" / "not authenticated" / "login required" / 対話ログイン、exit 42）で停止した場合は、まず sandbox が認証 surface だけを隠した可能性として同一 engine の `authenticated_transport_without_cli_sandbox` retry を 1 回だけ行い、両 attempt の output path / classification を記録する。retry でも auth の場合は、別 engine への暗黙の代替をせず処理を停止し、ユーザーに認証修正を依頼する（設定不備を隠さない）。
+`POLICY_DENIED_FILE` が空でない場合は Antigravity / Codex CLI へ diff を渡さず、`skipped: policy_denied` と理由を統合コメントに記録して Claude-only fallback + local verification + CI で補完する。preflight または本実行が timeout / 空出力 / 非0終了（login / 認証失敗を除く）になった場合は、Antigravity 失敗として記録 → 1回リトライ → Codex scout / independent reviewer へフォールバックする。preflight または本実行が login / 認証失敗（auth_prompt / "Opening authentication page" / "Do you want to continue?" / "not authenticated" / "login required" / 対話ログイン、exit 42）で停止した場合は、まず sandbox が認証 surface だけを隠した可能性として、empty cwd / `NO_BROWSER=true` / no `--add-dir` を維持した同一 engine の `authenticated_transport_without_cli_sandbox` retry を 1 回だけ行い、両 attempt の output path / classification を記録する。retry でも auth の場合は、別 engine への暗黙の代替をせず処理を停止し、ユーザーに認証修正を依頼する（設定不備を隠さない）。
 
 ### 3. Codex verifier
 Claude authored PR または外部生成パッチのときのみ実行する。

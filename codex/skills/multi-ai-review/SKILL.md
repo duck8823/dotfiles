@@ -199,7 +199,11 @@ if [ -s "$POLICY_DENIED_FILE" ]; then
 else
   ANTIGRAVITY_AVAILABLE=true
 fi
-export ANTIGRAVITY_PREFLIGHT_OUT
+ANTIGRAVITY_AUTH_REQUIRED=false
+ANTIGRAVITY_AUTH_OUTPUT=""
+ANTIGRAVITY_CWD="$WORK_DIR/antigravity-cwd"
+mkdir -p "$ANTIGRAVITY_CWD"
+export ANTIGRAVITY_PREFLIGHT_OUT ANTIGRAVITY_CWD
 if [ "$ANTIGRAVITY_AVAILABLE" = true ]; then
 python3 - <<'PY'
 import os, subprocess, sys
@@ -221,6 +225,7 @@ try:
         capture_output=True,
         timeout=20,
         env=env,
+        cwd=os.environ["ANTIGRAVITY_CWD"],
     )
     text = (proc.stdout or "") + (proc.stderr or "")
 except subprocess.TimeoutExpired as exc:
@@ -249,6 +254,7 @@ if [ "$ANTIGRAVITY_AVAILABLE" != true ] && \
   ANTIGRAVITY_PREFLIGHT_SANDBOX_OUT="$WORK_DIR/antigravity-preflight.sandbox-auth-prompt.md"
   mv "$ANTIGRAVITY_PREFLIGHT_OUT" "$ANTIGRAVITY_PREFLIGHT_SANDBOX_OUT"
   ANTIGRAVITY_AVAILABLE=true
+  export ANTIGRAVITY_CWD
   python3 - <<'PY'
 import os, subprocess, sys
 prompt = "read-only preflight。1行だけ返してください。"
@@ -261,7 +267,7 @@ try:
     cmd = ["agy", "--print"]
     if os.environ.get("ANTIGRAVITY_REVIEW_MODEL"):
         cmd += ["-m", os.environ["ANTIGRAVITY_REVIEW_MODEL"]]
-    proc = subprocess.run(cmd, input=prompt, text=True, capture_output=True, timeout=20, env=env)
+    proc = subprocess.run(cmd, input=prompt, text=True, capture_output=True, timeout=20, env=env, cwd=os.environ["ANTIGRAVITY_CWD"])
     text = (proc.stdout or "") + (proc.stderr or "") + "\nauth_retry=authenticated_transport_without_cli_sandbox\n"
 except subprocess.TimeoutExpired as exc:
     text = ((exc.stdout or "") if isinstance(exc.stdout, str) else "") + ((exc.stderr or "") if isinstance(exc.stderr, str) else "") + "\nTIMEOUT_AFTER=20\nauth_retry=authenticated_transport_without_cli_sandbox\n"
@@ -275,12 +281,13 @@ if not text.strip() or proc.returncode != 0:
 PY
   case $? in
     0) ;;
+    42) ANTIGRAVITY_AVAILABLE=false; ANTIGRAVITY_AUTH_REQUIRED=true; ANTIGRAVITY_AUTH_OUTPUT="$ANTIGRAVITY_PREFLIGHT_OUT" ;;
     *) ANTIGRAVITY_AVAILABLE=false ;;
   esac
 fi
 
 if [ "$ANTIGRAVITY_AVAILABLE" = true ]; then
-  export ANTIGRAVITY_PROMPT_FILE ANTIGRAVITY_REVIEW_OUT
+  export ANTIGRAVITY_PROMPT_FILE ANTIGRAVITY_REVIEW_OUT ANTIGRAVITY_CWD
   python3 - <<'PY'
 import os, subprocess, sys
 prompt = open(os.environ["ANTIGRAVITY_PROMPT_FILE"]).read()
@@ -301,6 +308,7 @@ try:
         capture_output=True,
         timeout=600,
         env=env,
+        cwd=os.environ["ANTIGRAVITY_CWD"],
     )
     text = (proc.stdout or "") + (proc.stderr or "") + f"\nEXIT_CODE={proc.returncode}\n"
 except subprocess.TimeoutExpired as exc:
@@ -325,6 +333,7 @@ if [ "$ANTIGRAVITY_AVAILABLE" != true ] && \
   ANTIGRAVITY_REVIEW_SANDBOX_OUT="$WORK_DIR/antigravity-review.sandbox-auth-prompt.md"
   mv "$ANTIGRAVITY_REVIEW_OUT" "$ANTIGRAVITY_REVIEW_SANDBOX_OUT"
   ANTIGRAVITY_AVAILABLE=true
+  export ANTIGRAVITY_CWD
   python3 - <<'PY'
 import os, subprocess, sys
 prompt = open(os.environ["ANTIGRAVITY_PROMPT_FILE"]).read()
@@ -337,7 +346,7 @@ try:
     cmd = ["agy", "--print"]
     if os.environ.get("ANTIGRAVITY_REVIEW_MODEL"):
         cmd += ["-m", os.environ["ANTIGRAVITY_REVIEW_MODEL"]]
-    proc = subprocess.run(cmd, input=prompt, text=True, capture_output=True, timeout=600, env=env)
+    proc = subprocess.run(cmd, input=prompt, text=True, capture_output=True, timeout=600, env=env, cwd=os.environ["ANTIGRAVITY_CWD"])
     text = (proc.stdout or "") + (proc.stderr or "") + f"\nEXIT_CODE={proc.returncode}\nauth_retry=authenticated_transport_without_cli_sandbox\n"
 except subprocess.TimeoutExpired as exc:
     text = ((exc.stdout or "") if isinstance(exc.stdout, str) else "") + ((exc.stderr or "") if isinstance(exc.stderr, str) else "") + "\nTIMEOUT_AFTER=600\nKILLED=true\nauth_retry=authenticated_transport_without_cli_sandbox\n"
@@ -351,8 +360,29 @@ if not text.strip() or proc.returncode != 0:
 PY
   case $? in
     0) ;;
+    42) ANTIGRAVITY_AVAILABLE=false; ANTIGRAVITY_AUTH_REQUIRED=true; ANTIGRAVITY_AUTH_OUTPUT="$ANTIGRAVITY_REVIEW_OUT" ;;
     *) ANTIGRAVITY_AVAILABLE=false ;;
   esac
+fi
+
+if [ "$ANTIGRAVITY_AVAILABLE" != true ] && \
+   { grep -Eqi 'Opening authentication page|Do you want to continue|authentication page|not authenticated|Please log in|login required|not_logged_in|login_required|not signed in|sign in to continue' "$ANTIGRAVITY_PREFLIGHT_OUT" 2>/dev/null || \
+     grep -Eqi 'Opening authentication page|Do you want to continue|authentication page|not authenticated|Please log in|login required|not_logged_in|login_required|not signed in|sign in to continue' "$ANTIGRAVITY_REVIEW_OUT" 2>/dev/null; }; then
+  ANTIGRAVITY_AUTH_REQUIRED=true
+  if grep -Eqi 'Opening authentication page|Do you want to continue|authentication page|not authenticated|Please log in|login required|not_logged_in|login_required|not signed in|sign in to continue' "$ANTIGRAVITY_REVIEW_OUT" 2>/dev/null; then
+    ANTIGRAVITY_AUTH_OUTPUT="$ANTIGRAVITY_REVIEW_OUT"
+  else
+    ANTIGRAVITY_AUTH_OUTPUT="$ANTIGRAVITY_PREFLIGHT_OUT"
+  fi
+fi
+
+if [ "$ANTIGRAVITY_AUTH_REQUIRED" = true ]; then
+  {
+    echo "Antigravity auth required after sandbox/authenticated transport attempts; stop without fallback."
+    echo "auth_retry: authenticated_transport_without_cli_sandbox"
+    echo "auth_required_output: $ANTIGRAVITY_AUTH_OUTPUT"
+  } > "$ANTIGRAVITY_REVIEW_OUT"
+  exit 78
 fi
 
 if [ "$ANTIGRAVITY_AVAILABLE" != true ]; then

@@ -224,7 +224,9 @@ else
   ANTIGRAVITY_SKIP_REASON=""
 fi
 ANTIGRAVITY_PREFLIGHT_OUT=/tmp/${PROJECT}-pr${PR_NUMBER}-antigravity-preflight.md
-export ANTIGRAVITY_PREFLIGHT_OUT
+ANTIGRAVITY_CWD=/tmp/${PROJECT}-pr${PR_NUMBER}-antigravity-cwd
+mkdir -p "$ANTIGRAVITY_CWD"
+export ANTIGRAVITY_PREFLIGHT_OUT ANTIGRAVITY_CWD
 if [ "$ANTIGRAVITY_AVAILABLE" = true ]; then
 python3 - <<'PY'
 import os, subprocess, sys
@@ -242,6 +244,7 @@ try:
         capture_output=True,
         timeout=20,
         env=env,
+        cwd=os.environ["ANTIGRAVITY_CWD"],
     )
     text = (proc.stdout or "") + (proc.stderr or "")
 except subprocess.TimeoutExpired as exc:
@@ -262,16 +265,16 @@ esac
 fi
 ```
 
-上記 snippet が `sys.exit(42)`（auth prompt）になり、`MULTI_AI_ANTIGRAVITY_AUTH_RETRY_WITHOUT_SANDBOX` が未設定または `true` の場合は、同じ preflight prompt を `agy --print`（`--sandbox` なし）で 1 回だけ再実行し、`auth_retry: authenticated_transport_without_cli_sandbox` と両 attempt の output path を記録する。これは sandbox が認証 surface を隠したケースの同一 engine retry であり、別 engine fallback ではない。
+上記 snippet が `sys.exit(42)`（auth prompt）になり、`MULTI_AI_ANTIGRAVITY_AUTH_RETRY_WITHOUT_SANDBOX` が未設定または `true` の場合は、同じ preflight prompt を `agy --print`（`--sandbox` なし）で 1 回だけ再実行し、`cwd="$ANTIGRAVITY_CWD"`、`NO_BROWSER=true`、no `--add-dir` を維持して `auth_retry: authenticated_transport_without_cli_sandbox` と両 attempt の output path を記録する。これは sandbox が認証 surface を隠したケースの同一 engine retry であり、別 engine fallback ではない。retry 後も auth prompt の場合は `ANTIGRAVITY_AUTH_REQUIRED=true` として停止し、Codex scout / independent reviewer へ fallback しない。
 
-`ANTIGRAVITY_AVAILABLE=false` の場合は Antigravity 本実行を起動せず、理由を PR コメントに記録して Codex scout / independent reviewer にフォールバックする。
+`ANTIGRAVITY_AVAILABLE=false` の場合は Antigravity 本実行を起動せず、理由を PR コメントに記録して Codex scout / independent reviewer にフォールバックする。ただし `ANTIGRAVITY_AUTH_REQUIRED=true` の場合は認証不備を隠さないため停止する。
 
 ### Antigravity CLI
 
 ```bash
 if [ "$ANTIGRAVITY_AVAILABLE" = true ]; then
   ANTIGRAVITY_REVIEW_OUT=/tmp/${PROJECT}-pr${PR_NUMBER}-antigravity-review.md
-  export ANTIGRAVITY_PROMPT_FILE ANTIGRAVITY_REVIEW_OUT
+  export ANTIGRAVITY_PROMPT_FILE ANTIGRAVITY_REVIEW_OUT ANTIGRAVITY_CWD
   python3 - <<'PY'
 import os, subprocess, sys
 prompt = open(os.environ["ANTIGRAVITY_PROMPT_FILE"]).read()
@@ -288,6 +291,7 @@ try:
         capture_output=True,
         timeout=600,
         env=env,
+        cwd=os.environ["ANTIGRAVITY_CWD"],
     )
     text = (proc.stdout or "") + (proc.stderr or "") + f"\nEXIT_CODE={proc.returncode}\n"
 except subprocess.TimeoutExpired as exc:

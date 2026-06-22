@@ -239,6 +239,14 @@ def main() -> None:
         "auth_retry: $retry_mode",
         "authenticated_transport_without_cli_sandbox",
     )
+    assert_contains(
+        "codex/skills/multi-ai-review/SKILL.md",
+        'ANTIGRAVITY_CWD="$WORK_DIR/antigravity-cwd"',
+        'cwd=os.environ["ANTIGRAVITY_CWD"]',
+        "ANTIGRAVITY_AUTH_REQUIRED=true",
+        "stop without fallback",
+        "exit 78",
+    )
     assert_general_dry_run_excludes_workspace_context()
     print("policy text test OK")
 
