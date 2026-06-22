@@ -11,7 +11,7 @@
 |---|---|---|---|
 | External API inspection | User-explicit and scoped | Runs read-only CLI / SDK / HTTP request outside sandbox when sandbox blocks auth/cache | Concrete provider, resource, and question only |
 | Credential cache | Host local | Provider SDK may read/update token/cache as side effect | Never print/copy/summarize/commit/upload credentials |
-| API result | Minimized evidence | Summarized for the user and optionally sanitized for AI review | No raw personal data, production dumps, secret values, tokens, or broad identifiers by default |
+| API result | Minimized evidence | Summarized for the user and optionally sanitized for AI review | No raw personal data, production dumps, secret values, tokens, or broad identifiers under this exception |
 | AI-managed workflow | Audited orchestration | Local orchestrator gathers evidence; external AI receives only sanitized summaries when policy allows | No delegation of API access, login, mutation, or raw data handling |
 
 ### Responsibility assignment

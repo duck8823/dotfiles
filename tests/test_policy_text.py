@@ -115,7 +115,12 @@ def main() -> None:
         "Provider SDKs may read/update host credential databases",
         "Credentials, tokens, cookies, and secrets must never be printed",
         "Raw API responses, production rows, and sensitive identifiers must not be sent to external AI reviewers",
+        "If the question cannot be answered without raw sensitive data, stop and require a separate, explicit non-AI/manual workflow decision",
         "provider/API/resource inspected",
+    )
+    assert_not_contains(
+        "codex/config.toml.template",
+        "unless the user explicitly requests that exact sensitive read",
     )
     assert_contains(
         "codex/instructions.md",
