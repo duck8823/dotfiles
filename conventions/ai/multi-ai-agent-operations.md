@@ -7,7 +7,7 @@
 
 - Orchestrator は固定された AI 名ではなく、現在の main session / task / local policy / 可用性 / 能力で選ぶ **role** とする。
 - 現在の実運用では Codex が primary orchestrator になることが多いが、それは現状の適性であって恒久的な希望状態ではない。Claude / Antigravity / Codex は同じ role / responsibility / resume schema で協調・代替できるようにする。
-- Antigravity を dotfiles で恒久的に read-only 固定しない。共有テンプレートは安全側の sandbox 付き scout を既定にするが、write 可否・無効化・sandbox 設定はローカルポリシーを優先する。
+- Antigravity を dotfiles で恒久的に read-only 固定しない。共有テンプレートは安全側の sandbox-first scout を既定にするが、write 可否・無効化・sandbox/auth retry 設定はローカルポリシーを優先する。
 - 手書き handoff を標準にせず、Traceary / git / PR / Issue / workspace packet から context を復元する。
 - 実装は **実装したエージェント / セッションがコミットする**。orchestrator は採否判断・gate・統合を担うが、他セッションの実装を代理コミットしない（authorship を実装に一致させる）。同一エージェントが worker と orchestrator を兼ねる solo セッション、および成果物を返すだけの in-session ephemeral subagent はこの限りでない。
 
@@ -58,6 +58,17 @@ agent 間の共有 artifact は「handoff」ではなく、再開可能な conte
 ## Quality gate policy
 
 品質 gate の正本は `conventions/ai/quality-gates.md` とする。レビュー前に共有する最小 context packet は `conventions/ai/review-context-schema.md` に従う。各 agent は role / capability ベースで gate を満たす artifact を確認し、local policy で engine が無効な場合は欠落理由を記録して代替 reviewer / local verification / CI で補完する。
+
+## Authenticated transport policy
+
+外部 AI CLI を起動するときは、**認証のための host transport surface** と **モデルに許す tool / data permission boundary** を混同しない。
+
+- `claude` / `agy` / `codex` / `gemini` の CLI プロセスは、既存のログイン状態・keychain・`CODEX_HOME` 等を読める host-authenticated surface で起動する。
+- 外部 AI に渡す情報は、従来通り sanitized workspace packet / source-diff bundle / PR bundle に限定する。shell history、`.env*`、credentials、tokens、repo 外 private file、raw production / personal data は送らない。
+- モデル側の行動制限は、empty per-run cwd、`NO_BROWSER=true`、`--add-dir` 禁止、Claude `--permission-mode plan` + file tools disallow、Codex `--sandbox read-only`、Gemini `--approval-mode plan`、Antigravity sandbox-first などで表現する。
+- Antigravity の `--sandbox` が host CLI の認証状態だけを隠して `auth_prompt` になった場合は、同じ engine / 同じ prompt / empty cwd / NO_BROWSER / no `--add-dir` で **1回だけ** `authenticated_transport_without_cli_sandbox` retry を許可する。これは別 engine fallback ではなく、成功・失敗の両 attempt を status / PR comment に記録する。
+- retry でも `auth_prompt` の場合は停止し、ブラウザ login を自動実行せず、別 engine へ暗黙代替しない。ユーザーに対象 CLI の認証修正を依頼する。
+- この transport 例外は read-only research / scout / review planning のためだけで、write / commit / push / PR 作成 / merge / deploy / upload / destructive operation を許可しない。
 
 ## Git / PR guard policy
 

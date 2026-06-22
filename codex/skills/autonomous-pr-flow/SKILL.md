@@ -23,7 +23,7 @@ Orchestrator は固定 AI 名ではなく role であり、Claude / Antigravity 
 
 - Codex が current orchestrator として進行する
 - PR作成後の多重レビューは `multi-ai-review` skill を使う
-- Antigravity は local policy が許す場合に reviewer / scout として使う。無効化・quota・空出力の場合は、理由を記録し Claude reviewer / Codex scout / independent local verification で代替する。ただし login / 認証失敗（auth_prompt / ブラウザ認証プロンプト / 対話ログイン / "Opening authentication page in your browser" / "Do you want to continue?"）は別 engine へ暗黙に代替せず停止し、ユーザーに認証修正を依頼する
+- Antigravity は local policy が許す場合に reviewer / scout として使う。無効化・quota・空出力の場合は、理由を記録し Claude reviewer / Codex scout / independent local verification で代替する。ただし login / 認証失敗（auth_prompt / ブラウザ認証プロンプト / 対話ログイン / "Opening authentication page in your browser" / "Do you want to continue?"）は別 engine へ暗黙に代替せず停止し、ユーザーに認証修正を依頼する。Antigravity `--sandbox` が host CLI の認証状態だけを隠す場合は、同一 engine / 同一 prompt / empty cwd / `NO_BROWSER=true` / no `--add-dir` / no `--sandbox` で 1 回だけ authenticated transport retry し、retry でも auth なら停止する
 - GitHub 上の `@claude @antigravity multi-ai-review` メンションは使わず、ローカル実行結果を `gh pr comment` で集約する
 - multi-ai-review 明示時は、policy gate を満たす場合に限り、PR diff・関連 Issue・レビューコメントを configured external AI CLI に渡す承認済みとして扱う（secrets・認証情報・repo外 private file は除く）
 - PR上 `@codex review` の指摘を解消して収束させる
@@ -34,7 +34,7 @@ Antigravity / Codex CLI / `@codex review` は、`~/.codex/config.toml` の `[aut
 
 - trusted repository / git worktree、1 ticket / 1 PR に限定
 - secret / `.env` / unrelated repo dump / home directory dump は送らない
-- Antigravity は共有デフォルトでは sandbox 付き scout。local policy で無効化・sandbox・write 可否を上書きできる
+- Antigravity は共有デフォルトでは sandbox-first scout。local policy で無効化・sandbox・auth retry・write 可否を上書きできる
 - Codex verifier は reviewer config を優先
 
 ## レベル1: 全体ループ（複数Issue/PR）

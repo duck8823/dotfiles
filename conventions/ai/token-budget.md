@@ -79,7 +79,7 @@ rtk traceary search "auth_prompt" --limit 10
 ## Antigravity guidance
 
 - `~/.gemini/antigravity-cli/settings.json` は `enableTerminalSandbox=true`, `toolPermission=request-review`, `verbosity=low` を共有既定にする。
-- `multi-ai-research.sh` では `agy --print --sandbox` を既定にし、空の per-run cwd から stdin prompt を渡す。repo 直接読みではなく sanitized workspace packet を使う。
+- `multi-ai-research.sh` では sandbox-first の `agy --print --sandbox` を既定にし、空の per-run cwd から stdin prompt を渡す。repo 直接読みではなく sanitized workspace packet を使う。sandbox が host CLI の認証状態だけを隠して `auth_prompt` になった場合は、同一 engine / 同一 prompt / empty cwd / `NO_BROWSER=true` / no `--add-dir` / no `--sandbox` で 1 回だけ authenticated transport retry し、両 attempt を status に残す。
 - `MULTI_AI_ANTIGRAVITY_PRINT_TIMEOUT` で Antigravity 側の print timeout を明示し、外側の script timeout と二重に失敗を記録する。
 - credentials は dotfiles に入れず、必要なら個人設定で切り替える。
 

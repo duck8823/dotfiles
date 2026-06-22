@@ -59,8 +59,11 @@ ${ISSUES_JSON}
 ${MILESTONE_JSON}
 PROMPT
 
+  RUNNER=$(command -v multi-ai-research.sh || printf '%s/.local/bin/multi-ai-research.sh' "$HOME")
   TERM=xterm-256color \
-  agy --print --sandbox < /tmp/antigravity-planner.md > /tmp/antigravity-planner-result.json 2>&1
+  "$RUNNER" --prompt-file /tmp/antigravity-planner.md --mode packet --packet /tmp/antigravity-planner.md --engines antigravity \
+    --out-dir /tmp/antigravity-planner-bundle \
+    > /tmp/antigravity-planner-result.json 2>&1
 ```
 
 ### 3. 結果統合（Claude Opus メイン）

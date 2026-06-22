@@ -15,7 +15,7 @@
 
 ## Antigravity CLI の運用方針
 
-Antigravity CLI は dotfiles では **policy-controlled scout / critic / optional worker** として扱う。共有テンプレートの既定は安全側の `agy --print --sandbox` に寄せるが、実際の書き込み可否・モデル・無効化はローカルポリシーを優先する。
+Antigravity CLI は dotfiles では **policy-controlled scout / critic / optional worker** として扱う。共有テンプレートの既定は安全側の `agy --print --sandbox` に寄せるが、`--sandbox` が host CLI の認証状態だけを隠す場合は同一 engine の authenticated transport retry を 1 回だけ許可する。実際の書き込み可否・モデル・無効化・sandbox・auth retry はローカルポリシーを優先する。
 
 ### 主担当
 1. **repo-wide scout**
@@ -31,7 +31,8 @@ Antigravity CLI は dotfiles では **policy-controlled scout / critic / optiona
 
 ### 原則
 
-- 共有 dotfiles の既定は **read-heavy / sandbox**。local policy が dedicated branch / worktree で scoped write を明示許可した場合だけ、修正案の作成まで扱える
+- 共有 dotfiles の既定は **read-heavy / sandbox-first**。local policy が dedicated branch / worktree で scoped write を明示許可した場合だけ、修正案の作成まで扱える
+- sandbox は tool/data 境界であり auth 境界ではない。sandbox が CLI login / keychain を隠して `auth_prompt` になった場合、同じ prompt / empty cwd / `NO_BROWSER=true` / no `--add-dir` / no `--sandbox` の retry を 1 回だけ受け入れる。retry でも auth なら停止し、別 engine fallback で隠さない
 - 例外的にコミットする場合は `Co-authored-by: Google Antigravity <noreply@google.com>` トレーラーを付与する
 - まず全体俯瞰、その後に局所ファイルを読む
 - security の主担当ではない。セキュリティ問題は Codex に渡し、自分は **波及影響と一貫性** に集中する

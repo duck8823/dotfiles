@@ -157,7 +157,7 @@ merge 前に、変更が ticket scope を超えず、レビューと検証が収
 | Failure | 扱い |
 |---|---|
 | `local_policy_disabled` | 失敗ではなく skip。代替 reviewer / local verification で補完する |
-| `auth_prompt` / login failure | **fallback せず停止**。ブラウザは開かず、認証が必要な旨をユーザーに通知して再実行を促す（別エンジンへ暗黙代替しない） |
+| `auth_prompt` / login failure | Antigravity sandbox が host CLI の認証状態だけを隠した場合は同一 engine の authenticated transport retry を 1 回だけ行う。retry でも auth、または他 engine の auth failure は **fallback せず停止**。ブラウザは開かず、認証が必要な旨をユーザーに通知して再実行を促す（別エンジンへ暗黙代替しない） |
 | `quota_or_capacity` | 欠落理由を記録して fallback する。fallback レビュアーは実装モデル以上のモデル / effort を使う |
 | `policy_or_permission_denied` | policy を弱めず、packet を狭めるか local verification に切り替える |
 | `timeout` / `empty_output` | 未検証として扱う。Gate 2 では `INSUFFICIENT_CONTEXT`、Gate 3 / Gate 4 では補完不可なら block とし、代替 reviewer / local verification / CI で補完できる場合だけ進行可 |

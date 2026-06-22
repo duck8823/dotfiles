@@ -99,6 +99,8 @@ def main() -> None:
         "codex/config.toml.template",
         "Path B: user-explicit read-only general web research",
         "No local repository files, source code, workspace packet, shell history, credentials, tokens",
+        "host-authenticated transport surface",
+        "authenticated_transport_without_cli_sandbox",
         "Engines run headless in plan/read-only/scout mode",
         "research scope, engines requested and engines run",
         "classification for each engine",
@@ -126,6 +128,8 @@ def main() -> None:
         "codex/instructions.md",
         "public/general Web 調査だけを行う場合",
         "ローカルファイル・source code・workspace packet・shell history・credentials・tokens",
+        "host 側の既存認証",
+        "authenticated_transport_without_cli_sandbox",
         "research scope・engines requested/run",
         "auth/browser login、file access、secret/private data、write action",
     )
@@ -201,6 +205,8 @@ def main() -> None:
         "README.md",
         "public/general Web 調査だけを行う場合",
         "current user request、非機密の短い project summary、public URL、出力 schema",
+        "sandbox を auth 境界として使わない",
+        "authenticated_transport_without_cli_sandbox",
         "research scope・engines requested/run",
         "Local read-only external API sandbox escalation",
         "外部 API / SaaS / data service",
@@ -214,6 +220,32 @@ def main() -> None:
         "scripts/multi-ai-research.sh",
         '"${model_args[@]}"',
         '"${trust_args[@]}"',
+    )
+    assert_contains(
+        "conventions/ai/local-agent-policy.md",
+        "MULTI_AI_ANTIGRAVITY_AUTH_RETRY_WITHOUT_SANDBOX=true",
+        "Authenticated transport と sandbox の分離",
+        "同じ engine を 1 回だけ",
+    )
+    assert_contains(
+        "conventions/ai/multi-ai-agent-operations.md",
+        "Authenticated transport policy",
+        "host-authenticated surface",
+        "authenticated_transport_without_cli_sandbox",
+    )
+    assert_contains(
+        "scripts/multi-ai-research.sh",
+        "MULTI_AI_ANTIGRAVITY_AUTH_RETRY_WITHOUT_SANDBOX",
+        "auth_retry: $retry_mode",
+        "authenticated_transport_without_cli_sandbox",
+    )
+    assert_contains(
+        "codex/skills/multi-ai-review/SKILL.md",
+        'ANTIGRAVITY_CWD="$WORK_DIR/antigravity-cwd"',
+        'cwd=os.environ["ANTIGRAVITY_CWD"]',
+        "ANTIGRAVITY_AUTH_REQUIRED=true",
+        "stop without fallback",
+        "exit 78",
     )
     assert_general_dry_run_excludes_workspace_context()
     print("policy text test OK")

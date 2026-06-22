@@ -24,7 +24,7 @@ Codex 側の PR review orchestration だけを定義する。
 - **GitHubメンション禁止**: `@claude @antigravity multi-ai-review` は使わない。
 - **GitHub reviewer追加禁止**: Antigravity / Claude / Codex などの AI アカウントを reviewer / collaborator に追加しない。
 - **投稿はPRコメント**: 統合結果は `gh pr comment` で投稿する。`gh pr review` はユーザーまたはプロジェクト規約で明示される場合以外は使わない。
-- **headless優先**: Antigravity / Claude Code CLI は headless で実行し、ブラウザ認証プロンプトが出たら止める。
+- **headless優先**: Antigravity / Claude Code CLI は headless で実行し、ブラウザ認証プロンプトが出たら止める。Antigravity `--sandbox` が host CLI の認証状態だけを隠した `auth_prompt` の場合は、同一 engine / 同一 prompt / empty cwd / `NO_BROWSER=true` / no `--add-dir` / no `--sandbox` の authenticated transport retry を 1 回だけ許可し、retry でも auth なら停止する。
 - **外部AIへのデータ送信境界**: PR diff / issue / review comment を Antigravity / Claude Code CLI / Codex CLI / ai-review へ渡す前に `~/.codex/config.toml` の `[auto_review].policy` を満たすことを確認する。ユーザーが `multi-ai-review` / Claude / Antigravity / Codex / ai-review 利用を明示し、かつ policy gate を満たす場合は、このリポジトリの PR diff・関連 Issue・レビューコメントを configured external AI CLI に渡す承認済みとして扱う。secrets・認証情報・repo外 private file・Downloads 等を追加で渡す場合だけ確認する。明示がない場合、または policy gate を満たさない場合は確認・skip する。
 - **最低2系統**: 2系統以上のレビューが成功すれば統合を続行できる。local policy で無効な系統は `local_policy_disabled` としてコメントに記録する。
 - **拒否/無効化時の扱い**: 外部 AI CLI が local policy / sandbox / quota で拒否された場合、代替禁止の明示がない限りユーザー確認で停止せず、拒否理由を PR コメントへ記録して default subagent / Codex verifier / local gate で補完する。ただし login / 認証失敗（auth_prompt / ブラウザ認証プロンプト / 対話ログイン）は別 engine への暗黙の代替で補完せず停止し、ユーザーに認証修正を依頼する（設定不備を隠すため auth は fallback しない）。
@@ -147,7 +147,7 @@ fi
 
 ### 3. Antigravity/policy scout
 
-Antigravity は repo-wide consistency scout として使う。ブラウザ認証プロンプト（`Opening authentication page` / `Do you want to continue?` / `not authenticated` / `login required` / 対話ログイン）が出た場合は **停止し、ブラウザを開かず、別 engine への暗黙の代替はせずユーザーに認証修正を依頼**する（設定不備を隠すため auth は fallback しない）。timeout / 空出力 / 非0終了は transient 失敗として扱い、記録 → 1回リトライ → 代替 reviewer / local verification / CI で継続する。
+Antigravity は repo-wide consistency scout として使う。ブラウザ認証プロンプト（`Opening authentication page` / `Do you want to continue?` / `not authenticated` / `login required` / 対話ログイン）が出た場合は、まず `--sandbox` が host CLI の認証状態だけを隠していないか切り分ける。同一 engine / 同一 prompt / empty cwd / `NO_BROWSER=true` / no `--add-dir` / no `--sandbox` の authenticated transport retry を 1 回だけ行い、両 attempt の output path と classification を記録する。retry でも auth の場合は **停止し、ブラウザを開かず、別 engine への暗黙の代替はせずユーザーに認証修正を依頼**する（設定不備を隠すため auth は fallback しない）。timeout / 空出力 / 非0終了は transient 失敗として扱い、記録 → 1回リトライ → 代替 reviewer / local verification / CI で継続する。
 
 ```bash
 ANTIGRAVITY_PROMPT_FILE="$WORK_DIR/antigravity-prompt.md"
@@ -199,7 +199,11 @@ if [ -s "$POLICY_DENIED_FILE" ]; then
 else
   ANTIGRAVITY_AVAILABLE=true
 fi
-export ANTIGRAVITY_PREFLIGHT_OUT
+ANTIGRAVITY_AUTH_REQUIRED=false
+ANTIGRAVITY_AUTH_OUTPUT=""
+ANTIGRAVITY_CWD="$WORK_DIR/antigravity-cwd"
+mkdir -p "$ANTIGRAVITY_CWD"
+export ANTIGRAVITY_PREFLIGHT_OUT ANTIGRAVITY_CWD
 if [ "$ANTIGRAVITY_AVAILABLE" = true ]; then
 python3 - <<'PY'
 import os, subprocess, sys
@@ -221,6 +225,7 @@ try:
         capture_output=True,
         timeout=20,
         env=env,
+        cwd=os.environ["ANTIGRAVITY_CWD"],
     )
     text = (proc.stdout or "") + (proc.stderr or "")
 except subprocess.TimeoutExpired as exc:
@@ -239,8 +244,50 @@ case $? in
 esac
 fi
 
+# If the sandbox preflight failed only because the sandbox hid the host auth
+# state, retry the same engine once without the CLI sandbox. Keep empty cwd,
+# NO_BROWSER=true, no --add-dir, and record both attempts. This is not fallback
+# to another engine.
+if [ "$ANTIGRAVITY_AVAILABLE" != true ] && \
+   grep -Eqi 'Opening authentication page|Do you want to continue|authentication page|not authenticated|Please log in|login required|not_logged_in|login_required|not signed in|sign in to continue' "$ANTIGRAVITY_PREFLIGHT_OUT" && \
+   [ "${MULTI_AI_ANTIGRAVITY_AUTH_RETRY_WITHOUT_SANDBOX:-true}" = true ]; then
+  ANTIGRAVITY_PREFLIGHT_SANDBOX_OUT="$WORK_DIR/antigravity-preflight.sandbox-auth-prompt.md"
+  mv "$ANTIGRAVITY_PREFLIGHT_OUT" "$ANTIGRAVITY_PREFLIGHT_SANDBOX_OUT"
+  ANTIGRAVITY_AVAILABLE=true
+  export ANTIGRAVITY_CWD
+  python3 - <<'PY'
+import os, subprocess, sys
+prompt = "read-only preflight。1行だけ返してください。"
+env = os.environ.copy()
+env["TERM"] = "xterm-256color"
+env["NO_BROWSER"] = "true"
+env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:" + env.get("PATH", "")
+out_path = os.environ["ANTIGRAVITY_PREFLIGHT_OUT"]
+try:
+    cmd = ["agy", "--print"]
+    if os.environ.get("ANTIGRAVITY_REVIEW_MODEL"):
+        cmd += ["-m", os.environ["ANTIGRAVITY_REVIEW_MODEL"]]
+    proc = subprocess.run(cmd, input=prompt, text=True, capture_output=True, timeout=20, env=env, cwd=os.environ["ANTIGRAVITY_CWD"])
+    text = (proc.stdout or "") + (proc.stderr or "") + "\nauth_retry=authenticated_transport_without_cli_sandbox\n"
+except subprocess.TimeoutExpired as exc:
+    text = ((exc.stdout or "") if isinstance(exc.stdout, str) else "") + ((exc.stderr or "") if isinstance(exc.stderr, str) else "") + "\nTIMEOUT_AFTER=20\nauth_retry=authenticated_transport_without_cli_sandbox\n"
+    open(out_path, "w").write(text)
+    sys.exit(124)
+open(out_path, "w").write(text)
+if any(marker.lower() in text.lower() for marker in ["Opening authentication page", "Do you want to continue?", "authentication page", "not authenticated", "please log in", "login required", "not_logged_in", "login_required", "not signed in", "sign in to continue"]):
+    sys.exit(42)
+if not text.strip() or proc.returncode != 0:
+    sys.exit(proc.returncode or 1)
+PY
+  case $? in
+    0) ;;
+    42) ANTIGRAVITY_AVAILABLE=false; ANTIGRAVITY_AUTH_REQUIRED=true; ANTIGRAVITY_AUTH_OUTPUT="$ANTIGRAVITY_PREFLIGHT_OUT" ;;
+    *) ANTIGRAVITY_AVAILABLE=false ;;
+  esac
+fi
+
 if [ "$ANTIGRAVITY_AVAILABLE" = true ]; then
-  export ANTIGRAVITY_PROMPT_FILE ANTIGRAVITY_REVIEW_OUT
+  export ANTIGRAVITY_PROMPT_FILE ANTIGRAVITY_REVIEW_OUT ANTIGRAVITY_CWD
   python3 - <<'PY'
 import os, subprocess, sys
 prompt = open(os.environ["ANTIGRAVITY_PROMPT_FILE"]).read()
@@ -261,6 +308,7 @@ try:
         capture_output=True,
         timeout=600,
         env=env,
+        cwd=os.environ["ANTIGRAVITY_CWD"],
     )
     text = (proc.stdout or "") + (proc.stderr or "") + f"\nEXIT_CODE={proc.returncode}\n"
 except subprocess.TimeoutExpired as exc:
@@ -277,6 +325,64 @@ PY
     0) ;;
     *) ANTIGRAVITY_AVAILABLE=false ;;
   esac
+fi
+
+if [ "$ANTIGRAVITY_AVAILABLE" != true ] && \
+   grep -Eqi 'Opening authentication page|Do you want to continue|authentication page|not authenticated|Please log in|login required|not_logged_in|login_required|not signed in|sign in to continue' "$ANTIGRAVITY_REVIEW_OUT" && \
+   [ "${MULTI_AI_ANTIGRAVITY_AUTH_RETRY_WITHOUT_SANDBOX:-true}" = true ]; then
+  ANTIGRAVITY_REVIEW_SANDBOX_OUT="$WORK_DIR/antigravity-review.sandbox-auth-prompt.md"
+  mv "$ANTIGRAVITY_REVIEW_OUT" "$ANTIGRAVITY_REVIEW_SANDBOX_OUT"
+  ANTIGRAVITY_AVAILABLE=true
+  export ANTIGRAVITY_CWD
+  python3 - <<'PY'
+import os, subprocess, sys
+prompt = open(os.environ["ANTIGRAVITY_PROMPT_FILE"]).read()
+env = os.environ.copy()
+env["TERM"] = "xterm-256color"
+env["NO_BROWSER"] = "true"
+env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:" + env.get("PATH", "")
+out_path = os.environ["ANTIGRAVITY_REVIEW_OUT"]
+try:
+    cmd = ["agy", "--print"]
+    if os.environ.get("ANTIGRAVITY_REVIEW_MODEL"):
+        cmd += ["-m", os.environ["ANTIGRAVITY_REVIEW_MODEL"]]
+    proc = subprocess.run(cmd, input=prompt, text=True, capture_output=True, timeout=600, env=env, cwd=os.environ["ANTIGRAVITY_CWD"])
+    text = (proc.stdout or "") + (proc.stderr or "") + f"\nEXIT_CODE={proc.returncode}\nauth_retry=authenticated_transport_without_cli_sandbox\n"
+except subprocess.TimeoutExpired as exc:
+    text = ((exc.stdout or "") if isinstance(exc.stdout, str) else "") + ((exc.stderr or "") if isinstance(exc.stderr, str) else "") + "\nTIMEOUT_AFTER=600\nKILLED=true\nauth_retry=authenticated_transport_without_cli_sandbox\n"
+    open(out_path, "w").write(text)
+    sys.exit(124)
+open(out_path, "w").write(text)
+if any(marker.lower() in text.lower() for marker in ["Opening authentication page", "Do you want to continue?", "authentication page", "not authenticated", "please log in", "login required", "not_logged_in", "login_required", "not signed in", "sign in to continue"]):
+    sys.exit(42)
+if not text.strip() or proc.returncode != 0:
+    sys.exit(proc.returncode or 1)
+PY
+  case $? in
+    0) ;;
+    42) ANTIGRAVITY_AVAILABLE=false; ANTIGRAVITY_AUTH_REQUIRED=true; ANTIGRAVITY_AUTH_OUTPUT="$ANTIGRAVITY_REVIEW_OUT" ;;
+    *) ANTIGRAVITY_AVAILABLE=false ;;
+  esac
+fi
+
+if [ "$ANTIGRAVITY_AVAILABLE" != true ] && \
+   { grep -Eqi 'Opening authentication page|Do you want to continue|authentication page|not authenticated|Please log in|login required|not_logged_in|login_required|not signed in|sign in to continue' "$ANTIGRAVITY_PREFLIGHT_OUT" 2>/dev/null || \
+     grep -Eqi 'Opening authentication page|Do you want to continue|authentication page|not authenticated|Please log in|login required|not_logged_in|login_required|not signed in|sign in to continue' "$ANTIGRAVITY_REVIEW_OUT" 2>/dev/null; }; then
+  ANTIGRAVITY_AUTH_REQUIRED=true
+  if grep -Eqi 'Opening authentication page|Do you want to continue|authentication page|not authenticated|Please log in|login required|not_logged_in|login_required|not signed in|sign in to continue' "$ANTIGRAVITY_REVIEW_OUT" 2>/dev/null; then
+    ANTIGRAVITY_AUTH_OUTPUT="$ANTIGRAVITY_REVIEW_OUT"
+  else
+    ANTIGRAVITY_AUTH_OUTPUT="$ANTIGRAVITY_PREFLIGHT_OUT"
+  fi
+fi
+
+if [ "$ANTIGRAVITY_AUTH_REQUIRED" = true ]; then
+  {
+    echo "Antigravity auth required after sandbox/authenticated transport attempts; stop without fallback."
+    echo "auth_retry: authenticated_transport_without_cli_sandbox"
+    echo "auth_required_output: $ANTIGRAVITY_AUTH_OUTPUT"
+  } > "$ANTIGRAVITY_REVIEW_OUT"
+  exit 78
 fi
 
 if [ "$ANTIGRAVITY_AVAILABLE" != true ]; then

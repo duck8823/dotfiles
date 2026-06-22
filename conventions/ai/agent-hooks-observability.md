@@ -73,7 +73,7 @@ Traceary は Codex の context resume に有効だが、診断対象が「現在
 | `no_effective_engines` | local policy filtering 後に有効 engine が 0 | dry-run 以外は非0終了。local verification / CI へ切り替える |
 | `tool_not_found` | CLI 未インストール / PATH 不備 | 該当 engine を skip し、残りの engine で補完する |
 | `trust_failed` | CLI の workspace trust 問題 | 空の per-run cwd / sandbox に戻し、直接 repo を読ませる運用には戻さない |
-| `auth_prompt` / login 失敗 | headless 認証待ち | ブラウザを開かず停止。fallback せずユーザーに認証修正を依頼 |
+| `auth_prompt` / login 失敗 | headless 認証待ち | Antigravity sandbox が auth を隠した場合は同一 engine retry を 1 回だけ記録。retry でも auth / 他 engine はブラウザを開かず停止。fallback せずユーザーに認証修正を依頼 |
 | `quota_or_capacity` | quota / capacity / 429 | 1回だけ retry。再失敗なら欠落理由を統合結果に記録 |
 | `policy_or_permission_denied` | sandbox / approval reviewer / external AI policy deny | policy を弱めず、repo context を外すか redaction packet を狭める |
 | `prompt_file_reference_expansion` | CLI が packet 内の `@...` を file reference と解釈 | Antigravity / legacy Gemini 用 prompt では `@` を `\u0040` として transport-escape し、同一 packet hash を status に残す |

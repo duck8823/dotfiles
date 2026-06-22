@@ -23,10 +23,15 @@ MULTI_AI_ENGINES=claude,codex
 # 特定 engine を無効化。--engines で指定されても skip 記録にする
 MULTI_AI_DISABLED_ENGINES=antigravity
 
-# Antigravity の共有テンプレート既定。multi-ai-research は安全のため sandbox に強制する
+# Antigravity の共有テンプレート既定。multi-ai-research は sandbox-first で試す
 MULTI_AI_ANTIGRAVITY_CLI=agy
 MULTI_AI_ANTIGRAVITY_SANDBOX=true
 MULTI_AI_ANTIGRAVITY_PRINT_TIMEOUT=600
+
+# sandbox が host CLI の認証状態を隠して auth_prompt になった場合だけ、
+# 同一 engine / 同一 prompt / empty cwd / NO_BROWSER / no --add-dir で 1 回だけ
+# authenticated transport retry（--sandbox なし）を許可する。
+MULTI_AI_ANTIGRAVITY_AUTH_RETRY_WITHOUT_SANDBOX=true
 
 # Antigravity write を試す場合は dedicated branch/worktree で明示する
 MULTI_AI_ANTIGRAVITY_ALLOW_WRITE=false
@@ -50,6 +55,17 @@ MULTI_AI_CLAUDE_PERMISSION_MODE=plan
 # research script で plan/read-only 以外を許す非常用。通常は false
 MULTI_AI_ALLOW_UNSAFE_RESEARCH_MODES=false
 ```
+
+## Authenticated transport と sandbox の分離
+
+外部 AI CLI の実行では、以下を分けて扱う。
+
+- **authenticated transport surface**: `claude` / `agy` / `codex` / `gemini` CLI が既存ログイン状態・keychain・`CODEX_HOME` 等を読める host 側の起動面。ここを sandbox で隠すと、実際にはログイン済みでも `not authenticated` になることがある。
+- **tool / data permission boundary**: prompt に渡す sanitized packet、empty cwd、`--permission-mode plan`、`--sandbox read-only`、`--approval-mode plan`、`NO_BROWSER=true`、`--add-dir` 禁止など、モデルが読める・書ける範囲を絞る境界。
+
+原則は sandbox-first だが、Antigravity sandbox が認証状態だけを隠して `auth_prompt` になった場合は、`MULTI_AI_ANTIGRAVITY_AUTH_RETRY_WITHOUT_SANDBOX=true` の範囲で **同じ engine を 1 回だけ** authenticated transport retry してよい。これは別 engine fallback ではない。retry でも `auth_prompt` なら停止し、ブラウザ login を自動実行せず、ユーザーに CLI 認証修正を依頼する。
+
+この retry は read-only / scout / review planning の transport 例外であり、write / commit / push / PR 作成 / merge / deploy / upload / destructive operation の許可ではない。retry 時も外部 AI に渡すのは同一の sanitized packet / PR bundle だけで、`.env*`・credentials・tokens・shell history・repo 外 private file は送らない。
 
 ## 優先順位
 

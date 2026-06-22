@@ -120,7 +120,7 @@ PROMPT_EOF
 done
 
 for ISSUE_NUMBER in "${ISSUES[@]}"; do
-  tmux new-session -d -s ${PROJECT}-issue${ISSUE_NUMBER}-antigravity-scout     "TERM=xterm-256color agy --print --sandbox      < /tmp/${PROJECT}-issue${ISSUE_NUMBER}-antigravity-scout.md      > /tmp/${PROJECT}-issue${ISSUE_NUMBER}-antigravity-scout-result.md 2>&1;      printf 'EXIT_CODE=%s\n' \$? >> /tmp/${PROJECT}-issue${ISSUE_NUMBER}-antigravity-scout-result.md;      tmux wait-for -S ${PROJECT}-issue${ISSUE_NUMBER}-antigravity-scout-done"
+  tmux new-session -d -s ${PROJECT}-issue${ISSUE_NUMBER}-antigravity-scout     "RUNNER=\$(command -v multi-ai-research.sh || printf '%s/.local/bin/multi-ai-research.sh' \"\$HOME\");      TERM=xterm-256color \"\$RUNNER\" --prompt-file /tmp/${PROJECT}-issue${ISSUE_NUMBER}-antigravity-scout.md --mode packet --packet /tmp/${PROJECT}-issue${ISSUE_NUMBER}-antigravity-scout.md --engines antigravity --out-dir /tmp/${PROJECT}-issue${ISSUE_NUMBER}-antigravity-scout-bundle      > /tmp/${PROJECT}-issue${ISSUE_NUMBER}-antigravity-scout-result.md 2>&1;      printf 'EXIT_CODE=%s\n' \$? >> /tmp/${PROJECT}-issue${ISSUE_NUMBER}-antigravity-scout-result.md;      tmux wait-for -S ${PROJECT}-issue${ISSUE_NUMBER}-antigravity-scout-done"
 
   tmux new-session -d -s ${PROJECT}-issue${ISSUE_NUMBER}-codex-scout     "cd ${PROJECT_DIR} && codex exec -s read-only      -o /tmp/${PROJECT}-issue${ISSUE_NUMBER}-codex-scout-result.md      - < /tmp/${PROJECT}-issue${ISSUE_NUMBER}-codex-scout.md      2>/tmp/${PROJECT}-issue${ISSUE_NUMBER}-codex-scout.err;      printf 'EXIT_CODE=%s\n' \$? >> /tmp/${PROJECT}-issue${ISSUE_NUMBER}-codex-scout-result.md;      tmux wait-for -S ${PROJECT}-issue${ISSUE_NUMBER}-codex-scout-done"
 done
