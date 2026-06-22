@@ -106,11 +106,37 @@ def main() -> None:
         "see the Path B exit condition above",
     )
     assert_contains(
+        "codex/config.toml.template",
+        "Local orchestrator read-only external API sandbox escalation exception",
+        "not external AI delegation",
+        "concrete API / provider / resource inspection",
+        "read-only `get`, `list`, `show`, `describe`, `search`, `query`",
+        "Provider-specific examples include `bq query/show/ls`",
+        "Provider SDKs may read/update host credential databases",
+        "Credentials, tokens, cookies, and secrets must never be printed",
+        "Raw API responses, production rows, and sensitive identifiers must not be sent to external AI reviewers",
+        "If the question cannot be answered without raw sensitive data, stop and require a separate, explicit non-AI/manual workflow decision",
+        "provider/API/resource inspected",
+    )
+    assert_not_contains(
+        "codex/config.toml.template",
+        "unless the user explicitly requests that exact sensitive read",
+    )
+    assert_contains(
         "codex/instructions.md",
         "public/general Web 調査だけを行う場合",
         "ローカルファイル・source code・workspace packet・shell history・credentials・tokens",
         "research scope・engines requested/run",
         "auth/browser login、file access、secret/private data、write action",
+    )
+    assert_contains(
+        "codex/instructions.md",
+        "Local read-only external API sandbox escalation",
+        "具体的な API / provider / resource の確認を明示",
+        "read-only の `get` / `list` / `show` / `describe` / `search` / `query`",
+        "host の credential / access-token cache",
+        "外部 AI reviewer へ渡せるのは sanitized summary だけ",
+        "provider / API / resource",
     )
     assert_contains(
         "codex/instructions.md",
@@ -176,6 +202,10 @@ def main() -> None:
         "public/general Web 調査だけを行う場合",
         "current user request、非機密の短い project summary、public URL、出力 schema",
         "research scope・engines requested/run",
+        "Local read-only external API sandbox escalation",
+        "外部 API / SaaS / data service",
+        "具体的な API / provider / resource の確認を明示",
+        "raw API response / production row / credential / token / secret は渡さない",
         "~/.local/bin/agent-work-preflight.sh",
         "~/.local/bin/validate-codex-config-template.sh",
         "~/.local/bin/render-pr-review-fallback-comment.sh",
